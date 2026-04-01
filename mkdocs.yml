@@ -51,9 +51,11 @@ nav:
   - 首页: index.md
   - 部署与配置:
       - 安装: setup/installation.md
+      - 配置指南: setup/config.md
       - Velocity 代理: setup/velocity.md
   - 使用指南:
       - 命令与权限: usage/commands.md
       - 路由管理: usage/routes.md
   - 开发与架构:
       - 架构概览: dev/architecture.md
+      - API 文档: dev/api.md
