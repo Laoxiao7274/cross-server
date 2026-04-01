@@ -1,123 +1,137 @@
-# Velocity 代理
+# Velocity 代理配置
 
-## 先说结论
+CrossServer 的跨服传送依赖 Velocity / BungeeCord / Waterfall 代理。本文档说明如何配置代理以实现跨服 `/home`、跨服传送等功能。
 
-如果你要使用当前插件的跨服传送能力（包括跨服 `/home`），前面必须接 Velocity / BungeeCord / Waterfall 这类代理。
+## 原理
 
-当前插件的跨服切服方式是：
+跨服传送的工作流程：
 
-- 子服通过 Bukkit Plugin Message
-- 通道：`BungeeCord`
-- 子通道：`Connect`
-- 把玩家从当前 Paper 子服切到代理配置里的另一个后端服
+1. 玩家在 Server A 执行 `/home base`（base 在 Server B）
+2. 插件通过 Bukkit Plugin Message 告诉代理：把玩家切到 Server B
+3. 代理将玩家移动到 Server B
+4. Server B 接收传送数据，将玩家传送到目标坐标
 
-## 推荐结构
+使用的协议：通道 `BungeeCord`，子通道 `Connect`。
 
-```text
+## 网络结构
+
+```
 玩家
-  -> Velocity
-      -> server-1 (Paper)
-      -> server-2 (Paper)
+  └─> Velocity (代理端口 25565)
+        ├─> server-1 (Paper, 127.0.0.1:25566)
+        └─> server-2 (Paper, 127.0.0.1:25567)
 ```
 
-## 关键要求
+## Velocity 配置
 
-1. 所有玩家都先进入 Velocity，再由 Velocity 转发到子服
-2. 所有子服共用同一个 MySQL
-3. 如启用广播，所有子服共用同一个 Redis
-4. 每台子服的 `server.id` 必须唯一
-5. `teleport.gateway.server-map` 的 value 必须与 Velocity 中的后端服务器名一致
-
-## Velocity 后端示例
+### velocity.toml
 
 ```toml
+bind = "0.0.0.0:25565"
+
 [servers]
-server-1 = "127.0.0.1:25566"
-server-2 = "127.0.0.1:25567"
+  server-1 = "127.0.0.1:25566"
+  server-2 = "127.0.0.1:25567"
+
 try = ["server-1"]
+
+[player-info-forwarding]
+  mode = "modern"
+  forwarding-secret = "你的随机密钥"
 ```
 
-## 子服配置示例
+### Paper 子服配置
 
-### server-1
+每台 Paper 子服的 `config/paper-global.yml`：
 
-```yml
-server:
-  id: "server-1"
-  cluster: "qingchuan"
-
-teleport:
-  gateway:
-    type: "proxy-plugin-message"
-    plugin-message-channel: "BungeeCord"
-    connect-subchannel: "Connect"
-    server-map:
-      server-1: "server-1"
-      server-2: "server-2"
+```yaml
+proxies:
+  bungee-cord:
+    online-mode: false          # Velocity 处理在线验证
+  velocity:
+    enabled: true
+    online-mode: true
+    secret: "你的随机密钥"      # 必须和 velocity.toml 中的 forwarding-secret 一致
 ```
 
-### server-2
+> `forwarding-secret` / `secret` 两边必须完全一致，否则玩家数据转发会失败。
 
-```yml
-server:
-  id: "server-2"
-  cluster: "qingchuan"
+## BungeeCord 配置
 
-teleport:
-  gateway:
-    type: "proxy-plugin-message"
-    plugin-message-channel: "BungeeCord"
-    connect-subchannel: "Connect"
-    server-map:
-      server-1: "server-1"
-      server-2: "server-2"
+如果你使用 BungeeCord 代替 Velocity：
+
+### config.yml
+
+```yaml
+servers:
+  server-1:
+    address: 127.0.0.1:25566
+    restricted: false
+  server-2:
+    address: 127.0.0.1:25567
+    restricted: false
+
+ip_forward: true
 ```
 
-## server-map 含义
+Paper 子服的 `config/paper-global.yml`：
 
-```text
-插件内部目标服 ID -> Velocity 后端服名
+```yaml
+proxies:
+  bungee-cord:
+    online-mode: true
+  velocity:
+    enabled: false
 ```
 
-例如：
+## server-map 映射
 
-```yml
+`server-map` 的 value 必须与代理中注册的服务器名**完全一致**（区分大小写）。
+
+### 示例 1：ID 和代理名相同
+
+```yaml
+# 两台子服的 config.yml 中都包含：
 server-map:
   server-1: "server-1"
   server-2: "server-2"
 ```
 
-如果 `server.id` 与 Velocity 后端名不同，也没问题，只要映射正确：
+### 示例 2：ID 和代理名不同
 
-```yml
-server:
-  id: "paper-survival-01"
+```yaml
+# Server A (server.id: survival-01)
+server-map:
+  survival-01: "survival-a"
+  survival-02: "survival-b"
 
-teleport:
-  gateway:
-    server-map:
-      paper-survival-01: "survival-a"
-      paper-survival-02: "survival-b"
+# Server B (server.id: survival-02)
+server-map:
+  survival-01: "survival-a"
+  survival-02: "survival-b"
 ```
 
-## 安全转发
+> 所有子服的 `server-map` 配置应该**完全一致**，包含集群中所有子服的映射。
 
-至少要确保：
+## 安全注意事项
 
-- Velocity 开启现代转发（modern forwarding）
-- 配好 forwarding secret
-- Paper 子服按 Velocity 要求开启代理支持
-- 子服不要允许玩家绕过代理直连
+- Velocity 应开启 `online-mode: true` 进行正版验证
+- `forwarding-secret` 应使用随机生成的强密钥，不要用默认值
+- Paper 子服不应暴露直连端口给玩家，确保玩家只能通过代理进入
+- 防火墙只放行代理端口（25565），子服端口仅允许代理服务器 IP 访问
 
-## 推荐排查顺序
+## 故障排查
 
-如果跨服 `/home` 不生效，按这个顺序查：
+如果跨服 `/home` 不生效，按以下顺序排查：
 
-1. 玩家是不是通过 Velocity 进服，而不是直连 Paper
-2. Velocity 的后端服务器名是否与 `server-map.value` 一致
-3. 每台子服的 `server.id` 是否唯一
-4. 所有子服是否连接同一个 MySQL
-5. 所有子服是否连接同一个 Redis（如果启用 messaging）
-6. 目标服 world 名是否存在
-7. `/crossserver nodes` 是否能看到所有节点在线
-8. `/crossserver transfer info <player>` 是否能看到 handoff 状态推进
+| 步骤 | 检查项 | 命令/方法 |
+|------|--------|-----------|
+| 1 | 玩家是否通过代理进服 | 检查子服是否开放直连端口给玩家 |
+| 2 | server-map 是否正确 | 对比 `server-map` 的 value 和代理配置中的服务器名 |
+| 3 | server.id 是否唯一 | 检查每台子服的 `server.id` |
+| 4 | MySQL 是否共享 | 所有子服必须连接同一个 MySQL |
+| 5 | Redis 是否共享 | 如果 `messaging.enabled: true`，所有子服必须连接同一个 Redis |
+| 6 | 目标 world 是否存在 | 目标服必须有 home 所在的 world |
+| 7 | 节点是否在线 | `/crossserver nodes` 查看 |
+| 8 | 传送状态 | `/crossserver transfer info <玩家>` 查看 handoff 状态 |
+| 9 | forwarding-secret 是否一致 | 对比 Velocity 和 Paper 配置中的密钥 |

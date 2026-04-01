@@ -1,34 +1,34 @@
-# cross-server
+# CrossServer 文档
 
-一个基于 Paper 的跨服数据同步插件，当前包含：
+CrossServer 是一个 **Paper 1.21+ 跨服数据同步插件**，为 Velocity / BungeeCord 代理下的多子服集群提供完整的数据同步解决方案。
 
-- MySQL 持久化存储
-- Redis 跨服广播与失效通知
-- 玩家会话锁
-- economy 跨服经济模块
-- 背包 / 末影箱 / 玩家状态跨服同步
-- homes 跨服家园数据
-- auth 登录认证与短时跨服免重登
-- teleport.handoff 跨服传送基础设施
-- 节点心跳、路由管理、菜单化运维入口
+## 核心功能
+
+| 功能 | 说明 |
+|------|------|
+| 背包 & 末影箱同步 | 切服自动恢复，不怕丢东西 |
+| 跨服经济 | Vault 兼容，所有子服共用钱包 |
+| 跨服家园 | `/home` 自动跨服传送 |
+| 玩家状态同步 | 血量、饥饿、经验、等级 |
+| 登录认证 | 跨服免重登 Ticket 机制 |
+| 跨服传送 | 完整 handoff 生命周期 + GUI 管理 |
+| 节点监控 | 集群节点心跳与在线状态 |
+| 开放 API | 其他插件可直接接入 |
 
 ## 快速开始
 
-1. 阅读[安装](setup/installation.md)
-2. 如果要启用跨服传送，继续阅读[Velocity 代理](setup/velocity.md)
-3. 查看[命令与权限](usage/commands.md)
-4. 查看[路由管理](usage/routes.md)
+**第一次使用？** 按顺序阅读：
 
-## 本地预览
+1. [安装教程](setup/installation.md) — 从零开始，每一步都有说明
+2. [配置指南](setup/config.md) — 所有配置项的详细解释
+3. [Velocity 代理](setup/velocity.md) — 配置代理实现跨服传送
 
-```bash
-pip install -r requirements-docs.txt
-mkdocs serve
-```
+**已安装完成？** 查看使用指南：
 
-## 构建静态站点
+- [命令与权限](usage/commands.md) — 完整命令列表和权限说明
+- [路由管理](usage/routes.md) — 跨服传送路由配置
 
-```bash
-pip install -r requirements-docs.txt
-mkdocs build
-```
+**开发者？** 查看技术文档：
+
+- [架构概览](dev/architecture.md) — 插件内部结构和数据流
+- [API 文档](dev/api.md) — 其他插件接入指南

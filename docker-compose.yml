@@ -6,8 +6,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root123456
       MYSQL_DATABASE: cross_server
-      MYSQL_USER: crossserver
-      MYSQL_PASSWORD: crossserver123
       TZ: Asia/Shanghai
     ports:
       - "3306:3306"

@@ -1,5 +1,5 @@
 site_name: CrossServer
-site_description: 基于 Paper 的跨服数据同步插件文档
+site_description: Paper 1.21+ 跨服数据同步插件文档
 site_url: https://Laoxiao7274.github.io/cross-server/
 repo_name: Laoxiao7274/cross-server
 repo_url: https://github.com/Laoxiao7274/cross-server
@@ -50,12 +50,12 @@ markdown_extensions:
 nav:
   - 首页: index.md
   - 部署与配置:
-      - 安装: setup/installation.md
+      - 安装教程: setup/installation.md
       - 配置指南: setup/config.md
       - Velocity 代理: setup/velocity.md
   - 使用指南:
       - 命令与权限: usage/commands.md
       - 路由管理: usage/routes.md
-  - 开发与架构:
+  - 开发者:
       - 架构概览: dev/architecture.md
       - API 文档: dev/api.md
