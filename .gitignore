@@ -1,0 +1,22 @@
+# Build
+target/
+*.jar
+!src/
+dependency-reduced-pom.xml
+
+# MkDocs output
+site/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Python venv
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

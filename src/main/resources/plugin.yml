@@ -1,0 +1,92 @@
+name: cross-server
+version: '1.0-SNAPSHOT'
+main: org.xiaoziyi.crossserver.bootstrap.CrossServerPlugin
+api-version: '1.21'
+commands:
+  crossserver:
+    description: cross-server 运维与诊断命令
+    usage: /crossserver <help|status|nodes [page]|node <serverId>|route <list|menu|set|remove>|routes <list|menu|set|remove>|transfer <player>|transfer help|transfer info <player>|transfer clear <player>|transfer menu <player>|transfer history <player>|transfer recent [page]|transfer reconcile <player>|auth <inspect|invalidate|forcereauth> <player>|reload>
+  economy:
+    description: economy 调试命令
+    usage: /economy <balance|set|deposit|withdraw|history> <player> [amount|limit]
+  home:
+    description: 传送到默认家园或指定家园
+    usage: /home [name]
+  homes:
+    description: 查看家园列表
+    usage: /homes
+  sethome:
+    description: 设置当前位置为家园
+    usage: /sethome <name>
+  delhome:
+    description: 删除家园
+    usage: /delhome <name>
+  setdefaulthome:
+    description: 设置默认家园
+    usage: /setdefaulthome <name>
+  login:
+    description: 登录账号或完成身份验证
+    usage: /login <password>
+  l:
+    description: 登录账号简写
+    usage: /l <password>
+  register:
+    description: 注册并创建跨服登录账号
+    usage: /register <password> <confirm>
+  reg:
+    description: 注册账号简写
+    usage: /reg <password> <confirm>
+  changepassword:
+    description: 修改跨服登录密码
+    usage: /changepassword <old> <new>
+permissions:
+  crossserver.command:
+    default: op
+  crossserver.status.view:
+    default: op
+  crossserver.nodes.view:
+    default: op
+  crossserver.node.view:
+    default: op
+  crossserver.transfer.view:
+    default: op
+  crossserver.transfer.clear:
+    default: op
+  crossserver.transfer.menu:
+    default: op
+  crossserver.transfer.reconcile:
+    default: op
+  crossserver.route.view:
+    default: op
+  crossserver.route.edit:
+    default: op
+  crossserver.reload:
+    default: op
+  crossserver.economy.balance:
+    default: op
+  crossserver.economy.history:
+    default: op
+  crossserver.economy.set:
+    default: op
+  crossserver.economy.deposit:
+    default: op
+  crossserver.economy.withdraw:
+    default: op
+  crossserver.homes.list:
+    default: true
+  crossserver.homes.menu:
+    default: true
+  crossserver.homes.teleport:
+    default: true
+  crossserver.homes.set:
+    default: true
+  crossserver.homes.delete:
+    default: true
+  crossserver.homes.default:
+    default: true
+  crossserver.auth.login:
+    default: true
+  crossserver.auth.register:
+    default: true
+  crossserver.auth.changepassword:
+    default: true

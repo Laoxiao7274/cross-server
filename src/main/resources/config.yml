@@ -1,0 +1,33 @@
+server:
+  id: "server-1"
+  cluster: "qingchuan"
+
+database:
+  jdbc-url: "jdbc:mysql://127.0.0.1:3306/cross_server?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
+  username: "root"
+  password: "password"
+  maximum-pool-size: 10
+
+messaging:
+  enabled: true
+  redis-uri: "redis://127.0.0.1:6379/0"
+  channel: "cross-server:sync"
+
+session:
+  lock-seconds: 30
+  heartbeat-seconds: 10
+  kick-message: "你的跨服会话正在同步中，请稍后重试"
+
+node:
+  heartbeat-seconds: 15
+  offline-seconds: 45
+
+teleport:
+  handoff-seconds: 30
+  arrival-check-delay-ticks: 10
+  gateway:
+    type: "proxy-plugin-message"
+    plugin-message-channel: "BungeeCord"
+    connect-subchannel: "Connect"
+    server-map:
+      server-1: "server-1"

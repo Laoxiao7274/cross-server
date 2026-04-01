@@ -1,0 +1,59 @@
+site_name: CrossServer
+site_description: 基于 Paper 的跨服数据同步插件文档
+site_url: https://Laoxiao7274.github.io/cross-server/
+repo_name: Laoxiao7274/cross-server
+repo_url: https://github.com/Laoxiao7274/cross-server
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: zh
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: 跟随系统
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: 浅色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: 深色模式
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - search.share
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+
+nav:
+  - 首页: index.md
+  - 部署与配置:
+      - 安装: setup/installation.md
+      - Velocity 代理: setup/velocity.md
+  - 使用指南:
+      - 命令与权限: usage/commands.md
+      - 路由管理: usage/routes.md
+  - 开发与架构:
+      - 架构概览: dev/architecture.md
