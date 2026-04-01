@@ -32,6 +32,7 @@ node:
 teleport:
   handoff-seconds: 30
   arrival-check-delay-ticks: 10
+  cooldown-seconds: 10
   gateway:
     type: "proxy-plugin-message"
     plugin-message-channel: "BungeeCord"
@@ -124,6 +125,18 @@ jdbc:mysql://地址:端口/数据库名?参数
 |--------|------|--------|------|
 | `handoff-seconds` | Int | `30` | 一次传送流程的最大允许时间（秒） |
 | `arrival-check-delay-ticks` | Int | `10` | 到达目标服后延迟多少 tick 检查传送结果 |
+| `cooldown-seconds` | Int | `10` | 玩家两次跨服 handoff 之间的冷却时间 |
+
+#### handoff-seconds 会影响什么
+
+这个值不只决定 `/home` 和 `/warp` 的跨服传送超时，也会影响：
+
+- `/tpa` 与 `/tpahere` 请求的有效期
+- `TeleportRequestService` 中请求过期时间
+- `CrossServerTeleportService` 中 handoff 的过期边界
+- 失败回滚和超时诊断的触发时机
+
+如果你希望玩家有更长时间处理 TPA 请求，可以适当调高这个值；如果你希望跨服失败更快收口，可以调低。
 
 #### gateway — 传送网关
 
@@ -153,7 +166,7 @@ server:
 teleport:
   gateway:
     server-map:
-      survival-01: "survival-a"    # 插件ID survival-01 对应代理中的 survival-a
+      survival-01: "survival-a"
       survival-02: "survival-b"
 ```
 

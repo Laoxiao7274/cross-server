@@ -36,6 +36,30 @@ commands:
   reg:
     description: 注册账号简写
     usage: /reg <password> <confirm>
+  tpa:
+    description: 请求传送到目标玩家（同服或跨服）
+    usage: /tpa <player>
+  tpahere:
+    description: 邀请目标玩家传送到你这里（同服或跨服）
+    usage: /tpahere <player>
+  tpaccept:
+    description: 接受传送请求
+    usage: /tpaccept [player]
+  tpdeny:
+    description: 拒绝传送请求
+    usage: /tpdeny [player]
+  tpcancel:
+    description: 取消你发出的所有传送请求
+    usage: /tpcancel
+  warp:
+    description: 传送到指定 Warp 或查看 Warp 列表
+    usage: /warp [name]
+  setwarp:
+    description: 设置全局 Warp
+    usage: /setwarp <name>
+  delwarp:
+    description: 删除全局 Warp
+    usage: /delwarp <name>
   changepassword:
     description: 修改跨服登录密码
     usage: /changepassword <old> <new>
@@ -90,3 +114,15 @@ permissions:
     default: true
   crossserver.auth.changepassword:
     default: true
+  crossserver.tpa.use:
+    default: true
+  crossserver.tpa.here:
+    default: true
+  crossserver.warps.list:
+    default: true
+  crossserver.warps.teleport:
+    default: true
+  crossserver.warps.set:
+    default: op
+  crossserver.warps.delete:
+    default: op

@@ -20,6 +20,7 @@ public record PluginConfiguration(
 				new TeleportSettings(
 						teleport.handoffSeconds(),
 						teleport.arrivalCheckDelayTicks(),
+						teleport.cooldownSeconds(),
 						new TeleportSettings.GatewaySettings(
 								teleport.gateway().type(),
 								teleport.gateway().pluginMessageChannel(),
@@ -66,8 +67,9 @@ public record PluginConfiguration(
 	public record TeleportSettings(
 			int handoffSeconds,
 			int arrivalCheckDelayTicks,
+			int cooldownSeconds,
 			GatewaySettings gateway
-	) {
+		) {
 		public record GatewaySettings(
 				String type,
 				String pluginMessageChannel,

@@ -1,5 +1,8 @@
 package org.xiaoziyi.crossserver.teleport;
 
 public enum TeleportCause {
-	HOME
+	HOME,
+	TPA,
+	TPA_HERE,
+	WARP
 }

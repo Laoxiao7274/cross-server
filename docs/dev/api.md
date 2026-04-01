@@ -12,7 +12,6 @@ CrossServerApi api = Bukkit.getServicesManager()
     .load(CrossServerApi.class);
 
 if (api == null) {
-    // CrossServer 未加载
     return;
 }
 ```
@@ -78,6 +77,11 @@ if (snapshot.isPresent()) {
 }
 ```
 
+Warp 与 TPA 当前都复用了这个能力：
+
+- `warps / teleport.warps` — 全局 Warp 列表
+- `teleport.requests / tpa.requests` — 跨服 TPA 请求
+
 ## 同步监听
 
 当其他服务器更新了指定命名空间的数据时，监听器会被触发。
@@ -86,9 +90,6 @@ if (snapshot.isPresent()) {
 
 ```java
 api.registerSyncListener("my-plugin.player-data", (namespace, playerId, dataKey) -> {
-    // namespace: 被更新的命名空间
-    // playerId:  null 表示全局数据，非 null 表示玩家 UUID
-    // dataKey:   数据键
     getLogger().info("Data updated: " + namespace + "/" + dataKey);
 });
 ```
@@ -105,8 +106,6 @@ api.registerSyncListener((namespace, playerId, dataKey) -> {
 
 ```java
 Runnable handle = api.registerSyncListenerHandle("my-plugin.player-data", listener);
-
-// 不再需要时卸载
 handle.run();
 ```
 
@@ -115,7 +114,6 @@ handle.run();
 手动控制玩家的会话锁。通常插件不需要手动调用，数据操作会自动管理会话。
 
 ```java
-// 尝试获取会话锁
 boolean locked = api.openPlayerSession(playerId);
 if (!locked) {
     player.kick(Component.text("你的跨服会话正在同步中，请稍后重试"));
@@ -125,7 +123,6 @@ if (!locked) {
 try {
     // 执行数据操作...
 } finally {
-    // 释放会话锁
     api.closePlayerSession(playerId);
 }
 ```
@@ -146,6 +143,8 @@ if (result.success()) {
 }
 ```
 
+当前 `/home`、`/warp`、`/tpa`、`/tpahere` 最终都会复用这条主链路。
+
 ## 经济服务
 
 ```java
@@ -153,19 +152,16 @@ import org.xiaoziyi.crossserver.economy.EconomyService;
 
 EconomyService economy = api.getEconomyService();
 
-// 查询余额
 economy.getBalance(player).thenAccept(balance -> {
     player.sendMessage("余额: " + balance);
 });
 
-// 存款（异步）
 economy.deposit(player, new BigDecimal("100.00")).thenAccept(result -> {
     if (result.success()) {
         player.sendMessage("存款成功");
     }
 });
 
-// 取款（异步）
 economy.withdraw(player, new BigDecimal("50.00")).thenAccept(result -> {
     if (result.success()) {
         player.sendMessage("取款成功");
@@ -173,43 +169,22 @@ economy.withdraw(player, new BigDecimal("50.00")).thenAccept(result -> {
         player.sendMessage("余额不足");
     }
 });
-
-// 交易记录
-economy.getTransactionHistory(player, 20).thenAccept(history -> {
-    for (EconomyTransactionEntry entry : history) {
-        getLogger().info(entry.type() + " " + entry.amount());
-    }
-});
 ```
 
 ## 传送管理
 
 ```java
-// 查看玩家当前传送状态
 Optional<TransferAdminService.TransferInspection> inspection = api.inspectTransfer(playerId);
-
-// 详细诊断
 TransferDiagnostics diagnostics = api.inspectTransferDiagnostics(playerId);
-
-// 传送历史
 List<TransferHistoryEntry> history = api.getTransferHistory(playerId, 10);
-
-// 全服最近传送
 List<TransferHistoryEntry> recent = api.getRecentTransferHistory(20);
-
-// 清理卡住的传送
 TransferAdminService.ClearResult result = api.clearTransfer(playerId, "admin");
 ```
 
 ## 认证管理
 
 ```java
-// 查看认证状态
 AuthService.AuthAdminInspection auth = api.inspectAuth(playerId);
-
-// 作废免重登票据
 api.invalidateAuthTickets(playerId, "admin");
-
-// 强制重新认证
 api.forceReauthenticate(playerId, "admin");
 ```

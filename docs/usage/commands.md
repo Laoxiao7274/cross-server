@@ -30,6 +30,56 @@
 | `crossserver.homes.delete` | true | 删除家园 |
 | `crossserver.homes.default` | true | 设置默认家园 |
 
+### Warp
+
+| 命令 | 说明 |
+|------|------|
+| `/warp [名称]` | 输入名称直接传送；不带参数时打开 Warp GUI |
+| `/setwarp <名称>` | 设置当前位置为全局 Warp |
+| `/delwarp <名称>` | 删除全局 Warp |
+
+**说明：**
+
+- Warp 存在于全局快照中，所有子服共享同一份列表
+- `/warp` 无参数时会打开 GUI，支持分页浏览、左键传送、Shift+右键删除（需权限）
+- 如果目标 Warp 在当前服务器上，直接本地传送
+- 如果目标 Warp 在其他服务器上，自动触发跨服 handoff
+- Warp 名称支持字母、数字、下划线和连字符，最长 24 个字符
+
+**权限：**
+
+| 权限节点 | 默认 | 说明 |
+|----------|------|------|
+| `crossserver.warps.list` | true | 查看 Warp 列表 / 打开 Warp GUI |
+| `crossserver.warps.teleport` | true | 传送到 Warp |
+| `crossserver.warps.set` | op | 设置全局 Warp |
+| `crossserver.warps.delete` | op | 删除全局 Warp |
+
+### TPA / 跨服传送请求
+
+| 命令 | 说明 |
+|------|------|
+| `/tpa <player>` | 请求自己传送到目标玩家 |
+| `/tpahere <player>` | 邀请目标玩家传送到你这里 |
+| `/tpaccept [player]` | 接受最近一条请求或指定玩家的请求 |
+| `/tpdeny [player]` | 拒绝最近一条请求或指定玩家的请求 |
+| `/tpcancel` | 取消你发出的所有待处理请求 |
+
+**说明：**
+
+- TPA 支持同服与跨服玩家；跨服时会读取玩家位置快照并自动切换为 handoff
+- 请求有效期复用 `teleport.handoff-seconds` 配置
+- 收到请求时会显示聊天提示、Title、ActionBar 与音效
+- 接受、拒绝、取消、过期都会向相关玩家提供反馈
+- 同服接受时直接 `teleportAsync`；跨服接受时自动发起跨服传送
+
+**权限：**
+
+| 权限节点 | 默认 | 说明 |
+|----------|------|------|
+| `crossserver.tpa.use` | true | 使用 `/tpa` `/tpaccept` `/tpdeny` `/tpcancel` |
+| `crossserver.tpa.here` | true | 使用 `/tpahere` |
+
 ### 登录认证
 
 | 命令 | 说明 |

@@ -44,8 +44,8 @@ public final class PlayerInventorySyncService {
 	}
 
 	public void savePlayerData(Player player) {
-		String inventoryPayload = InventorySnapshotCodec.encode(player.getInventory().getContents());
-		String enderChestPayload = InventorySnapshotCodec.encode(player.getEnderChest().getContents());
+		String inventoryPayload = captureInventoryPayload(player);
+		String enderChestPayload = captureEnderChestPayload(player);
 		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
 			try {
 				UUID playerId = player.getUniqueId();
@@ -55,5 +55,26 @@ public final class PlayerInventorySyncService {
 				logger.warning("保存玩家背包数据失败: " + player.getUniqueId() + " -> " + exception.getMessage());
 			}
 		});
+	}
+
+	public String captureInventoryPayload(Player player) {
+		return InventorySnapshotCodec.encode(player.getInventory().getContents());
+	}
+
+	public String captureEnderChestPayload(Player player) {
+		return InventorySnapshotCodec.encode(player.getEnderChest().getContents());
+	}
+
+	public void applyPayloads(Player player, String inventoryPayload, String enderChestPayload) {
+		if (!player.isOnline()) {
+			return;
+		}
+		if (inventoryPayload != null && !inventoryPayload.isBlank()) {
+			InventorySnapshotCodec.apply(player.getInventory(), inventoryPayload);
+		}
+		if (enderChestPayload != null && !enderChestPayload.isBlank()) {
+			InventorySnapshotCodec.apply(player.getEnderChest(), enderChestPayload);
+		}
+		player.updateInventory();
 	}
 }

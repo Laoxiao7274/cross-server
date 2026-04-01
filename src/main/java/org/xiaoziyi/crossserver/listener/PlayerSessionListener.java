@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
 import org.xiaoziyi.crossserver.inventory.PlayerInventorySyncService;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
+import org.xiaoziyi.crossserver.player.PlayerLocationService;
 import org.xiaoziyi.crossserver.playerstate.PlayerStateSyncService;
 import org.xiaoziyi.crossserver.session.SessionService;
 import org.xiaoziyi.crossserver.storage.StorageProvider;
@@ -35,6 +36,8 @@ public final class PlayerSessionListener implements Listener {
 	private final PlayerInventorySyncService inventorySyncService;
 	private final PlayerStateSyncService playerStateSyncService;
 	private final HomesSyncService homesSyncService;
+	private final CrossServerTeleportService teleportService;
+	private final PlayerLocationService playerLocationService;
 	private final String kickMessage;
 	private final Set<UUID> kickedPlayers;
 
@@ -45,6 +48,8 @@ public final class PlayerSessionListener implements Listener {
 			PlayerInventorySyncService inventorySyncService,
 			PlayerStateSyncService playerStateSyncService,
 			HomesSyncService homesSyncService,
+			CrossServerTeleportService teleportService,
+			PlayerLocationService playerLocationService,
 			String kickMessage
 	) {
 		this.plugin = plugin;
@@ -53,6 +58,8 @@ public final class PlayerSessionListener implements Listener {
 		this.inventorySyncService = inventorySyncService;
 		this.playerStateSyncService = playerStateSyncService;
 		this.homesSyncService = homesSyncService;
+		this.teleportService = teleportService;
+		this.playerLocationService = playerLocationService;
 		this.kickMessage = kickMessage;
 		this.kickedPlayers = ConcurrentHashMap.newKeySet();
 	}
@@ -90,12 +97,15 @@ public final class PlayerSessionListener implements Listener {
 		inventorySyncService.loadPlayerData(event.getPlayer());
 		playerStateSyncService.loadPlayerState(event.getPlayer());
 		homesSyncService.loadPlayerHomes(event.getPlayer());
+		playerLocationService.savePlayerLocation(event.getPlayer(), true);
+		Bukkit.getScheduler().runTaskLater(plugin, () -> teleportService.recoverRollbackOnJoin(event.getPlayer()), 2L);
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onDeath(PlayerDeathEvent event) {
 		inventorySyncService.savePlayerData(event.getPlayer());
 		playerStateSyncService.savePlayerState(event.getPlayer());
+		playerLocationService.savePlayerLocation(event.getPlayer(), true);
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)
@@ -103,6 +113,7 @@ public final class PlayerSessionListener implements Listener {
 		Bukkit.getScheduler().runTaskLater(plugin, () -> {
 			inventorySyncService.savePlayerData(event.getPlayer());
 			playerStateSyncService.savePlayerState(event.getPlayer());
+			playerLocationService.savePlayerLocation(event.getPlayer(), true);
 		}, 1L);
 	}
 
@@ -112,6 +123,7 @@ public final class PlayerSessionListener implements Listener {
 			inventorySyncService.savePlayerData(event.getPlayer());
 			playerStateSyncService.savePlayerState(event.getPlayer());
 			homesSyncService.savePlayerHomes(event.getPlayer());
+			playerLocationService.savePlayerLocation(event.getPlayer(), false);
 			homesSyncService.unloadPlayerHomes(event.getPlayer().getUniqueId());
 			if (sessionService.isTransferDeparture(event.getPlayer().getUniqueId())) {
 				sessionService.discardLocalSession(event.getPlayer().getUniqueId());
@@ -127,6 +139,7 @@ public final class PlayerSessionListener implements Listener {
 		inventorySyncService.savePlayerData(event.getPlayer());
 		playerStateSyncService.savePlayerState(event.getPlayer());
 		homesSyncService.savePlayerHomes(event.getPlayer());
+		playerLocationService.savePlayerLocation(event.getPlayer(), false);
 		homesSyncService.unloadPlayerHomes(event.getPlayer().getUniqueId());
 		if (sessionService.isTransferDeparture(event.getPlayer().getUniqueId())) {
 			sessionService.discardLocalSession(event.getPlayer().getUniqueId());

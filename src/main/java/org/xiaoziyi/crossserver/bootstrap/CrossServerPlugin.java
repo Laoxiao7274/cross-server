@@ -12,6 +12,8 @@ import org.xiaoziyi.crossserver.command.AuthCommand;
 import org.xiaoziyi.crossserver.command.CrossServerCommand;
 import org.xiaoziyi.crossserver.command.EconomyCommand;
 import org.xiaoziyi.crossserver.command.HomesCommand;
+import org.xiaoziyi.crossserver.command.TpaCommand;
+import org.xiaoziyi.crossserver.command.WarpCommand;
 import org.xiaoziyi.crossserver.config.ConfigLoader;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
@@ -28,6 +30,7 @@ import org.xiaoziyi.crossserver.messaging.NoopMessagingProvider;
 import org.xiaoziyi.crossserver.messaging.RedisMessagingProvider;
 import org.xiaoziyi.crossserver.node.NodeIdentityGuardService;
 import org.xiaoziyi.crossserver.node.NodeStatusService;
+import org.xiaoziyi.crossserver.player.PlayerLocationService;
 import org.xiaoziyi.crossserver.playerstate.PlayerStateSyncService;
 import org.xiaoziyi.crossserver.session.SessionService;
 import org.xiaoziyi.crossserver.storage.SqlStorageProvider;
@@ -39,12 +42,15 @@ import org.xiaoziyi.crossserver.teleport.ProxyPluginMessageServerTransferGateway
 import org.xiaoziyi.crossserver.teleport.ServerTransferGateway;
 import org.xiaoziyi.crossserver.teleport.TeleportArrivalListener;
 import org.xiaoziyi.crossserver.teleport.TransferAdminService;
+import org.xiaoziyi.crossserver.teleport.TeleportRequestService;
 import org.xiaoziyi.crossserver.teleport.UnsupportedServerTransferGateway;
 import org.xiaoziyi.crossserver.ui.HomesMenuService;
 import org.xiaoziyi.crossserver.ui.MenuListener;
 import org.xiaoziyi.crossserver.ui.RouteConfigMenuService;
 import org.xiaoziyi.crossserver.ui.RouteEditSessionService;
 import org.xiaoziyi.crossserver.ui.TransferAdminMenuService;
+import org.xiaoziyi.crossserver.ui.WarpMenuService;
+import org.xiaoziyi.crossserver.warp.WarpService;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -60,12 +66,16 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private NodeStatusService nodeStatusService;
 	private PlayerInventorySyncService inventorySyncService;
 	private PlayerStateSyncService playerStateSyncService;
+	private PlayerLocationService playerLocationService;
 	private HomesSyncService homesSyncService;
 	private AuthService authService;
 	private CrossServerTeleportService teleportService;
+	private TeleportRequestService teleportRequestService;
 	private TransferAdminService transferAdminService;
 	private RouteTableService routeTableService;
+	private WarpService warpService;
 	private HomesMenuService homesMenuService;
+	private WarpMenuService warpMenuService;
 	private TransferAdminMenuService transferAdminMenuService;
 	private RouteConfigMenuService routeConfigMenuService;
 	private RouteEditSessionService routeEditSessionService;
@@ -147,6 +157,12 @@ public final class CrossServerPlugin extends JavaPlugin {
 		namespaceRegistry.registerNamespace(PlayerInventorySyncService.ENDER_CHEST_NAMESPACE);
 		namespaceRegistry.registerNamespace(PlayerStateSyncService.NAMESPACE);
 		namespaceRegistry.registerNamespace(CrossServerTeleportService.NAMESPACE);
+		namespaceRegistry.registerNamespace(CrossServerTeleportService.ROLLBACK_INVENTORY_NAMESPACE);
+		namespaceRegistry.registerNamespace(CrossServerTeleportService.ROLLBACK_ENDER_CHEST_NAMESPACE);
+		namespaceRegistry.registerNamespace(CrossServerTeleportService.ROLLBACK_PLAYER_STATE_NAMESPACE);
+		namespaceRegistry.registerNamespace(PlayerLocationService.NAMESPACE);
+		namespaceRegistry.registerNamespace(TeleportRequestService.NAMESPACE);
+		namespaceRegistry.registerNamespace(WarpService.NAMESPACE);
 		this.syncService = new SyncService(getLogger(), storageProvider, messagingProvider, namespaceRegistry, baseConfiguration.server().id());
 		this.sessionService = new SessionService(getLogger(), storageProvider, messagingProvider, baseConfiguration.server().id(), baseConfiguration.session());
 		this.economyService = new EconomyServiceImpl(getLogger(), syncService, storageProvider);
@@ -159,6 +175,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		this.nodeStatusService = new NodeStatusService(getLogger(), storageProvider, configuration.server(), configuration.node());
 		this.inventorySyncService = new PlayerInventorySyncService(this, getLogger(), api);
 		this.playerStateSyncService = new PlayerStateSyncService(this, getLogger(), api);
+		this.playerLocationService = new PlayerLocationService(this, getLogger(), api, configuration.server().id());
 		this.authService = new AuthService(this, getLogger(), api, configuration.server().id());
 		this.transferGateway = createTransferGateway();
 		registerTransferGatewayChannels();
@@ -173,12 +190,16 @@ public final class CrossServerPlugin extends JavaPlugin {
 				null,
 				transferGateway,
 				configuration.server().id(),
-				Duration.ofSeconds(configuration.teleport().handoffSeconds())
+				Duration.ofSeconds(configuration.teleport().handoffSeconds()),
+				configuration.teleport().cooldownSeconds()
 		);
+		this.teleportRequestService = new TeleportRequestService(api, getLogger(), configuration.teleport().handoffSeconds());
 		this.homesSyncService = new HomesSyncService(this, getLogger(), api, configuration.server().id(), teleportService);
+		this.warpService = new WarpService(this, getLogger(), api, configuration.server().id(), teleportService);
 		teleportService.bindHomesSyncService(homesSyncService);
 		this.transferAdminService = new TransferAdminService(api, storageProvider, sessionService);
 		this.homesMenuService = new HomesMenuService(this, homesSyncService);
+		this.warpMenuService = new WarpMenuService(this, warpService);
 		this.routeEditSessionService = new RouteEditSessionService(this, routeTableService, configuration);
 		this.transferAdminMenuService = new TransferAdminMenuService(this, transferAdminService);
 		this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
@@ -192,14 +213,14 @@ public final class CrossServerPlugin extends JavaPlugin {
 			}
 			syncService.handleIncomingMessage(message);
 		});
-		this.playerSessionListener = new PlayerSessionListener(this, sessionService, storageProvider, inventorySyncService, playerStateSyncService, homesSyncService, configuration.session().kickMessage());
+		this.playerSessionListener = new PlayerSessionListener(this, sessionService, storageProvider, inventorySyncService, playerStateSyncService, homesSyncService, teleportService, playerLocationService, configuration.session().kickMessage());
 		this.authListener = new AuthListener(this, authService);
 		this.teleportArrivalListener = new TeleportArrivalListener(this, teleportService, configuration.teleport().arrivalCheckDelayTicks());
 		Bukkit.getPluginManager().registerEvents(playerSessionListener, this);
 		Bukkit.getPluginManager().registerEvents(authListener, this);
 		Bukkit.getPluginManager().registerEvents(teleportArrivalListener, this);
 		Bukkit.getPluginManager().registerEvents(new RouteChatInputListener(routeEditSessionService), this);
-		Bukkit.getPluginManager().registerEvents(new MenuListener(homesMenuService, transferAdminMenuService, routeConfigMenuService), this);
+		Bukkit.getPluginManager().registerEvents(new MenuListener(homesMenuService, warpMenuService, transferAdminMenuService, routeConfigMenuService), this);
 		Bukkit.getServicesManager().register(CrossServerApi.class, api, this, ServicePriority.Normal);
 		registerVaultProvider();
 		registerCommand();
@@ -238,6 +259,9 @@ public final class CrossServerPlugin extends JavaPlugin {
 			HandlerList.unregisterAll(teleportArrivalListener);
 			teleportArrivalListener = null;
 		}
+		if (teleportService != null) {
+			teleportService.protectOnShutdown();
+		}
 		if (inventorySyncService != null) {
 			Bukkit.getOnlinePlayers().forEach(inventorySyncService::savePlayerData);
 		}
@@ -252,6 +276,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 		}
 		if (authService != null) {
 			Bukkit.getOnlinePlayers().forEach(player -> authService.clearPlayer(player.getUniqueId()));
+		}
+		if (teleportRequestService != null) {
+			Bukkit.getOnlinePlayers().forEach(player -> teleportRequestService.removeRequestsBySender(player.getUniqueId()));
+			Bukkit.getOnlinePlayers().forEach(player -> teleportRequestService.removeRequestsByReceiver(player.getUniqueId()));
 		}
 		if (sessionService != null) {
 			Bukkit.getOnlinePlayers().forEach(player -> sessionService.closePlayerSession(player.getUniqueId()));
@@ -275,11 +303,15 @@ public final class CrossServerPlugin extends JavaPlugin {
 		nodeStatusService = null;
 		inventorySyncService = null;
 		playerStateSyncService = null;
+		playerLocationService = null;
 		homesSyncService = null;
 		authService = null;
 		teleportService = null;
+		teleportRequestService = null;
+		warpService = null;
 		transferAdminService = null;
 		homesMenuService = null;
+		warpMenuService = null;
 		transferAdminMenuService = null;
 		routeConfigMenuService = null;
 		routeEditSessionService = null;
@@ -332,6 +364,16 @@ public final class CrossServerPlugin extends JavaPlugin {
 		registerSimpleCommand("register", authExecutor);
 		registerSimpleCommand("reg", authExecutor);
 		registerSimpleCommand("changepassword", authExecutor);
+		TpaCommand tpaExecutor = new TpaCommand(this, api, transferAdminService, teleportRequestService, playerLocationService);
+		registerSimpleCommand("tpa", tpaExecutor);
+		registerSimpleCommand("tpahere", tpaExecutor);
+		registerSimpleCommand("tpaccept", tpaExecutor);
+		registerSimpleCommand("tpdeny", tpaExecutor);
+		registerSimpleCommand("tpcancel", tpaExecutor);
+		WarpCommand warpExecutor = new WarpCommand(warpService, warpMenuService);
+		registerSimpleCommand("warp", warpExecutor);
+		registerSimpleCommand("setwarp", warpExecutor);
+		registerSimpleCommand("delwarp", warpExecutor);
 	}
 
 	private void registerSimpleCommand(String name, org.bukkit.command.TabExecutor executor) {

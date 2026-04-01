@@ -1,6 +1,6 @@
 # CrossServer
 
-**Paper 1.21+ 跨服数据同步插件** — 背包不丢、经济通用、家园跨服、无缝传送
+**Paper 1.21+ 跨服数据同步插件** — 背包不丢、经济通用、家园跨服、Warp 共享、TPA 可跨服
 
 > 适用于 Velocity / BungeeCord 代理下的多子服集群，开箱即用，无需手动建表。
 
@@ -9,9 +9,11 @@
 - **背包 & 末影箱同步** — 切服自动恢复，再也不怕换服丢东西
 - **跨服经济** — 兼容 Vault，所有子服共用一个钱包，支持交易流水查询
 - **跨服家园** — `/sethome` 设的家在任意子服都能 `/home` 回去，自动跨服传送
+- **全局 Warp** — `/warp` 命令 + GUI 菜单，支持同服直传与跨服 handoff
+- **跨服 TPA** — `/tpa` `/tpahere` `/tpaccept`，支持对其他子服在线玩家发起请求
 - **玩家状态同步** — 血量、饥饿、经验、等级，切服不重置
 - **登录认证** — 注册/登录/改密，跨服免重登 Ticket 机制（5 分钟内切服无需重新登录）
-- **跨服传送** — 完整的 handoff 生命周期，支持 GUI 菜单管理和故障恢复
+- **跨服传送保护** — 停服保护、失败回滚、状态修复，减少卡传送与丢状态
 - **节点监控** — 集群节点心跳，在线/离线状态一目了然
 - **热重载** — `/crossserver reload` 不重启服务器即可生效
 - **开放 API** — 其他插件可直接接入，注册命名空间、读写数据、监听同步事件
@@ -74,59 +76,39 @@ redis-cli ping
 
 启动服务器后会生成 `plugins/cross-server/config.yml`，按以下说明修改：
 
-**Server 1 的配置（server-1）：**
-
 ```yaml
 server:
-  id: "server-1"           # 每台子服必须不同！
-  cluster: "my-cluster"    # 同集群所有子服保持一致
+  id: "server-1"
+  cluster: "my-cluster"
 
 database:
   jdbc-url: "jdbc:mysql://你的MySQL地址:3306/cross_server?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
   username: "数据库用户名"
   password: "数据库密码"
-  maximum-pool-size: 10    # 连接池大小，一般 10 够用
+  maximum-pool-size: 10
 
 messaging:
-  enabled: true            # 没有 Redis 就改成 false
+  enabled: true
   redis-uri: "redis://你的Redis地址:6379/0"
-  channel: "cross-server:sync"   # 一般不用改
+  channel: "cross-server:sync"
 
 session:
-  lock-seconds: 30         # 会话锁超时（秒），一般不用改
-  heartbeat-seconds: 10    # 心跳间隔（秒），一般不用改
+  lock-seconds: 30
+  heartbeat-seconds: 10
   kick-message: "你的跨服会话正在同步中，请稍后重试"
 
 node:
-  heartbeat-seconds: 15    # 节点心跳间隔
-  offline-seconds: 45      # 多久没心跳视为离线
+  heartbeat-seconds: 15
+  offline-seconds: 45
 
 teleport:
-  handoff-seconds: 30      # 跨服传送超时（秒）
+  handoff-seconds: 30
   arrival-check-delay-ticks: 10
+  cooldown-seconds: 10
   gateway:
     type: "proxy-plugin-message"
-    plugin-message-channel: "BungeeCord"  # Velocity 也用 BungeeCord
+    plugin-message-channel: "BungeeCord"
     connect-subchannel: "Connect"
-    server-map:
-      server-1: "server-1"   # 左边是插件ID，右边是代理里的服务器名
-      server-2: "server-2"
-```
-
-**Server 2 的配置（server-2）：**
-
-其他配置完全一样，只需要改两处：
-
-```yaml
-server:
-  id: "server-2"           # 改成不同的 ID
-
-# ... 其他配置与 server-1 相同 ...
-
-teleport:
-  # ... 其他配置与 server-1 相同 ...
-  gateway:
-    # ... 其他配置与 server-1 相同 ...
     server-map:
       server-1: "server-1"
       server-2: "server-2"
@@ -144,9 +126,14 @@ teleport:
 |------|------|
 | `/home [名称]` | 传送到家园（可跨服） |
 | `/homes` | 打开家园管理菜单 |
-| `/sethome <名称>` | 设置当前位置为家园 |
-| `/delhome <名称>` | 删除家园 |
-| `/setdefaulthome <名称>` | 设置默认家园 |
+| `/warp [名称]` | 直接传送到 Warp，或打开 Warp GUI |
+| `/setwarp <名称>` | 设置全局 Warp |
+| `/delwarp <名称>` | 删除全局 Warp |
+| `/tpa <玩家>` | 请求传送到目标玩家 |
+| `/tpahere <玩家>` | 邀请目标玩家传送到你这里 |
+| `/tpaccept [玩家]` | 接受最近一条或指定玩家的请求 |
+| `/tpdeny [玩家]` | 拒绝最近一条或指定玩家的请求 |
+| `/tpcancel` | 取消你发出的所有请求 |
 | `/login <密码>` | 登录（简写 `/l`） |
 | `/register <密码> <确认>` | 注册（简写 `/reg`） |
 | `/changepassword <旧密码> <新密码>` | 修改密码 |
@@ -182,6 +169,12 @@ teleport:
 | 权限 | 默认 | 说明 |
 |------|------|------|
 | `crossserver.homes.*` | 所有玩家 | 家园相关命令 |
+| `crossserver.warps.list` | 所有玩家 | 查看 Warp 列表 / 打开 GUI |
+| `crossserver.warps.teleport` | 所有玩家 | 传送到 Warp |
+| `crossserver.warps.set` | OP | 设置 Warp |
+| `crossserver.warps.delete` | OP | 删除 Warp |
+| `crossserver.tpa.use` | 所有玩家 | `/tpa` `/tpaccept` `/tpdeny` `/tpcancel` |
+| `crossserver.tpa.here` | 所有玩家 | `/tpahere` |
 | `crossserver.auth.*` | 所有玩家 | 登录/注册/改密 |
 | `crossserver.economy.balance` | OP | 查看余额 |
 | `crossserver.economy.set` | OP | 设置余额 |
@@ -193,6 +186,13 @@ teleport:
 | `crossserver.transfer.*` | OP | 传送管理 |
 | `crossserver.route.*` | OP | 路由管理 |
 | `crossserver.reload` | OP | 热重载 |
+
+## 稳定性说明
+
+- 跨服传送失败时会自动回滚 inventory、ender chest 与 player-state
+- 插件关闭时会收口正在进行中的 handoff，避免遗留 prepared session
+- Warp 与 TPA 的跨服分支都复用同一条 handoff 主链路
+- TPA 请求支持聊天消息、Title、ActionBar 与音效反馈
 
 ## 常见问题
 
@@ -214,9 +214,16 @@ teleport:
 
 使用 `/crossserver transfer clear <玩家名>` 清理卡住的传送记录，然后让玩家重新尝试。
 
-### 跨服传送后玩家位置不对
+### TPA 请求没反应
 
-检查 `server-map` 配置是否正确。`server-map` 的 value 必须和代理（Velocity/BungeeCord）里注册的服务器名**完全一致**。
+检查：
+- 目标玩家是否真的在线
+- `teleport.handoff-seconds` 是否过短，导致请求很快过期
+- Redis 未开启时，各服对请求状态更新的感知会更慢
+
+### Warp 菜单是空的
+
+确认至少执行过一次 `/setwarp <name>`，并且你拥有 `crossserver.warps.list` 权限。
 
 ### 家园菜单是空的
 
@@ -234,52 +241,9 @@ teleport:
 import org.xiaoziyi.crossserver.api.CrossServerApi;
 import org.bukkit.Bukkit;
 
-// 获取 API
 CrossServerApi api = Bukkit.getServicesManager().load(CrossServerApi.class);
 
-// 注册自定义命名空间
 api.registerNamespace("my-plugin");
-
-// 读写玩家数据（按 UUID + 命名空间存储）
-UUID playerId = player.getUniqueId();
-api.savePlayerData(playerId, "my-plugin", "{\"level\": 5, \"score\": 100}");
-String data = api.loadPlayerData(playerId, "my-plugin").orElseThrow().payload();
-
-// 读写全局数据（跨服共享配置等）
+api.savePlayerData(player.getUniqueId(), "my-plugin", "{\"level\": 5}");
 api.saveGlobalData("my-plugin", "config", "{\"enabled\": true}");
-
-// 监听远端同步事件
-api.registerSyncListener("my-plugin", (namespace, id, dataKey) -> {
-    // 当其他服务器更新了此命名空间的数据时触发
-});
-
-// 跨服传送
-api.requestTeleport(playerId, new TeleportTarget("server-2", "world", 0, 64, 0, 0, 0), "plugin-transfer");
 ```
-
-## 数据存储说明
-
-插件启动时**自动创建所有数据库表**，无需手动操作。玩家数据按命名空间存储，当前使用的命名空间：
-
-| 命名空间 | 用途 |
-|----------|------|
-| `economy` | 玩家经济数据 |
-| `inventory` | 背包内容 |
-| `enderchest` | 末影箱内容 |
-| `player-state` | 血量/饥饿/经验等 |
-| `homes` | 家园数据 |
-| `auth.profile` | 认证信息 |
-| `auth.ticket` | 跨服免重登票据 |
-| `teleport.handoff` | 跨服传送交接数据 |
-
-## 构建
-
-```bash
-mvn clean package
-```
-
-产物位于 `target/cross-server-1.0-SNAPSHOT.jar`。
-
-## 许可证
-
-请查看项目根目录的 LICENSE 文件。

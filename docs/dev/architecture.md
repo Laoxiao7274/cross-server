@@ -5,27 +5,28 @@
 CrossServer 采用分层架构设计：
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   命令 & UI 层                     │
-│   Commands (crossserver/home/economy/login)      │
-│   Chest GUI Menus (Homes/Transfer/Route)         │
-├─────────────────────────────────────────────────┤
-│                   业务服务层                        │
-│   EconomyService / HomesSyncService / AuthService │
-│   PlayerInventorySyncService / PlayerStateSyncService │
-│   CrossServerTeleportService                     │
-├─────────────────────────────────────────────────┤
-│                   核心引擎层                        │
-│   SyncService（同步 & 无效化广播）                   │
-│   SessionService（分布式会话锁）                     │
-├─────────────────────────────────────────────────┤
-│                   基础设施层                        │
-│   StorageProvider (MySQL + HikariCP)             │
-│   MessagingProvider (Redis PubSub / Noop)        │
-├─────────────────────────────────────────────────┤
-│                   启动层                           │
-│   CrossServerPlugin (JavaPlugin 生命周期)          │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                     命令 & UI 层                      │
+│   Commands (crossserver/home/warp/tpa/economy/login) │
+│   Chest GUI Menus (Homes/Warp/Transfer/Route)        │
+├──────────────────────────────────────────────────────┤
+│                     业务服务层                        │
+│   EconomyService / HomesSyncService / WarpService    │
+│   TeleportRequestService / PlayerLocationService     │
+│   AuthService / PlayerInventorySyncService           │
+│   PlayerStateSyncService / CrossServerTeleportService│
+├──────────────────────────────────────────────────────┤
+│                     核心引擎层                        │
+│   SyncService（同步 & 无效化广播）                    │
+│   SessionService（分布式会话锁）                      │
+├──────────────────────────────────────────────────────┤
+│                     基础设施层                        │
+│   StorageProvider (MySQL + HikariCP)                │
+│   MessagingProvider (Redis PubSub / Noop)           │
+├──────────────────────────────────────────────────────┤
+│                     启动层                           │
+│   CrossServerPlugin (JavaPlugin 生命周期)            │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## 核心组件
@@ -90,31 +91,72 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 | `inventory` | Base64 | 背包内容（ItemStack[]） |
 | `enderchest` | Base64 | 末影箱内容 |
 | `player-state` | JSON | 血量、饥饿、经验等 |
+| `player-location` | JSON | 玩家位置快照（跨服 TPA） |
 | `homes` | JSON | 家园位置列表 |
 | `auth.profile` | JSON | 认证账号信息 |
 | `auth.ticket` | JSON | 跨服免重登票据 |
 | `teleport.handoff` | JSON | 跨服传送交接数据 |
+| `teleport.rollback.inventory` | Base64 | 失败回滚用背包快照 |
+| `teleport.rollback.enderchest` | Base64 | 失败回滚用末影箱快照 |
+| `teleport.rollback.state` | JSON | 失败回滚用玩家状态 |
 
-## 跨服传送流程
+全局数据保存在 `global_snapshot`：
 
-```
-Server A                                      Server B
-  │                                              │
-  ├─ 玩家执行 /home base                          │
-  ├─ flush inventory + state + homes             │
-  ├─ SessionService.prepareTransfer()            │
-  ├─ AuthService.issueTicket()                   │
-  ├─ 保存 TeleportHandoff (PENDING)              │
-  ├─ PluginMessage -> Velocity                   │
-  │                                              │
-  │        Velocity 切服                         │
-  │                                              │
-  │                                              ├─ PlayerJoinEvent
-  │                                              ├─ TeleportArrivalListener 检查 handoff
-  │                                              ├─ SessionService.claimSession()
-  │                                              ├─ 传送到目标坐标
-  │                                              ├─ load inventory + state + homes
-```
+| 命名空间 | data_key | 用途 |
+|----------|----------|------|
+| `warps` | `teleport.warps` | 全局 Warp 列表 |
+| `teleport.requests` | `tpa.requests` | 跨服 TPA 请求 |
+| `route-table` | 路由相关 key | 服务器路由配置 |
+
+## 跨服传送入口
+
+当前已接入的跨服入口：
+
+- `/home`
+- `/warp`
+- `/tpa`
+- `/tpahere`
+- 其他通过 API 调用 `requestTeleport(...)` 的入口
+
+### 统一主链路
+
+1. 发起入口调用 `CrossServerTeleportService.requestTeleport()`
+2. 保存 inventory / ender chest / player-state，并生成 rollback 快照
+3. 写入 session transfer 与 `teleport.handoff`
+4. 通过代理切服
+5. 目标服由 `TeleportArrivalListener` + `tryConsumeArrival()` 消费 handoff
+6. 落点成功后清理 rollback；失败时标记 handoff 并尝试回滚
+
+### 稳定性补强
+
+- 插件关闭时，`protectOnShutdown()` 会收口 `PENDING/PREPARING` handoff
+- 跨服失败会回滚 inventory / ender chest / player-state
+- 玩家下次加入时可通过 `recoverRollbackOnJoin(...)` 做补偿恢复
+- `reconcilePendingTransfers()` 会定期检查并修复超时/悬空状态
+
+## GUI 结构
+
+当前菜单体系采用统一的 `MenuListener + MenuHolder + MenuService` 模式：
+
+- `HomesMenuService` / `HomesMenuHolder`
+- `WarpMenuService` / `WarpMenuHolder`
+- `TransferAdminMenuService` / `TransferAdminMenuHolder`
+- `RouteConfigMenuService` / `RouteConfigMenuHolder`
+
+Warp GUI 与 Homes GUI 采用相同的 54 格分页结构：
+
+- 主区域 45 格展示位置条目
+- 底栏 9 格用于分页、统计、说明与关闭/管理入口
+- 点击事件统一由 `MenuListener` 在顶部背包层处理
+
+## TPA 设计
+
+TPA 不再局限于本服在线玩家：
+
+- `TeleportRequestService` 负责把请求写入全局快照
+- `PlayerLocationService` 负责同步玩家位置快照并校验新鲜度
+- `TpaCommand` 负责解析本服/跨服目标、发起请求、处理接受/拒绝/取消
+- 接受跨服请求后，最终仍走统一的跨服 handoff 主链路
 
 ## 其他插件接入
 
@@ -141,14 +183,16 @@ API 提供的能力：
 
 1. 启动服务器，执行 `/crossserver status` 确认加载正常
 2. `/sethome main` → `/homes` → `/home main` 测试家园
-3. `/register test123 test123` → `/login test123` 测试认证
-4. `/economy balance` 测试经济
-5. `/crossserver reload` 测试热重载
+3. `/setwarp spawn` → `/warp` → 点击 GUI 测试 Warp
+4. `/register test123 test123` → `/login test123` 测试认证
+5. `/economy balance` 测试经济
+6. `/crossserver reload` 测试热重载
 
 ### 多服验证
 
 1. 两台子服连接同一 MySQL 和 Redis
 2. `/crossserver nodes` 确认所有节点在线
 3. 在 Server A `/sethome cross`，切到 Server B `/home cross` 测试跨服家园
-4. 在 Server A `/economy deposit <玩家> 100`，切到 Server B `/economy balance` 确认余额同步
-5. `/crossserver transfer info <玩家>` 确认传送状态正常推进
+4. 在 Server A `/setwarp crossspawn`，Server B `/warp crossspawn` 测试跨服 Warp
+5. 在 Server A 对 Server B 玩家执行 `/tpa` 或 `/tpahere`，测试跨服请求与反馈
+6. 人为制造目标服世界缺失 / handoff 超时，验证失败回滚与诊断状态

@@ -133,8 +133,8 @@ ip_forward: true
 
 ```yaml
 server:
-  id: "server-1"              # 每台子服必须不同！
-  cluster: "my-cluster"       # 同集群所有子服保持一致
+  id: "server-1"
+  cluster: "my-cluster"
 
 database:
   jdbc-url: "jdbc:mysql://MySQL地址:3306/cross_server?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
@@ -143,7 +143,7 @@ database:
   maximum-pool-size: 10
 
 messaging:
-  enabled: true               # 没有 Redis 就改成 false
+  enabled: true
   redis-uri: "redis://Redis地址:6379/0"
   channel: "cross-server:sync"
 
@@ -159,12 +159,13 @@ node:
 teleport:
   handoff-seconds: 30
   arrival-check-delay-ticks: 10
+  cooldown-seconds: 10
   gateway:
     type: "proxy-plugin-message"
     plugin-message-channel: "BungeeCord"
     connect-subchannel: "Connect"
     server-map:
-      server-1: "server-1"    # 左边是插件ID，右边是代理里的服务器名
+      server-1: "server-1"
       server-2: "server-2"
 ```
 
@@ -174,7 +175,7 @@ teleport:
 
 ```yaml
 server:
-  id: "server-2"              # 改成不同的 ID
+  id: "server-2"
 ```
 
 ## 第六步：重启并验证
@@ -183,9 +184,13 @@ server:
 2. 在任意子服执行 `/crossserver status` — 确认插件正常加载
 3. 执行 `/crossserver nodes` — 确认所有节点在线
 4. 测试基本功能：
-   - `/sethome test` — 设置一个家园
-   - 切到另一台子服，执行 `/home test` — 测试跨服家园
+   - `/sethome test` → `/home test` — 测试跨服家园
+   - `/setwarp spawn` → `/warp` → 点击 Warp GUI — 测试 Warp 命令与菜单
+   - 对另一台子服在线玩家执行 `/tpa <player>` 或 `/tpahere <player>` — 测试跨服 TPA
    - `/economy balance` — 确认经济系统正常
+5. 验证稳定性：
+   - 跨服过程中停服 / 重载，确认不会遗留卡住的 handoff
+   - 人为制造目标世界缺失，确认失败后会回滚玩家状态
 
 ## 故障排查
 
@@ -213,11 +218,19 @@ server:
 
 检查 `server-map` 的 value 是否和代理中注册的服务器名**完全一致**（大小写敏感）。
 
+### TPA 请求看起来“没反应”
+
+检查：
+
+- 目标玩家是否真的在线且位置快照新鲜
+- `teleport.handoff-seconds` 是否过短，导致请求很快过期
+- Redis 未开启时，各服对请求更新的感知会更慢
+
+### Warp 列表为空
+
+确认至少有一名管理员执行过 `/setwarp <name>`，并且你有 `crossserver.warps.list` 权限。
+
 ### 节点显示离线
 
 - 所有子服是否连接了同一个 MySQL
 - 检查各子服的 `server.id` 是否唯一（不能重复）
-
-### Vault 经济不生效
-
-确保服务器安装了 [Vault](https://www.spigotmc.org/resources/vault.34315/) 插件。

@@ -41,6 +41,17 @@ public final class PlayerStateSyncService {
 	}
 
 	public void savePlayerState(Player player) {
+		String payload = captureStatePayload(player);
+		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+			try {
+				api.savePlayerData(player.getUniqueId(), NAMESPACE, payload);
+			} catch (Exception exception) {
+				logger.warning("保存玩家状态失败: " + player.getUniqueId() + " -> " + exception.getMessage());
+			}
+		});
+	}
+
+	public String captureStatePayload(Player player) {
 		AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
 		double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0D;
 		PlayerStateSnapshot snapshot = new PlayerStateSnapshot(
@@ -55,14 +66,14 @@ public final class PlayerStateSyncService {
 				player.getFireTicks(),
 				player.getRemainingAir()
 		);
-		String payload = PlayerStateCodec.encode(snapshot);
-		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-			try {
-				api.savePlayerData(player.getUniqueId(), NAMESPACE, payload);
-			} catch (Exception exception) {
-				logger.warning("保存玩家状态失败: " + player.getUniqueId() + " -> " + exception.getMessage());
-			}
-		});
+		return PlayerStateCodec.encode(snapshot);
+	}
+
+	public void applyPayload(Player player, String payload) {
+		if (payload == null || payload.isBlank()) {
+			return;
+		}
+		apply(player, PlayerStateCodec.decode(payload));
 	}
 
 	private void apply(Player player, PlayerStateSnapshot state) {

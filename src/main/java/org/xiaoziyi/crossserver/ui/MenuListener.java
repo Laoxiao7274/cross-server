@@ -8,11 +8,13 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 
 public final class MenuListener implements Listener {
 	private final HomesMenuService homesMenuService;
+	private final WarpMenuService warpMenuService;
 	private final TransferAdminMenuService transferAdminMenuService;
 	private final RouteConfigMenuService routeConfigMenuService;
 
-	public MenuListener(HomesMenuService homesMenuService, TransferAdminMenuService transferAdminMenuService, RouteConfigMenuService routeConfigMenuService) {
+	public MenuListener(HomesMenuService homesMenuService, WarpMenuService warpMenuService, TransferAdminMenuService transferAdminMenuService, RouteConfigMenuService routeConfigMenuService) {
 		this.homesMenuService = homesMenuService;
+		this.warpMenuService = warpMenuService;
 		this.transferAdminMenuService = transferAdminMenuService;
 		this.routeConfigMenuService = routeConfigMenuService;
 	}
@@ -26,6 +28,13 @@ public final class MenuListener implements Listener {
 			event.setCancelled(true);
 			if (event.getClickedInventory() == event.getView().getTopInventory()) {
 				homesMenuService.handleClick(player, holder, event.getSlot(), event.isLeftClick(), event.isRightClick(), event.isShiftClick(), event.getClick() == ClickType.MIDDLE);
+			}
+			return;
+		}
+		if (event.getView().getTopInventory().getHolder() instanceof WarpMenuHolder holder) {
+			event.setCancelled(true);
+			if (event.getClickedInventory() == event.getView().getTopInventory()) {
+				warpMenuService.handleClick(player, holder, event.getSlot(), event.isLeftClick(), event.isRightClick(), event.isShiftClick());
 			}
 			return;
 		}

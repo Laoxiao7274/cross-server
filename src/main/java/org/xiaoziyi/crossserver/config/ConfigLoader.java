@@ -52,6 +52,7 @@ public final class ConfigLoader {
 				new PluginConfiguration.TeleportSettings(
 						Math.max(10, config.getInt("teleport.handoff-seconds", 30)),
 						Math.max(1, config.getInt("teleport.arrival-check-delay-ticks", 10)),
+						Math.max(0, config.getInt("teleport.cooldown-seconds", 10)),
 						new PluginConfiguration.TeleportSettings.GatewaySettings(
 								config.getString("teleport.gateway.type", "unsupported").trim(),
 								requireText(config.getString("teleport.gateway.plugin-message-channel", "BungeeCord").trim(), "teleport.gateway.plugin-message-channel"),
