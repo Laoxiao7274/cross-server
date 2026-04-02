@@ -78,6 +78,8 @@ permissions:
     default: op
   crossserver.transfer.menu:
     default: op
+  crossserver.transfer.reconcile:
+    default: op
   crossserver.auth.admin:
     default: op
   crossserver.route.view:
