@@ -40,9 +40,66 @@ teleport:
     server-map:
       server-1: "server-1"
       server-2: "server-2"
+
+modules:
+  auth: true
+  homes: true
+  warps: true
+  tpa: true
+  route-config: true
+  transfer-admin: true
+  economy-bridge: true
+  permissions: false
 ```
 
 ## 配置项详解
+
+### modules — 模块开关
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `auth` | Boolean | `true` | 登录、注册、改密与跨服 Ticket |
+| `homes` | Boolean | `true` | 家园数据同步、`/home`、`/homes` 等 |
+| `warps` | Boolean | `true` | Warp 数据同步、`/warp` 与 Warp GUI |
+| `tpa` | Boolean | `true` | `/tpa`、`/tpahere`、`/tpaccept` 等 |
+| `route-config` | Boolean | `true` | `/crossserver route ...` 与路由编辑 GUI |
+| `transfer-admin` | Boolean | `true` | `/crossserver transfer ...` 诊断与管理 |
+| `economy-bridge` | Boolean | `true` | Vault 经济桥接注册 |
+| `permissions` | Boolean | `false` | 玩家权限同步模块，仅同步 `crossserver.*` 节点 |
+
+**合并规则：**
+
+- 本地 `config.yml` 是默认值
+- 共享配置中心中的 `modules.toggles` 是覆盖层
+- 共享配置缺失时，回退到本地默认值
+- 修改共享开关后，需要执行 `/crossserver reload` 才会在当前节点立即生效
+
+**哪些配置适合共享，哪些不适合：**
+
+适合共享：
+- 模块开关
+- 共享路由表
+
+不适合共享：
+- `server.id`
+- `server.cluster`
+- 数据库连接信息
+- Redis 连接信息
+- 其他与单台节点环境强相关的敏感配置
+
+**推荐运维方式：**
+
+1. 每台子服先维护自己的本地 `config.yml` 作为兜底
+2. 通过 `/crossserver modules set ...` 统一写入共享模块开关
+3. 通过 `/crossserver route set ...` 统一写入共享路由
+4. 在各节点执行 `/crossserver reload` 应用最新共享配置
+
+### permissions 模块说明
+
+- 关闭时：不会装配权限同步服务，也不会参与 join/quit/autosave/跨服前 flush
+- 开启时：当前版本使用 `PermissionAttachment` 方式管理权限
+- 当前只同步 `crossserver.*` 这类插件自身权限，避免误改其他权限插件的数据
+- 如果集群里有 LuckPerms / Vault Permission 等完整权限系统，建议继续以它们为权威源；此模块更适合补充同步插件自身运行时权限
 
 ### server — 服务器节点标识
 

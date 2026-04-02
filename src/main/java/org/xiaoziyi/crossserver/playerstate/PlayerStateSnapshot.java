@@ -10,6 +10,7 @@ public record PlayerStateSnapshot(
 		float exp,
 		int totalExperience,
 		int fireTicks,
-		int remainingAir
+		int remainingAir,
+		String gameMode
 ) {
 }

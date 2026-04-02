@@ -26,28 +26,28 @@ public final class MenuListener implements Listener {
 		}
 		if (event.getView().getTopInventory().getHolder() instanceof HomesMenuHolder holder) {
 			event.setCancelled(true);
-			if (event.getClickedInventory() == event.getView().getTopInventory()) {
+			if (homesMenuService != null && event.getClickedInventory() == event.getView().getTopInventory()) {
 				homesMenuService.handleClick(player, holder, event.getSlot(), event.isLeftClick(), event.isRightClick(), event.isShiftClick(), event.getClick() == ClickType.MIDDLE);
 			}
 			return;
 		}
 		if (event.getView().getTopInventory().getHolder() instanceof WarpMenuHolder holder) {
 			event.setCancelled(true);
-			if (event.getClickedInventory() == event.getView().getTopInventory()) {
+			if (warpMenuService != null && event.getClickedInventory() == event.getView().getTopInventory()) {
 				warpMenuService.handleClick(player, holder, event.getSlot(), event.isLeftClick(), event.isRightClick(), event.isShiftClick());
 			}
 			return;
 		}
 		if (event.getView().getTopInventory().getHolder() instanceof TransferAdminMenuHolder holder) {
 			event.setCancelled(true);
-			if (event.getClickedInventory() == event.getView().getTopInventory()) {
+			if (transferAdminMenuService != null && event.getClickedInventory() == event.getView().getTopInventory()) {
 				transferAdminMenuService.handleClick(player, holder, event.getSlot());
 			}
 			return;
 		}
 		if (event.getView().getTopInventory().getHolder() instanceof RouteConfigMenuHolder holder) {
 			event.setCancelled(true);
-			if (event.getClickedInventory() == event.getView().getTopInventory()) {
+			if (routeConfigMenuService != null && event.getClickedInventory() == event.getView().getTopInventory()) {
 				routeConfigMenuService.handleClick(player, holder, event.getSlot(), event.isLeftClick(), event.isRightClick());
 			}
 		}

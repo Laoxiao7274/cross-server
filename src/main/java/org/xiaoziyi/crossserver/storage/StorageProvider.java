@@ -36,6 +36,8 @@ public interface StorageProvider extends AutoCloseable {
 
 	PlayerSnapshot savePlayerData(UUID playerId, String namespace, String payload) throws Exception;
 
+	void deletePlayerData(UUID playerId, String namespace) throws Exception;
+
 	Optional<PlayerSnapshot> updateEconomyBalance(UUID playerId, String playerName, double amount, boolean absolute, String transactionType, String source) throws Exception;
 
 	void savePlayerIdentity(UUID playerId, String playerName) throws Exception;

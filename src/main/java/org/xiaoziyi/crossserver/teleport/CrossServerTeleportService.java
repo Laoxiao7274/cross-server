@@ -2,6 +2,7 @@ package org.xiaoziyi.crossserver.teleport;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -11,13 +12,12 @@ import org.xiaoziyi.crossserver.auth.AuthService;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
 import org.xiaoziyi.crossserver.inventory.PlayerInventorySyncService;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
+import org.xiaoziyi.crossserver.permission.PlayerPermissionSyncService;
 import org.xiaoziyi.crossserver.playerstate.PlayerStateSyncService;
-import org.xiaoziyi.crossserver.session.SessionTransferState;
 import org.xiaoziyi.crossserver.storage.StorageProvider;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +38,7 @@ public final class CrossServerTeleportService {
 	private final AuthService authService;
 	private final PlayerInventorySyncService inventorySyncService;
 	private final PlayerStateSyncService playerStateSyncService;
+	private final PlayerPermissionSyncService playerPermissionSyncService;
 	private final StorageProvider storageProvider;
 	private HomesSyncService homesSyncService;
 	private final ServerTransferGateway transferGateway;
@@ -53,6 +54,7 @@ public final class CrossServerTeleportService {
 			AuthService authService,
 			PlayerInventorySyncService inventorySyncService,
 			PlayerStateSyncService playerStateSyncService,
+			PlayerPermissionSyncService playerPermissionSyncService,
 			StorageProvider storageProvider,
 			HomesSyncService homesSyncService,
 			ServerTransferGateway transferGateway,
@@ -66,6 +68,7 @@ public final class CrossServerTeleportService {
 		this.authService = authService;
 		this.inventorySyncService = inventorySyncService;
 		this.playerStateSyncService = playerStateSyncService;
+		this.playerPermissionSyncService = playerPermissionSyncService;
 		this.storageProvider = storageProvider;
 		this.homesSyncService = homesSyncService;
 		this.transferGateway = transferGateway;
@@ -93,8 +96,7 @@ public final class CrossServerTeleportService {
 			if (lastTime != null) {
 				long elapsedSeconds = Duration.between(lastTime, Instant.now()).getSeconds();
 				if (elapsedSeconds < cooldownSeconds) {
-					return new TeleportInitiationResult(false, false,
-							"§e跨服传送冷却中，请等待 " + (cooldownSeconds - elapsedSeconds) + " 秒。", null);
+					return new TeleportInitiationResult(false, false, "§e跨服传送冷却中，请等待 " + (cooldownSeconds - elapsedSeconds) + " 秒。", null);
 				}
 			}
 		}
@@ -102,7 +104,7 @@ public final class CrossServerTeleportService {
 		Instant now = Instant.now();
 		String playerName = player.getName();
 		try {
-			saveRollbackSnapshot(player, requestId);
+			saveRollbackSnapshot(player);
 			flushPlayerData(player);
 			String transferToken = api.sessionService().prepareTransfer(player.getUniqueId(), target.serverId(), handoffTtl);
 			Instant pendingAt = Instant.now();
@@ -123,7 +125,7 @@ public final class CrossServerTeleportService {
 					causeRef,
 					transferToken,
 					TeleportHandoffStatus.PENDING,
-					pendingAt,
+					null,
 					null,
 					null,
 					null,
@@ -138,7 +140,9 @@ public final class CrossServerTeleportService {
 					null
 			);
 			logger.info("跨服传送准备完成: requestId=" + requestId + " player=" + player.getUniqueId() + " source=" + serverId + " target=" + target.serverId() + " cause=" + cause);
-			authService.issueCrossServerTicket(player.getUniqueId());
+			if (authService != null) {
+				authService.issueCrossServerTicket(player.getUniqueId());
+			}
 			player.sendTitle("§b正在跨服传送", "§7目标服务器: §f" + target.serverId(), 5, 40, 10);
 			player.sendActionBar(Component.text("跨服传送请求已创建: " + requestId));
 			player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.7F, 1.2F);
@@ -153,7 +157,38 @@ public final class CrossServerTeleportService {
 				logger.warning("跨服传送网关发送失败: requestId=" + requestId + " player=" + player.getUniqueId() + " -> " + result.message());
 				return result;
 			}
-			saveHandoffSync(player.getUniqueId(), playerName, pending, "gateway_sent", result.message());
+			TeleportHandoff gatewaySent = new TeleportHandoff(
+					pending.requestId(),
+					pending.playerId(),
+					pending.createdAt(),
+					pending.expiresAt(),
+					pending.sourceServerId(),
+					pending.targetServerId(),
+					pending.targetWorld(),
+					pending.x(),
+					pending.y(),
+					pending.z(),
+					pending.yaw(),
+					pending.pitch(),
+					pending.cause(),
+					pending.causeRef(),
+					pending.sessionTransferToken(),
+					pending.status(),
+					Instant.now(),
+					pending.consumedAt(),
+					pending.consumedServerId(),
+					pending.ackedAt(),
+					pending.ackedByServerId(),
+					pending.rollbackRequestId(),
+					pending.rollbackState(),
+					pending.rolledBackAt(),
+					pending.recoveryState(),
+					pending.preparedTransferState(),
+					pending.preparedTransferClearedAt(),
+					Instant.now(),
+					pending.failureReason()
+			);
+			saveHandoffSync(player.getUniqueId(), playerName, gatewaySent, "gateway_sent", result.message());
 			lastTeleportTime.put(player.getUniqueId(), Instant.now());
 			logger.info("跨服传送网关发送成功: requestId=" + requestId + " player=" + player.getUniqueId() + " target=" + target.serverId());
 			player.sendActionBar(Component.text(result.message()));
@@ -196,7 +231,11 @@ public final class CrossServerTeleportService {
 					failedAt,
 					"prepare transfer failed: " + exception.getMessage()
 			);
-			markRollbackPending(player.getUniqueId(), playerName, failed, "prepare_failed", failed.failureReason());
+			try {
+				markRollbackPending(player.getUniqueId(), playerName, failed, "prepare_failed", failed.failureReason());
+			} catch (Exception historyException) {
+				logger.warning("记录跨服传送准备失败历史失败: requestId=" + requestId + " player=" + player.getUniqueId() + " -> " + historyException.getMessage());
+			}
 			return new TeleportInitiationResult(false, false, "§c跨服传送准备失败，请稍后重试。", requestId);
 		}
 	}
@@ -209,38 +248,103 @@ public final class CrossServerTeleportService {
 					return;
 				}
 				TeleportHandoff handoff = TeleportCodec.decode(snapshot.get().payload());
-				TeleportHandoff resolved = resolveHandoffState(handoff);
-				if (resolved.status() == TeleportHandoffStatus.EXPIRED) {
-					api.sessionService().clearPreparedTransfer(player.getUniqueId());
-					resolved = rollbackIfNeeded(player.getUniqueId(), player.getName(), resolved, player, "expired");
-					saveHandoff(player.getUniqueId(), player.getName(), resolved, "expired", resolved.failureReason());
-					logger.warning("跨服传送 handoff 已过期: requestId=" + resolved.requestId() + " player=" + player.getUniqueId());
+				if (handoff.status() != TeleportHandoffStatus.PENDING) {
 					return;
 				}
-				if (resolved.status() != TeleportHandoffStatus.PENDING || !serverId.equalsIgnoreCase(resolved.targetServerId())) {
-					if (shouldRecoverAck(resolved, player.getUniqueId())) {
-						recoverAckState(player.getUniqueId(), player.getName(), resolved);
-					}
+				if (!serverId.equalsIgnoreCase(handoff.targetServerId())) {
 					return;
 				}
-				TeleportHandoff finalResolved = resolved;
-				plugin.getServer().getScheduler().runTask(plugin, () -> applyArrival(player, finalResolved));
+				if (handoff.expiresAt().isBefore(Instant.now())) {
+					markFailed(player.getUniqueId(), player.getName(), handoff, "target server consume expired handoff", false, "expired");
+					plugin.getServer().getScheduler().runTask(plugin, () -> {
+						player.sendTitle("§c跨服传送失败", "§7请求已过期", 5, 50, 10);
+						player.sendActionBar(Component.text("跨服传送请求已过期"));
+						player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
+					});
+					return;
+				}
+				World world = Bukkit.getWorld(handoff.targetWorld());
+				if (world == null) {
+					markFailed(player.getUniqueId(), player.getName(), handoff, "target world missing: " + handoff.targetWorld(), false, "world_missing");
+					plugin.getServer().getScheduler().runTask(plugin, () -> {
+						player.sendTitle("§c跨服传送失败", "§7目标世界不存在", 5, 50, 10);
+						player.sendActionBar(Component.text("目标世界不存在: " + handoff.targetWorld()));
+						player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
+					});
+					return;
+				}
+				plugin.getServer().getScheduler().runTask(plugin, () -> player.teleportAsync(new Location(world, handoff.x(), handoff.y(), handoff.z(), handoff.yaw(), handoff.pitch()))
+						.thenAccept(success -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> completeArrival(player, handoff, success))));
 			} catch (Exception exception) {
 				logger.warning("消费跨服传送 handoff 失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
 			}
 		});
 	}
 
-	public void reconcilePendingTransfers() {
-		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-			for (Player player : List.copyOf(Bukkit.getOnlinePlayers())) {
-				try {
-					reconcilePlayerTransfer(player.getUniqueId(), player.getName());
-				} catch (Exception exception) {
-					logger.warning("恢复 transfer 状态失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
-				}
+	private void completeArrival(Player player, TeleportHandoff handoff, boolean success) {
+		try {
+			if (!success) {
+				markFailed(player.getUniqueId(), player.getName(), handoff, "target server teleportAsync returned false", false, "teleport_failed");
+				plugin.getServer().getScheduler().runTask(plugin, () -> {
+					player.sendTitle("§c跨服传送失败", "§7目标服务器传送失败", 5, 50, 10);
+					player.sendActionBar(Component.text("目标服务器传送失败"));
+					player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
+				});
+				return;
 			}
-		});
+			Instant arrivalAt = Instant.now();
+			TeleportHandoff consumed = new TeleportHandoff(
+					handoff.requestId(),
+					handoff.playerId(),
+					handoff.createdAt(),
+					handoff.expiresAt(),
+					handoff.sourceServerId(),
+					handoff.targetServerId(),
+					handoff.targetWorld(),
+					handoff.x(),
+					handoff.y(),
+					handoff.z(),
+					handoff.yaw(),
+					handoff.pitch(),
+					handoff.cause(),
+					handoff.causeRef(),
+					handoff.sessionTransferToken(),
+					TeleportHandoffStatus.CONSUMED,
+					handoff.gatewaySentAt(),
+					arrivalAt,
+					serverId,
+					arrivalAt,
+					serverId,
+					handoff.rollbackRequestId(),
+					"NONE",
+					null,
+					"ARRIVED",
+					"CLEARED",
+					arrivalAt,
+					arrivalAt,
+					null
+			);
+			saveHandoffSync(player.getUniqueId(), player.getName(), consumed, "consumed", "target server arrival confirmed");
+			api.sessionService().clearPreparedTransfer(player.getUniqueId());
+			clearRollbackSnapshots(player.getUniqueId());
+			plugin.getServer().getScheduler().runTask(plugin, () -> {
+				player.sendTitle("§a跨服传送成功", "§7欢迎来到 §f" + handoff.targetServerId(), 5, 45, 10);
+				player.sendActionBar(Component.text("已到达目标服务器: " + handoff.targetServerId()));
+				player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8F, 1.15F);
+			});
+		} catch (Exception exception) {
+			logger.warning("完成跨服传送到达阶段失败: requestId=" + handoff.requestId() + " player=" + player.getUniqueId() + " -> " + exception.getMessage());
+		}
+	}
+
+	public void reconcilePendingTransfers() {
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			try {
+				reconcilePlayerTransfer(player.getUniqueId(), player.getName());
+			} catch (Exception exception) {
+				logger.warning("reconcile pending transfer 失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
+			}
+		}
 	}
 
 	public void reconcilePlayerTransfer(UUID playerId, String playerName) throws Exception {
@@ -249,37 +353,41 @@ public final class CrossServerTeleportService {
 			return;
 		}
 		TeleportHandoff handoff = TeleportCodec.decode(snapshot.get().payload());
-		TeleportHandoff resolved = resolveHandoffState(handoff);
-		if (resolved.status() == TeleportHandoffStatus.EXPIRED) {
-			api.sessionService().clearPreparedTransfer(playerId);
-			resolved = rollbackIfNeeded(playerId, playerName, resolved, Bukkit.getPlayer(playerId), "expired");
-			saveHandoff(playerId, playerName, resolved, "expired", resolved.failureReason());
+		if (handoff.status() == TeleportHandoffStatus.CONSUMED
+				|| handoff.status() == TeleportHandoffStatus.FAILED
+				|| handoff.status() == TeleportHandoffStatus.CANCELLED
+				|| handoff.status() == TeleportHandoffStatus.EXPIRED) {
 			return;
 		}
-		if (shouldRecoverAck(resolved, playerId)) {
-			recoverAckState(playerId, playerName, resolved);
+		Instant now = Instant.now();
+		if (handoff.consumedAt() != null && handoff.ackedAt() == null
+				&& Duration.between(handoff.consumedAt(), now).compareTo(ACK_STALE_AFTER) > 0) {
+			markFailed(playerId, playerName, handoff, "ack stale after target arrival", true, "ack_stale");
 			return;
 		}
-		if (shouldClearPreparedResidue(resolved, playerId)) {
-			repairPreparedResidue(playerId, playerName, resolved);
+		if (handoff.lastUpdatedAt() != null && handoff.consumedAt() == null
+				&& Duration.between(handoff.lastUpdatedAt(), now).compareTo(PREPARING_STALE_AFTER) > 0) {
+			markFailed(playerId, playerName, handoff, "pending stale after prepare", true, "pending_stale");
+			return;
+		}
+		if (handoff.expiresAt().isBefore(now)) {
+			markFailed(playerId, playerName, handoff, "handoff expired during reconcile", true, "expired");
 		}
 	}
 
 	public void protectOnShutdown() {
-		for (Player player : List.copyOf(Bukkit.getOnlinePlayers())) {
+		for (Player player : Bukkit.getOnlinePlayers()) {
 			try {
 				Optional<PlayerSnapshot> snapshot = api.loadPlayerData(player.getUniqueId(), NAMESPACE);
 				if (snapshot.isEmpty()) {
 					continue;
 				}
 				TeleportHandoff handoff = TeleportCodec.decode(snapshot.get().payload());
-				if (handoff.status() != TeleportHandoffStatus.PENDING && handoff.status() != TeleportHandoffStatus.PREPARING) {
-					continue;
+				if (handoff.status() == TeleportHandoffStatus.PENDING) {
+					markFailed(player.getUniqueId(), player.getName(), handoff, "source server shutting down during pending handoff", true, "shutdown_guard");
 				}
-				api.sessionService().clearPreparedTransfer(player.getUniqueId());
-				markFailed(player.getUniqueId(), player.getName(), handoff, "plugin disabling", true, "plugin_shutdown");
 			} catch (Exception exception) {
-				logger.warning("插件关闭时保护跨服传送失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
+				logger.warning("插件关闭时保护跨服 handoff 失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
 			}
 		}
 	}
@@ -287,310 +395,81 @@ public final class CrossServerTeleportService {
 	public void recoverRollbackOnJoin(Player player) {
 		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
 			try {
-				Optional<PlayerSnapshot> snapshot = api.loadPlayerData(player.getUniqueId(), NAMESPACE);
-				if (snapshot.isEmpty()) {
+				if (!hasRollbackSnapshot(player.getUniqueId())) {
 					return;
 				}
-				TeleportHandoff handoff = TeleportCodec.decode(snapshot.get().payload());
-				if (handoff.status() != TeleportHandoffStatus.FAILED && handoff.status() != TeleportHandoffStatus.EXPIRED && handoff.status() != TeleportHandoffStatus.CANCELLED) {
-					return;
-				}
-				if (!"PENDING".equalsIgnoreCase(handoff.rollbackState())) {
-					return;
-				}
-				rollbackIfNeeded(player.getUniqueId(), player.getName(), handoff, player, "join_recover");
+				restoreRollbackSnapshots(player.getUniqueId(), player);
+				clearRollbackSnapshots(player.getUniqueId());
+				plugin.getServer().getScheduler().runTask(plugin, () -> {
+					player.sendTitle("§e已恢复玩家状态", "§7检测到未完成跨服传送回滚", 5, 40, 10);
+					player.sendActionBar(Component.text("已自动恢复上次跨服前的状态"));
+					player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.7F, 1.0F);
+				});
 			} catch (Exception exception) {
-				logger.warning("登录时恢复回滚快照失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
+				logger.warning("玩家上线时恢复 rollback 快照失败: player=" + player.getUniqueId() + " -> " + exception.getMessage());
 			}
 		});
 	}
 
-	private TeleportHandoff resolveHandoffState(TeleportHandoff handoff) {
-		Instant now = Instant.now();
-		if (handoff.status() == TeleportHandoffStatus.PREPARING && handoff.lastUpdatedAt() != null && handoff.lastUpdatedAt().isBefore(now.minus(PREPARING_STALE_AFTER))) {
-			return transitionHandoff(
-					handoff,
-					TeleportHandoffStatus.FAILED,
-					handoff.gatewaySentAt(),
-					null,
-					null,
-					handoff.ackedAt(),
-					handoff.ackedByServerId(),
-					handoff.rollbackRequestId(),
-					handoff.rollbackState(),
-					handoff.rolledBackAt(),
-					"PREPARING_TIMEOUT",
-					"CLEARED",
-					now,
-					now,
-					"handoff preparing timed out"
-			);
+	public void flushPlayerData(Player player) {
+		inventorySyncService.savePlayerData(player);
+		playerStateSyncService.savePlayerState(player);
+		if (playerPermissionSyncService != null) {
+			playerPermissionSyncService.savePermissions(player);
 		}
-		if (handoff.status() == TeleportHandoffStatus.PENDING && handoff.expiresAt() != null && handoff.expiresAt().isBefore(now)) {
-			return transitionHandoff(
-					handoff,
-					TeleportHandoffStatus.EXPIRED,
-					handoff.gatewaySentAt(),
-					handoff.consumedAt(),
-					handoff.consumedServerId(),
-					handoff.ackedAt(),
-					handoff.ackedByServerId(),
-					handoff.rollbackRequestId(),
-					handoff.rollbackState(),
-					handoff.rolledBackAt(),
-					"EXPIRED",
-					"EXPIRED",
-					now,
-					now,
-					"handoff expired"
-			);
-		}
-		return handoff;
-	}
-
-	private void applyArrival(Player player, TeleportHandoff handoff) {
-		if (!player.isOnline()) {
-			return;
-		}
-		World world = Bukkit.getWorld(handoff.targetWorld());
-		if (world == null) {
-			player.sendMessage("§c跨服传送目标世界不存在: " + handoff.targetWorld());
-			player.sendTitle("§c跨服传送失败", "§7目标世界不存在", 5, 50, 10);
-			player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
-			api.sessionService().clearPreparedTransfer(player.getUniqueId());
-			markFailed(player.getUniqueId(), player.getName(), handoff, "target world missing", true, "arrival_failed");
-			return;
-		}
-		if (!player.teleport(new org.bukkit.Location(world, handoff.x(), handoff.y(), handoff.z(), handoff.yaw(), handoff.pitch()))) {
-			api.sessionService().clearPreparedTransfer(player.getUniqueId());
-			player.sendTitle("§c跨服传送失败", "§7落点应用失败", 5, 50, 10);
-			player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
-			markFailed(player.getUniqueId(), player.getName(), handoff, "arrival apply failed", true, "arrival_failed");
-			return;
-		}
-		clearRollbackSnapshotsAsync(player.getUniqueId());
-		player.sendMessage("§a已应用跨服传送落点。§7请求: §f" + handoff.requestId());
-		player.sendTitle("§a跨服传送完成", "§7已到达目标落点", 5, 40, 10);
-		player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8F, 1.2F);
-		logger.info("跨服传送已完成: requestId=" + handoff.requestId() + " player=" + player.getUniqueId() + " target=" + serverId);
-		Instant now = Instant.now();
-		TeleportHandoff consumed = transitionHandoff(
-				handoff,
-				TeleportHandoffStatus.CONSUMED,
-				handoff.gatewaySentAt(),
-				now,
-				serverId,
-				now,
-				serverId,
-				handoff.rollbackRequestId(),
-				"CLEARED",
-				now,
-				"ACKED",
-				"CLAIMED",
-				null,
-				now,
-				null
-		);
-		api.sessionService().clearPreparedTransfer(player.getUniqueId());
-		saveHandoff(player.getUniqueId(), player.getName(), consumed, "consumed", "arrival applied and acked");
-	}
-
-	private boolean shouldRecoverAck(TeleportHandoff handoff, UUID playerId) {
-		if (handoff.status() != TeleportHandoffStatus.CONSUMED || handoff.consumedAt() == null) {
-			return false;
-		}
-		if (handoff.ackedAt() == null && handoff.consumedAt().isBefore(Instant.now().minus(ACK_STALE_AFTER))) {
-			return true;
-		}
-		return shouldClearPreparedResidue(handoff, playerId);
-	}
-
-	private boolean shouldClearPreparedResidue(TeleportHandoff handoff, UUID playerId) {
-		if (handoff.status() != TeleportHandoffStatus.CONSUMED && handoff.status() != TeleportHandoffStatus.FAILED && handoff.status() != TeleportHandoffStatus.EXPIRED && handoff.status() != TeleportHandoffStatus.CANCELLED) {
-			return false;
-		}
-		try {
-			Optional<SessionTransferState> sessionTransferState = api.sessionService().getSessionTransferState(playerId);
-			return sessionTransferState.map(SessionTransferState::hasPreparedTransfer).orElse(false);
-		} catch (Exception exception) {
-			logger.warning("检查 prepared transfer 残留失败: player=" + playerId + " -> " + exception.getMessage());
-			return false;
+		if (homesSyncService != null) {
+			homesSyncService.savePlayerHomes(player);
 		}
 	}
 
-	private void recoverAckState(UUID playerId, String playerName, TeleportHandoff handoff) {
-		api.sessionService().clearPreparedTransfer(playerId);
-		Instant now = Instant.now();
-		TeleportHandoff recovered = transitionHandoff(
-				handoff,
-				TeleportHandoffStatus.CONSUMED,
-				handoff.gatewaySentAt(),
-				handoff.consumedAt(),
-				handoff.consumedServerId(),
-				now,
-				serverId,
-				handoff.rollbackRequestId(),
-				handoff.rollbackState(),
-				handoff.rolledBackAt(),
-				"RECOVERED_ACK",
-				"CLEARED",
-				now,
-				now,
-				handoff.failureReason()
-		);
-		saveHandoff(playerId, playerName, recovered, "recovered", "ack recovered and prepared cleared");
-	}
-
-	private void repairPreparedResidue(UUID playerId, String playerName, TeleportHandoff handoff) {
-		api.sessionService().clearPreparedTransfer(playerId);
-		Instant now = Instant.now();
-		TeleportHandoff repaired = transitionHandoff(
-				handoff,
-				handoff.status(),
-				handoff.gatewaySentAt(),
-				handoff.consumedAt(),
-				handoff.consumedServerId(),
-				handoff.ackedAt(),
-				handoff.ackedByServerId(),
-				handoff.rollbackRequestId(),
-				handoff.rollbackState(),
-				handoff.rolledBackAt(),
-				"CLEANUP_REPAIRED",
-				"CLEARED",
-				now,
-				now,
-				handoff.failureReason()
-		);
-		saveHandoff(playerId, playerName, repaired, "cleanup_repaired", "prepared transfer residue cleared");
-	}
-
-	private void markFailed(UUID playerId, String playerName, TeleportHandoff handoff, String reason, boolean clearPreparedTransfer, String eventType) {
-		Instant now = Instant.now();
-		TeleportHandoff failed = transitionHandoff(
-				handoff,
-				TeleportHandoffStatus.FAILED,
-				handoff.gatewaySentAt(),
-				null,
-				null,
-				handoff.ackedAt(),
-				handoff.ackedByServerId(),
-				handoff.rollbackRequestId(),
-				handoff.rollbackState(),
-				handoff.rolledBackAt(),
-				clearPreparedTransfer ? "FAILED_CLEARED" : handoff.recoveryState(),
-				clearPreparedTransfer ? "CLEARED" : handoff.preparedTransferState(),
-				clearPreparedTransfer ? now : handoff.preparedTransferClearedAt(),
-				now,
-				reason
-		);
-		logger.warning("跨服传送失败: requestId=" + handoff.requestId() + " player=" + playerId + " -> " + reason);
-		markRollbackPending(playerId, playerName, failed, eventType, reason);
-	}
-
-	private void markRollbackPending(UUID playerId, String playerName, TeleportHandoff handoff, String eventType, String detail) {
-		TeleportHandoff pendingRollback = transitionHandoff(
-				handoff,
-				handoff.status(),
-				handoff.gatewaySentAt(),
-				handoff.consumedAt(),
-				handoff.consumedServerId(),
-				handoff.ackedAt(),
-				handoff.ackedByServerId(),
-				handoff.rollbackRequestId(),
-				"PENDING",
-				null,
-				handoff.recoveryState(),
-				handoff.preparedTransferState(),
-				handoff.preparedTransferClearedAt(),
-				Instant.now(),
-				handoff.failureReason()
-		);
-		Player onlinePlayer = Bukkit.getPlayer(playerId);
-		TeleportHandoff finalHandoff = rollbackIfNeeded(playerId, playerName, pendingRollback, onlinePlayer, eventType);
-		saveHandoff(playerId, playerName, finalHandoff, eventType, detail);
-	}
-
-	private TeleportHandoff rollbackIfNeeded(UUID playerId, String playerName, TeleportHandoff handoff, Player player, String eventType) {
-		if (!"PENDING".equalsIgnoreCase(handoff.rollbackState())) {
-			return handoff;
-		}
-		if (player == null || !player.isOnline()) {
-			return handoff;
-		}
-		try {
-			Optional<PlayerSnapshot> inventorySnapshot = api.loadPlayerData(playerId, ROLLBACK_INVENTORY_NAMESPACE);
-			Optional<PlayerSnapshot> enderChestSnapshot = api.loadPlayerData(playerId, ROLLBACK_ENDER_CHEST_NAMESPACE);
-			Optional<PlayerSnapshot> stateSnapshot = api.loadPlayerData(playerId, ROLLBACK_PLAYER_STATE_NAMESPACE);
-			plugin.getServer().getScheduler().runTask(plugin, () -> {
-				inventorySyncService.applyPayloads(player,
-						inventorySnapshot.map(PlayerSnapshot::payload).orElse(null),
-						enderChestSnapshot.map(PlayerSnapshot::payload).orElse(null));
-				playerStateSyncService.applyPayload(player, stateSnapshot.map(PlayerSnapshot::payload).orElse(null));
-				player.sendMessage("§e跨服传送失败，已自动恢复传送前的背包和状态。");
-				player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 0.7F, 1.0F);
-			});
-			clearRollbackSnapshotsAsync(playerId);
-			Instant now = Instant.now();
-			return transitionHandoff(
-					handoff,
-					handoff.status(),
-					handoff.gatewaySentAt(),
-					handoff.consumedAt(),
-					handoff.consumedServerId(),
-					handoff.ackedAt(),
-					handoff.ackedByServerId(),
-					handoff.rollbackRequestId(),
-					"APPLIED",
-					now,
-					handoff.recoveryState(),
-					handoff.preparedTransferState(),
-					handoff.preparedTransferClearedAt(),
-					now,
-					handoff.failureReason()
-			);
-		} catch (Exception exception) {
-			logger.warning("回滚跨服传送快照失败: requestId=" + handoff.requestId() + " player=" + playerId + " event=" + eventType + " -> " + exception.getMessage());
-			return handoff;
-		}
-	}
-
-	private void saveRollbackSnapshot(Player player, String requestId) throws Exception {
+	private void saveRollbackSnapshot(Player player) throws Exception {
 		api.savePlayerData(player.getUniqueId(), ROLLBACK_INVENTORY_NAMESPACE, inventorySyncService.captureInventoryPayload(player));
 		api.savePlayerData(player.getUniqueId(), ROLLBACK_ENDER_CHEST_NAMESPACE, inventorySyncService.captureEnderChestPayload(player));
 		api.savePlayerData(player.getUniqueId(), ROLLBACK_PLAYER_STATE_NAMESPACE, playerStateSyncService.captureStatePayload(player));
-		logger.info("已保存跨服回滚快照: requestId=" + requestId + " player=" + player.getUniqueId());
 	}
 
-	private void clearRollbackSnapshotsAsync(UUID playerId) {
-		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-			try {
-				api.savePlayerData(playerId, ROLLBACK_INVENTORY_NAMESPACE, "");
-				api.savePlayerData(playerId, ROLLBACK_ENDER_CHEST_NAMESPACE, "");
-				api.savePlayerData(playerId, ROLLBACK_PLAYER_STATE_NAMESPACE, "");
-			} catch (Exception exception) {
-				logger.warning("清理跨服回滚快照失败: player=" + playerId + " -> " + exception.getMessage());
-			}
+	private boolean hasRollbackSnapshot(UUID playerId) throws Exception {
+		return api.loadPlayerData(playerId, ROLLBACK_INVENTORY_NAMESPACE).isPresent()
+				|| api.loadPlayerData(playerId, ROLLBACK_ENDER_CHEST_NAMESPACE).isPresent()
+				|| api.loadPlayerData(playerId, ROLLBACK_PLAYER_STATE_NAMESPACE).isPresent();
+	}
+
+	private void restoreRollbackSnapshots(UUID playerId, Player player) throws Exception {
+		Optional<PlayerSnapshot> inventorySnapshot = api.loadPlayerData(playerId, ROLLBACK_INVENTORY_NAMESPACE);
+		Optional<PlayerSnapshot> enderChestSnapshot = api.loadPlayerData(playerId, ROLLBACK_ENDER_CHEST_NAMESPACE);
+		Optional<PlayerSnapshot> stateSnapshot = api.loadPlayerData(playerId, ROLLBACK_PLAYER_STATE_NAMESPACE);
+		plugin.getServer().getScheduler().runTask(plugin, () -> {
+			inventorySyncService.applyPayloads(player,
+					inventorySnapshot.map(PlayerSnapshot::payload).orElse(null),
+					enderChestSnapshot.map(PlayerSnapshot::payload).orElse(null));
+			playerStateSyncService.applyPayload(player, stateSnapshot.map(PlayerSnapshot::payload).orElse(null));
 		});
 	}
 
-	private TeleportHandoff transitionHandoff(
-			TeleportHandoff handoff,
-			TeleportHandoffStatus status,
-			Instant gatewaySentAt,
-			Instant consumedAt,
-			String consumedServerId,
-			Instant ackedAt,
-			String ackedByServerId,
-			String rollbackRequestId,
-			String rollbackState,
-			Instant rolledBackAt,
-			String recoveryState,
-			String preparedTransferState,
-			Instant preparedTransferClearedAt,
-			Instant lastUpdatedAt,
-			String failureReason
-	) {
-		return new TeleportHandoff(
+	private void clearRollbackSnapshots(UUID playerId) throws Exception {
+		storageProvider.deletePlayerData(playerId, ROLLBACK_INVENTORY_NAMESPACE);
+		storageProvider.deletePlayerData(playerId, ROLLBACK_ENDER_CHEST_NAMESPACE);
+		storageProvider.deletePlayerData(playerId, ROLLBACK_PLAYER_STATE_NAMESPACE);
+		lastTeleportTime.remove(playerId);
+	}
+
+	private void saveHandoffSync(UUID playerId, String playerName, TeleportHandoff handoff, String eventType, String detail) throws Exception {
+		api.savePlayerData(playerId, NAMESPACE, TeleportCodec.encode(handoff));
+		storageProvider.appendTransferHistory(
+				handoff.requestId(),
+				playerId,
+				playerName,
+				handoff.sourceServerId(),
+				handoff.targetServerId(),
+				eventType,
+				handoff.status(),
+				detail
+		);
+	}
+
+	private void markFailed(UUID playerId, String playerName, TeleportHandoff handoff, String reason, boolean clearPreparedTransfer, String historyStatus) throws Exception {
+		Instant failedAt = Instant.now();
+		TeleportHandoff failed = new TeleportHandoff(
 				handoff.requestId(),
 				handoff.playerId(),
 				handoff.createdAt(),
@@ -606,57 +485,38 @@ public final class CrossServerTeleportService {
 				handoff.cause(),
 				handoff.causeRef(),
 				handoff.sessionTransferToken(),
-				status,
-				gatewaySentAt,
-				consumedAt,
-				consumedServerId,
-				ackedAt,
-				ackedByServerId,
-				rollbackRequestId,
-				rollbackState,
-				rolledBackAt,
-				recoveryState,
-				preparedTransferState,
-				preparedTransferClearedAt,
-				lastUpdatedAt,
-				failureReason
+				TeleportHandoffStatus.FAILED,
+				handoff.gatewaySentAt(),
+				handoff.consumedAt(),
+				handoff.consumedServerId(),
+				handoff.ackedAt(),
+				handoff.ackedByServerId(),
+				handoff.rollbackRequestId(),
+				"PENDING",
+				null,
+				handoff.recoveryState(),
+				clearPreparedTransfer ? "CLEARED" : handoff.preparedTransferState(),
+				clearPreparedTransfer ? failedAt : handoff.preparedTransferClearedAt(),
+				failedAt,
+				reason
 		);
-	}
-
-	private void saveHandoffSync(UUID playerId, String playerName, TeleportHandoff handoff, String eventType, String detail) {
-		try {
-			api.savePlayerData(playerId, NAMESPACE, TeleportCodec.encode(handoff));
-			storageProvider.appendTransferHistory(
-					handoff.requestId(),
-					playerId,
-					playerName,
-					handoff.sourceServerId(),
-					handoff.targetServerId(),
-					eventType,
-					handoff.status(),
-					detail
-			);
-		} catch (Exception exception) {
-			logger.warning("保存跨服传送 handoff 失败: requestId=" + handoff.requestId() + " player=" + playerId + " -> " + exception.getMessage());
-			throw new IllegalStateException("保存跨服传送 handoff 失败", exception);
+		saveHandoffSync(playerId, playerName, failed, historyStatus, reason);
+		if (clearPreparedTransfer) {
+			api.sessionService().clearPreparedTransfer(playerId);
 		}
+		markRollbackPending(playerId, playerName, failed, historyStatus, reason);
 	}
 
-	private void saveHandoff(UUID playerId, String playerName, TeleportHandoff handoff, String eventType, String detail) {
-		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-			try {
-				saveHandoffSync(playerId, playerName, handoff, eventType, detail);
-			} catch (IllegalStateException ignored) {
-				// 已在同步保存方法中记录日志
-			}
-		});
-	}
-
-	private void flushPlayerData(Player player) {
-		inventorySyncService.savePlayerData(player);
-		playerStateSyncService.savePlayerState(player);
-		if (homesSyncService != null) {
-			homesSyncService.savePlayerHomes(player);
-		}
+	private void markRollbackPending(UUID playerId, String playerName, TeleportHandoff handoff, String historyStatus, String detail) throws Exception {
+		storageProvider.appendTransferHistory(
+				handoff.requestId(),
+				playerId,
+				playerName,
+				handoff.sourceServerId(),
+				handoff.targetServerId(),
+				historyStatus + ".rollback",
+				handoff.status(),
+				detail
+		);
 	}
 }

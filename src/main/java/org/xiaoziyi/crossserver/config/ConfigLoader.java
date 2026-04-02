@@ -59,6 +59,16 @@ public final class ConfigLoader {
 								requireText(config.getString("teleport.gateway.connect-subchannel", "Connect").trim(), "teleport.gateway.connect-subchannel"),
 								readServerMap(config.getConfigurationSection("teleport.gateway.server-map"))
 						)
+				),
+				new PluginConfiguration.ModuleSettings(
+						config.getBoolean("modules.auth", true),
+						config.getBoolean("modules.homes", true),
+						config.getBoolean("modules.warps", true),
+						config.getBoolean("modules.tpa", true),
+						config.getBoolean("modules.route-config", true),
+						config.getBoolean("modules.transfer-admin", true),
+						config.getBoolean("modules.economy-bridge", true),
+						config.getBoolean("modules.permissions", false)
 				)
 		);
 	}

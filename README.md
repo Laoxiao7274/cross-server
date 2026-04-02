@@ -11,10 +11,12 @@
 - **跨服家园** — `/sethome` 设的家在任意子服都能 `/home` 回去，自动跨服传送
 - **全局 Warp** — `/warp` 命令 + GUI 菜单，支持同服直传与跨服 handoff
 - **跨服 TPA** — `/tpa` `/tpahere` `/tpaccept`，支持对其他子服在线玩家发起请求
-- **玩家状态同步** — 血量、饥饿、经验、等级，切服不重置
+- **玩家状态同步** — 血量、饥饿、经验、等级、游戏模式，切服不重置
+- **权限同步模块** — 可选同步 `crossserver.*` 权限节点，支持集群统一开关
 - **登录认证** — 注册/登录/改密，跨服免重登 Ticket 机制（5 分钟内切服无需重新登录）
 - **跨服传送保护** — 停服保护、失败回滚、状态修复，减少卡传送与丢状态
-- **节点监控** — 集群节点心跳，在线/离线状态一目了然
+- **模块开关 + 共享配置中心** — 主要功能支持本地默认 + 集群共享覆盖，统一管理后通过 `/crossserver reload` 生效
+- **共享路由 + 共享模块配置** — 路由表和模块开关可集中存储到集群配置中心，避免每台子服重复改配置
 - **热重载** — `/crossserver reload` 不重启服务器即可生效
 - **开放 API** — 其他插件可直接接入，注册命名空间、读写数据、监听同步事件
 
@@ -74,7 +76,7 @@ redis-cli ping
 
 ### 第五步：配置插件
 
-启动服务器后会生成 `plugins/cross-server/config.yml`，按以下说明修改：
+启动服务器后会生成 `plugins/cross-server/config.yml`。这份文件仍然是**每台子服的本地默认配置**，但其中的模块开关和共享路由支持通过集群配置中心统一覆盖。建议把数据库、Redis、`server.id` 这类节点差异配置保留在本地，把功能开关和路由交给共享配置中心统一管理。
 
 ```yaml
 server:
@@ -112,11 +114,23 @@ teleport:
     server-map:
       server-1: "server-1"
       server-2: "server-2"
+
+modules:
+  auth: true
+  homes: true
+  warps: true
+  tpa: true
+  route-config: true
+  transfer-admin: true
+  economy-bridge: true
+  permissions: false
 ```
 
-### 第六步：重启服务器
+### 第六步：重载或重启服务器
 
 配置完成后重启所有子服，插件会自动建表并开始工作。可以使用 `/crossserver status` 确认插件状态，`/crossserver nodes` 确认各节点是否在线。
+
+如果你已经通过 `/crossserver modules ...` 或 `/crossserver route ...` 修改了共享配置，也可以直接在各节点执行 `/crossserver reload` 让当前节点立即应用最新共享配置。
 
 ## 命令列表
 
@@ -159,6 +173,9 @@ teleport:
 | `/crossserver route menu` | 打开路由配置 GUI |
 | `/crossserver route set <key> <value>` | 设置路由 |
 | `/crossserver route remove <key>` | 删除路由 |
+| `/crossserver modules list` | 查看模块本地默认、共享覆盖与最终有效值 |
+| `/crossserver modules set <module> <true|false>` | 设置共享模块开关覆盖 |
+| `/crossserver modules clear <module>` | 清除共享模块覆盖 |
 | `/economy set <玩家> <金额>` | 设置余额 |
 | `/economy deposit <玩家> <金额>` | 增加余额 |
 | `/economy withdraw <玩家> <金额>` | 扣除余额 |
@@ -176,6 +193,7 @@ teleport:
 | `crossserver.tpa.use` | 所有玩家 | `/tpa` `/tpaccept` `/tpdeny` `/tpcancel` |
 | `crossserver.tpa.here` | 所有玩家 | `/tpahere` |
 | `crossserver.auth.*` | 所有玩家 | 登录/注册/改密 |
+| `crossserver.auth.admin` | OP | 认证管理命令 |
 | `crossserver.economy.balance` | OP | 查看余额 |
 | `crossserver.economy.set` | OP | 设置余额 |
 | `crossserver.economy.deposit` | OP | 增加余额 |
@@ -185,6 +203,7 @@ teleport:
 | `crossserver.nodes.view` | OP | 查看节点 |
 | `crossserver.transfer.*` | OP | 传送管理 |
 | `crossserver.route.*` | OP | 路由管理 |
+| `crossserver.modules.*` | OP | 共享模块配置管理 |
 | `crossserver.reload` | OP | 热重载 |
 
 ## 稳定性说明
@@ -193,6 +212,7 @@ teleport:
 - 插件关闭时会收口正在进行中的 handoff，避免遗留 prepared session
 - Warp 与 TPA 的跨服分支都复用同一条 handoff 主链路
 - TPA 请求支持聊天消息、Title、ActionBar 与音效反馈
+- 旧版 `player-state` 与共享模块配置快照会自动兼容新增字段
 
 ## 常见问题
 
@@ -203,47 +223,3 @@ teleport:
 - MySQL 没启动
 - 防火墙阻止了连接
 - 数据库名 `cross_server` 不存在（需要先手动 `CREATE DATABASE`）
-
-### 插件报错 `Connection refused`（连不上 Redis）
-
-如果 `messaging.enabled: true` 但 Redis 没装或没启动，会报此错误。
-- 如果你不需要跨服广播，直接改成 `messaging.enabled: false`
-- 如果需要，先启动 Redis 并确认 `redis-cli ping` 返回 PONG
-
-### 跨服传送卡住了
-
-使用 `/crossserver transfer clear <玩家名>` 清理卡住的传送记录，然后让玩家重新尝试。
-
-### TPA 请求没反应
-
-检查：
-- 目标玩家是否真的在线
-- `teleport.handoff-seconds` 是否过短，导致请求很快过期
-- Redis 未开启时，各服对请求状态更新的感知会更慢
-
-### Warp 菜单是空的
-
-确认至少执行过一次 `/setwarp <name>`，并且你拥有 `crossserver.warps.list` 权限。
-
-### 家园菜单是空的
-
-家园数据按玩家 UUID 存储，如果刚安装插件，需要玩家先 `/sethome` 设置家园。
-
-### 经济命令不生效
-
-经济功能依赖 Vault，确保服务器安装了 [Vault](https://www.spigotmc.org/resources/vault.34315/) 插件。
-
-## 其他插件开发者接入
-
-通过 Bukkit ServicesManager 获取 API 实例：
-
-```java
-import org.xiaoziyi.crossserver.api.CrossServerApi;
-import org.bukkit.Bukkit;
-
-CrossServerApi api = Bukkit.getServicesManager().load(CrossServerApi.class);
-
-api.registerNamespace("my-plugin");
-api.savePlayerData(player.getUniqueId(), "my-plugin", "{\"level\": 5}");
-api.saveGlobalData("my-plugin", "config", "{\"enabled\": true}");
-```

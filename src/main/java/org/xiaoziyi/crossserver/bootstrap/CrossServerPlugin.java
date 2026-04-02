@@ -17,6 +17,7 @@ import org.xiaoziyi.crossserver.command.WarpCommand;
 import org.xiaoziyi.crossserver.config.ConfigLoader;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
+import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
 import org.xiaoziyi.crossserver.economy.EconomyService;
 import org.xiaoziyi.crossserver.economy.EconomyServiceImpl;
 import org.xiaoziyi.crossserver.economy.VaultEconomyProvider;
@@ -30,6 +31,8 @@ import org.xiaoziyi.crossserver.messaging.NoopMessagingProvider;
 import org.xiaoziyi.crossserver.messaging.RedisMessagingProvider;
 import org.xiaoziyi.crossserver.node.NodeIdentityGuardService;
 import org.xiaoziyi.crossserver.node.NodeStatusService;
+import org.xiaoziyi.crossserver.permission.NoopPermissionSyncAdapter;
+import org.xiaoziyi.crossserver.permission.PlayerPermissionSyncService;
 import org.xiaoziyi.crossserver.player.PlayerLocationService;
 import org.xiaoziyi.crossserver.playerstate.PlayerStateSyncService;
 import org.xiaoziyi.crossserver.session.SessionService;
@@ -41,8 +44,8 @@ import org.xiaoziyi.crossserver.teleport.CrossServerTeleportService;
 import org.xiaoziyi.crossserver.teleport.ProxyPluginMessageServerTransferGateway;
 import org.xiaoziyi.crossserver.teleport.ServerTransferGateway;
 import org.xiaoziyi.crossserver.teleport.TeleportArrivalListener;
-import org.xiaoziyi.crossserver.teleport.TransferAdminService;
 import org.xiaoziyi.crossserver.teleport.TeleportRequestService;
+import org.xiaoziyi.crossserver.teleport.TransferAdminService;
 import org.xiaoziyi.crossserver.teleport.UnsupportedServerTransferGateway;
 import org.xiaoziyi.crossserver.ui.HomesMenuService;
 import org.xiaoziyi.crossserver.ui.MenuListener;
@@ -56,6 +59,7 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class CrossServerPlugin extends JavaPlugin {
+	private PluginConfiguration localConfiguration;
 	private PluginConfiguration configuration;
 	private StorageProvider storageProvider;
 	private MessagingProvider messagingProvider;
@@ -66,6 +70,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private NodeStatusService nodeStatusService;
 	private PlayerInventorySyncService inventorySyncService;
 	private PlayerStateSyncService playerStateSyncService;
+	private PlayerPermissionSyncService playerPermissionSyncService;
 	private PlayerLocationService playerLocationService;
 	private HomesSyncService homesSyncService;
 	private AuthService authService;
@@ -73,6 +78,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private TeleportRequestService teleportRequestService;
 	private TransferAdminService transferAdminService;
 	private RouteTableService routeTableService;
+	private SharedModuleConfigService sharedModuleConfigService;
 	private WarpService warpService;
 	private HomesMenuService homesMenuService;
 	private WarpMenuService warpMenuService;
@@ -119,6 +125,14 @@ public final class CrossServerPlugin extends JavaPlugin {
 		return routeTableService;
 	}
 
+	public SharedModuleConfigService getSharedModuleConfigService() {
+		return sharedModuleConfigService;
+	}
+
+	public PluginConfiguration getLocalConfiguration() {
+		return localConfiguration;
+	}
+
 	public RouteConfigMenuService getRouteConfigMenuService() {
 		return routeConfigMenuService;
 	}
@@ -137,6 +151,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 
 	private void initializePlugin() throws Exception {
 		PluginConfiguration baseConfiguration = new ConfigLoader().load(this);
+		this.localConfiguration = baseConfiguration;
 		this.configuration = baseConfiguration;
 		this.storageProvider = new SqlStorageProvider(getLogger(), baseConfiguration.database());
 		this.storageProvider.start();
@@ -156,6 +171,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		namespaceRegistry.registerNamespace(PlayerInventorySyncService.INVENTORY_NAMESPACE);
 		namespaceRegistry.registerNamespace(PlayerInventorySyncService.ENDER_CHEST_NAMESPACE);
 		namespaceRegistry.registerNamespace(PlayerStateSyncService.NAMESPACE);
+		namespaceRegistry.registerNamespace(PlayerPermissionSyncService.NAMESPACE);
 		namespaceRegistry.registerNamespace(CrossServerTeleportService.NAMESPACE);
 		namespaceRegistry.registerNamespace(CrossServerTeleportService.ROLLBACK_INVENTORY_NAMESPACE);
 		namespaceRegistry.registerNamespace(CrossServerTeleportService.ROLLBACK_ENDER_CHEST_NAMESPACE);
@@ -168,15 +184,22 @@ public final class CrossServerPlugin extends JavaPlugin {
 		this.economyService = new EconomyServiceImpl(getLogger(), syncService, storageProvider);
 		this.api = new CrossServerApi(syncService, namespaceRegistry, sessionService, economyService);
 		this.routeTableService = new RouteTableService(getLogger(), api, baseConfiguration.server());
-		this.configuration = routeTableService.mergeInto(baseConfiguration);
+		this.sharedModuleConfigService = new SharedModuleConfigService(getLogger(), api, baseConfiguration.server());
+		this.configuration = sharedModuleConfigService.mergeInto(routeTableService.mergeInto(baseConfiguration));
 		if (!reloading.get()) {
 			new NodeIdentityGuardService(storageProvider, configuration.server(), configuration.node()).assertStartupAllowed();
 		}
 		this.nodeStatusService = new NodeStatusService(getLogger(), storageProvider, configuration.server(), configuration.node());
 		this.inventorySyncService = new PlayerInventorySyncService(this, getLogger(), api);
 		this.playerStateSyncService = new PlayerStateSyncService(this, getLogger(), api);
+		if (configuration.modules().permissions()) {
+			this.playerPermissionSyncService = new PlayerPermissionSyncService(this, getLogger(), api, new NoopPermissionSyncAdapter(this));
+			getLogger().info("权限同步模块已启用，当前适配器: " + playerPermissionSyncService.adapterName());
+		}
 		this.playerLocationService = new PlayerLocationService(this, getLogger(), api, configuration.server().id());
-		this.authService = new AuthService(this, getLogger(), api, configuration.server().id());
+		if (configuration.modules().auth()) {
+			this.authService = new AuthService(this, getLogger(), api, configuration.server().id());
+		}
 		this.transferGateway = createTransferGateway();
 		registerTransferGatewayChannels();
 		this.teleportService = new CrossServerTeleportService(
@@ -186,6 +209,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 				authService,
 				inventorySyncService,
 				playerStateSyncService,
+				playerPermissionSyncService,
 				storageProvider,
 				null,
 				transferGateway,
@@ -193,19 +217,33 @@ public final class CrossServerPlugin extends JavaPlugin {
 				Duration.ofSeconds(configuration.teleport().handoffSeconds()),
 				configuration.teleport().cooldownSeconds()
 		);
-		this.teleportRequestService = new TeleportRequestService(api, getLogger(), configuration.teleport().handoffSeconds());
-		this.homesSyncService = new HomesSyncService(this, getLogger(), api, configuration.server().id(), teleportService);
-		this.warpService = new WarpService(this, getLogger(), api, configuration.server().id(), teleportService);
-		teleportService.bindHomesSyncService(homesSyncService);
-		this.transferAdminService = new TransferAdminService(api, storageProvider, sessionService);
-		this.homesMenuService = new HomesMenuService(this, homesSyncService);
-		this.warpMenuService = new WarpMenuService(this, warpService);
-		this.routeEditSessionService = new RouteEditSessionService(this, routeTableService, configuration);
-		this.transferAdminMenuService = new TransferAdminMenuService(this, transferAdminService);
-		this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
-		api.attachTransferAdminService(transferAdminService);
+		if (configuration.modules().tpa()) {
+			this.teleportRequestService = new TeleportRequestService(api, getLogger(), configuration.teleport().handoffSeconds());
+		}
+		if (configuration.modules().homes()) {
+			this.homesSyncService = new HomesSyncService(this, getLogger(), api, configuration.server().id(), teleportService);
+			teleportService.bindHomesSyncService(homesSyncService);
+			this.homesMenuService = new HomesMenuService(this, homesSyncService);
+		}
+		if (configuration.modules().warps()) {
+			this.warpService = new WarpService(this, getLogger(), api, configuration.server().id(), teleportService);
+			this.warpMenuService = new WarpMenuService(this, warpService);
+		}
+		if (configuration.modules().transferAdmin() || configuration.modules().tpa()) {
+			this.transferAdminService = new TransferAdminService(api, storageProvider, sessionService);
+			api.attachTransferAdminService(transferAdminService);
+		}
+		if (configuration.modules().transferAdmin()) {
+			this.transferAdminMenuService = new TransferAdminMenuService(this, transferAdminService);
+		}
+		if (configuration.modules().routeConfig()) {
+			this.routeEditSessionService = new RouteEditSessionService(this, routeTableService, configuration);
+			this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
+		}
 		api.attachTeleportApiFacade((player, target, causeRef) -> teleportService.requestTeleport(player, target, org.xiaoziyi.crossserver.teleport.TeleportCause.HOME, causeRef));
-		api.attachAuthService(authService);
+		if (authService != null) {
+			api.attachAuthService(authService);
+		}
 		this.messagingProvider.registerListener(message -> {
 			if ("session".equalsIgnoreCase(message.namespace())) {
 				sessionService.handleIncomingMessage(message);
@@ -213,14 +251,22 @@ public final class CrossServerPlugin extends JavaPlugin {
 			}
 			syncService.handleIncomingMessage(message);
 		});
-		this.playerSessionListener = new PlayerSessionListener(this, sessionService, storageProvider, inventorySyncService, playerStateSyncService, homesSyncService, teleportService, playerLocationService, configuration.session().kickMessage());
-		this.authListener = new AuthListener(this, authService);
+		this.playerSessionListener = new PlayerSessionListener(this, sessionService, storageProvider, inventorySyncService, playerStateSyncService, playerPermissionSyncService, homesSyncService, teleportService, playerLocationService, configuration.session().kickMessage());
+		if (authService != null) {
+			this.authListener = new AuthListener(this, authService);
+		}
 		this.teleportArrivalListener = new TeleportArrivalListener(this, teleportService, configuration.teleport().arrivalCheckDelayTicks());
 		Bukkit.getPluginManager().registerEvents(playerSessionListener, this);
-		Bukkit.getPluginManager().registerEvents(authListener, this);
+		if (authListener != null) {
+			Bukkit.getPluginManager().registerEvents(authListener, this);
+		}
 		Bukkit.getPluginManager().registerEvents(teleportArrivalListener, this);
-		Bukkit.getPluginManager().registerEvents(new RouteChatInputListener(routeEditSessionService), this);
-		Bukkit.getPluginManager().registerEvents(new MenuListener(homesMenuService, warpMenuService, transferAdminMenuService, routeConfigMenuService), this);
+		if (routeEditSessionService != null) {
+			Bukkit.getPluginManager().registerEvents(new RouteChatInputListener(routeEditSessionService), this);
+		}
+		if (homesMenuService != null || warpMenuService != null || transferAdminMenuService != null || routeConfigMenuService != null) {
+			Bukkit.getPluginManager().registerEvents(new MenuListener(homesMenuService, warpMenuService, transferAdminMenuService, routeConfigMenuService), this);
+		}
 		Bukkit.getServicesManager().register(CrossServerApi.class, api, this, ServicePriority.Normal);
 		registerVaultProvider();
 		registerCommand();
@@ -268,6 +314,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 		if (playerStateSyncService != null) {
 			Bukkit.getOnlinePlayers().forEach(playerStateSyncService::savePlayerState);
 		}
+		if (playerPermissionSyncService != null) {
+			Bukkit.getOnlinePlayers().forEach(playerPermissionSyncService::savePermissions);
+			Bukkit.getOnlinePlayers().forEach(playerPermissionSyncService::clearPermissions);
+		}
 		if (homesSyncService != null) {
 			Bukkit.getOnlinePlayers().forEach(player -> {
 				homesSyncService.savePlayerHomes(player);
@@ -303,6 +353,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		nodeStatusService = null;
 		inventorySyncService = null;
 		playerStateSyncService = null;
+		playerPermissionSyncService = null;
 		playerLocationService = null;
 		homesSyncService = null;
 		authService = null;
@@ -317,6 +368,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 		routeEditSessionService = null;
 		transferGateway = null;
 		api = null;
+		localConfiguration = null;
+		configuration = null;
+		routeTableService = null;
+		sharedModuleConfigService = null;
 	}
 
 	private void registerCommand() {
@@ -332,48 +387,56 @@ public final class CrossServerPlugin extends JavaPlugin {
 			economyCommand.setExecutor(executor);
 			economyCommand.setTabCompleter(executor);
 		}
-		PluginCommand homeCommand = getCommand("home");
-		PluginCommand homesCommand = getCommand("homes");
-		PluginCommand setHomeCommand = getCommand("sethome");
-		PluginCommand delHomeCommand = getCommand("delhome");
-		PluginCommand setDefaultHomeCommand = getCommand("setdefaulthome");
-		HomesCommand homesExecutor = new HomesCommand(homesSyncService, homesMenuService);
-		if (homeCommand != null) {
-			homeCommand.setExecutor(homesExecutor);
-			homeCommand.setTabCompleter(homesExecutor);
+		if (configuration.modules().homes() && homesSyncService != null && homesMenuService != null) {
+			PluginCommand homeCommand = getCommand("home");
+			PluginCommand homesCommand = getCommand("homes");
+			PluginCommand setHomeCommand = getCommand("sethome");
+			PluginCommand delHomeCommand = getCommand("delhome");
+			PluginCommand setDefaultHomeCommand = getCommand("setdefaulthome");
+			HomesCommand homesExecutor = new HomesCommand(homesSyncService, homesMenuService);
+			if (homeCommand != null) {
+				homeCommand.setExecutor(homesExecutor);
+				homeCommand.setTabCompleter(homesExecutor);
+			}
+			if (homesCommand != null) {
+				homesCommand.setExecutor(homesExecutor);
+				homesCommand.setTabCompleter(homesExecutor);
+			}
+			if (setHomeCommand != null) {
+				setHomeCommand.setExecutor(homesExecutor);
+				setHomeCommand.setTabCompleter(homesExecutor);
+			}
+			if (delHomeCommand != null) {
+				delHomeCommand.setExecutor(homesExecutor);
+				delHomeCommand.setTabCompleter(homesExecutor);
+			}
+			if (setDefaultHomeCommand != null) {
+				setDefaultHomeCommand.setExecutor(homesExecutor);
+				setDefaultHomeCommand.setTabCompleter(homesExecutor);
+			}
 		}
-		if (homesCommand != null) {
-			homesCommand.setExecutor(homesExecutor);
-			homesCommand.setTabCompleter(homesExecutor);
+		if (configuration.modules().auth() && authService != null) {
+			AuthCommand authExecutor = new AuthCommand(authService);
+			registerSimpleCommand("login", authExecutor);
+			registerSimpleCommand("l", authExecutor);
+			registerSimpleCommand("register", authExecutor);
+			registerSimpleCommand("reg", authExecutor);
+			registerSimpleCommand("changepassword", authExecutor);
 		}
-		if (setHomeCommand != null) {
-			setHomeCommand.setExecutor(homesExecutor);
-			setHomeCommand.setTabCompleter(homesExecutor);
+		if (configuration.modules().tpa() && transferAdminService != null && teleportRequestService != null && playerLocationService != null) {
+			TpaCommand tpaExecutor = new TpaCommand(this, api, transferAdminService, teleportRequestService, playerLocationService);
+			registerSimpleCommand("tpa", tpaExecutor);
+			registerSimpleCommand("tpahere", tpaExecutor);
+			registerSimpleCommand("tpaccept", tpaExecutor);
+			registerSimpleCommand("tpdeny", tpaExecutor);
+			registerSimpleCommand("tpcancel", tpaExecutor);
 		}
-		if (delHomeCommand != null) {
-			delHomeCommand.setExecutor(homesExecutor);
-			delHomeCommand.setTabCompleter(homesExecutor);
+		if (configuration.modules().warps() && warpService != null && warpMenuService != null) {
+			WarpCommand warpExecutor = new WarpCommand(warpService, warpMenuService);
+			registerSimpleCommand("warp", warpExecutor);
+			registerSimpleCommand("setwarp", warpExecutor);
+			registerSimpleCommand("delwarp", warpExecutor);
 		}
-		if (setDefaultHomeCommand != null) {
-			setDefaultHomeCommand.setExecutor(homesExecutor);
-			setDefaultHomeCommand.setTabCompleter(homesExecutor);
-		}
-		AuthCommand authExecutor = new AuthCommand(authService);
-		registerSimpleCommand("login", authExecutor);
-		registerSimpleCommand("l", authExecutor);
-		registerSimpleCommand("register", authExecutor);
-		registerSimpleCommand("reg", authExecutor);
-		registerSimpleCommand("changepassword", authExecutor);
-		TpaCommand tpaExecutor = new TpaCommand(this, api, transferAdminService, teleportRequestService, playerLocationService);
-		registerSimpleCommand("tpa", tpaExecutor);
-		registerSimpleCommand("tpahere", tpaExecutor);
-		registerSimpleCommand("tpaccept", tpaExecutor);
-		registerSimpleCommand("tpdeny", tpaExecutor);
-		registerSimpleCommand("tpcancel", tpaExecutor);
-		WarpCommand warpExecutor = new WarpCommand(warpService, warpMenuService);
-		registerSimpleCommand("warp", warpExecutor);
-		registerSimpleCommand("setwarp", warpExecutor);
-		registerSimpleCommand("delwarp", warpExecutor);
 	}
 
 	private void registerSimpleCommand(String name, org.bukkit.command.TabExecutor executor) {
@@ -386,6 +449,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 	}
 
 	private void registerVaultProvider() {
+		if (!configuration.modules().economyBridge()) {
+			getLogger().info("经济桥接模块已关闭，跳过 Vault 注册");
+			return;
+		}
 		Bukkit.getScheduler().runTask(this, () -> {
 			if (Bukkit.getPluginManager().getPlugin("Vault") == null) {
 				getLogger().info("未检测到 Vault，跳过经济桥接注册");
@@ -416,6 +483,9 @@ public final class CrossServerPlugin extends JavaPlugin {
 			Bukkit.getOnlinePlayers().forEach(player -> {
 				inventorySyncService.savePlayerData(player);
 				playerStateSyncService.savePlayerState(player);
+				if (playerPermissionSyncService != null) {
+					playerPermissionSyncService.savePermissions(player);
+				}
 			});
 		}, period, period);
 	}

@@ -8,7 +8,8 @@ public record PluginConfiguration(
 		MessagingSettings messaging,
 		SessionSettings session,
 		NodeSettings node,
-		TeleportSettings teleport
+		TeleportSettings teleport,
+		ModuleSettings modules
 ) {
 	public PluginConfiguration withTeleportGatewayServerMap(Map<String, String> serverMap) {
 		return new PluginConfiguration(
@@ -27,7 +28,20 @@ public record PluginConfiguration(
 								teleport.gateway().connectSubchannel(),
 								Map.copyOf(serverMap)
 						)
-				)
+				),
+				modules
+		);
+	}
+
+	public PluginConfiguration withModules(ModuleSettings modules) {
+		return new PluginConfiguration(
+				server,
+				database,
+				messaging,
+				session,
+				node,
+				teleport,
+				modules
 		);
 	}
 	public record ServerSettings(
@@ -69,7 +83,7 @@ public record PluginConfiguration(
 			int arrivalCheckDelayTicks,
 			int cooldownSeconds,
 			GatewaySettings gateway
-		) {
+	) {
 		public record GatewaySettings(
 				String type,
 				String pluginMessageChannel,
@@ -77,5 +91,17 @@ public record PluginConfiguration(
 				Map<String, String> serverMap
 		) {
 		}
+	}
+
+	public record ModuleSettings(
+			boolean auth,
+			boolean homes,
+			boolean warps,
+			boolean tpa,
+			boolean routeConfig,
+			boolean transferAdmin,
+			boolean economyBridge,
+			boolean permissions
+	) {
 	}
 }

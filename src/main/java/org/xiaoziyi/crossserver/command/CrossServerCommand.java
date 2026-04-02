@@ -4,12 +4,13 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.xiaoziyi.crossserver.bootstrap.CrossServerPlugin;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
+import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
+import org.xiaoziyi.crossserver.config.SharedModuleConfigSnapshot;
 import org.xiaoziyi.crossserver.model.NodeStatusRecord;
 import org.xiaoziyi.crossserver.node.NodeStatusService;
 import org.xiaoziyi.crossserver.session.SessionService;
@@ -44,6 +45,8 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 	private static final String AUTH_ADMIN_PERMISSION = "crossserver.auth.admin";
 	private static final String ROUTE_VIEW_PERMISSION = "crossserver.route.view";
 	private static final String ROUTE_EDIT_PERMISSION = "crossserver.route.edit";
+	private static final String MODULE_VIEW_PERMISSION = "crossserver.modules.view";
+	private static final String MODULE_EDIT_PERMISSION = "crossserver.modules.edit";
 	private static final String RELOAD_PERMISSION = "crossserver.reload";
 
 	private final CrossServerPlugin plugin;
@@ -117,6 +120,9 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		}
 		if ("route".equalsIgnoreCase(args[0]) || "routes".equalsIgnoreCase(args[0])) {
 			return handleRouteCommand(sender, label, args);
+		}
+		if ("modules".equalsIgnoreCase(args[0])) {
+			return handleModulesCommand(sender, label, args);
 		}
 		if ("nodes".equalsIgnoreCase(args[0])) {
 			if (!sender.hasPermission(NODES_PERMISSION)) {
@@ -231,6 +237,9 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 				result.add("route");
 				result.add("routes");
 			}
+			if (sender.hasPermission(MODULE_VIEW_PERMISSION) || sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+				result.add("modules");
+			}
 			if (sender.hasPermission(RELOAD_PERMISSION)) {
 				result.add("reload");
 			}
@@ -253,6 +262,23 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 				result.add("remove");
 			}
 			return result;
+		}
+		if ("modules".equalsIgnoreCase(args[0]) && args.length == 2) {
+			List<String> result = new ArrayList<>();
+			if (sender.hasPermission(MODULE_VIEW_PERMISSION)) {
+				result.add("list");
+			}
+			if (sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+				result.add("set");
+				result.add("clear");
+			}
+			return result;
+		}
+		if ("modules".equalsIgnoreCase(args[0]) && args.length == 3) {
+			return List.of("auth", "homes", "warps", "tpa", "route-config", "transfer-admin", "economy-bridge", "permissions");
+		}
+		if ("modules".equalsIgnoreCase(args[0]) && args.length == 4 && "set".equalsIgnoreCase(args[1])) {
+			return List.of("true", "false");
 		}
 		return List.of();
 	}
@@ -292,7 +318,11 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 				sender.sendMessage("§c你没有权限打开路由菜单。");
 				return true;
 			}
-			if (!(sender instanceof Player player)) {
+			if (routeConfigMenuService == null) {
+				sender.sendMessage("§c路由管理模块当前已关闭。");
+				return true;
+			}
+			if (!(sender instanceof org.bukkit.entity.Player player)) {
 				sender.sendMessage("§c该命令只能由玩家执行。");
 				return true;
 			}
@@ -343,9 +373,90 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		return true;
 	}
 
+	private boolean handleModulesCommand(CommandSender sender, String label, String[] args) {
+		if (args.length < 2 || "help".equalsIgnoreCase(args[1])) {
+			sendModulesHelp(sender, label);
+			return true;
+		}
+		SharedModuleConfigService moduleService = plugin.getSharedModuleConfigService();
+		if (moduleService == null) {
+			sender.sendMessage("§c共享模块配置服务尚未初始化。");
+			return true;
+		}
+		String action = args[1];
+		if ("list".equalsIgnoreCase(action)) {
+			if (!sender.hasPermission(MODULE_VIEW_PERMISSION)) {
+				sender.sendMessage("§c你没有权限查看模块开关。");
+				return true;
+			}
+			Optional<SharedModuleConfigSnapshot> shared = moduleService.loadSharedConfig();
+			sender.sendMessage("§a模块开关列表");
+			sendModuleLine(sender, "auth", configuration.modules().auth(), shared.map(SharedModuleConfigSnapshot::auth).orElse(null));
+			sendModuleLine(sender, "homes", configuration.modules().homes(), shared.map(SharedModuleConfigSnapshot::homes).orElse(null));
+			sendModuleLine(sender, "warps", configuration.modules().warps(), shared.map(SharedModuleConfigSnapshot::warps).orElse(null));
+			sendModuleLine(sender, "tpa", configuration.modules().tpa(), shared.map(SharedModuleConfigSnapshot::tpa).orElse(null));
+			sendModuleLine(sender, "route-config", configuration.modules().routeConfig(), shared.map(SharedModuleConfigSnapshot::routeConfig).orElse(null));
+			sendModuleLine(sender, "transfer-admin", configuration.modules().transferAdmin(), shared.map(SharedModuleConfigSnapshot::transferAdmin).orElse(null));
+			sendModuleLine(sender, "economy-bridge", configuration.modules().economyBridge(), shared.map(SharedModuleConfigSnapshot::economyBridge).orElse(null));
+			sendModuleLine(sender, "permissions", configuration.modules().permissions(), shared.map(SharedModuleConfigSnapshot::permissions).orElse(null));
+			sender.sendMessage("§8local = 本地默认，shared = 共享覆盖；修改后需 /" + label + " reload 生效");
+			return true;
+		}
+		if ("set".equalsIgnoreCase(action)) {
+			if (!sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+				sender.sendMessage("§c你没有权限修改模块开关。");
+				return true;
+			}
+			if (args.length < 4) {
+				sender.sendMessage("§e用法: /" + label + " modules set <module> <true|false>");
+				return true;
+			}
+			String module = args[2];
+			boolean enabled = Boolean.parseBoolean(args[3]);
+			try {
+				SharedModuleConfigSnapshot next = mergeSharedSnapshot(moduleService.loadSharedConfig().orElse(null), module, enabled, false);
+				moduleService.saveSharedConfig(next, sender.getName());
+				sender.sendMessage("§a已保存共享模块开关: §f" + module + " §8= §f" + enabled);
+				sender.sendMessage("§e请执行 /" + label + " reload 让本节点立即生效。");
+			} catch (IllegalArgumentException exception) {
+				sender.sendMessage("§c" + exception.getMessage());
+			} catch (Exception exception) {
+				sender.sendMessage("§c保存共享模块开关失败: " + exception.getMessage());
+			}
+			return true;
+		}
+		if ("clear".equalsIgnoreCase(action)) {
+			if (!sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+				sender.sendMessage("§c你没有权限清除模块共享覆盖。");
+				return true;
+			}
+			if (args.length < 3) {
+				sender.sendMessage("§e用法: /" + label + " modules clear <module>");
+				return true;
+			}
+			try {
+				SharedModuleConfigSnapshot next = mergeSharedSnapshot(moduleService.loadSharedConfig().orElse(null), args[2], false, true);
+				moduleService.saveSharedConfig(next, sender.getName());
+				sender.sendMessage("§a已清除共享模块覆盖: §f" + args[2]);
+				sender.sendMessage("§e请执行 /" + label + " reload 让本节点立即生效。");
+			} catch (IllegalArgumentException exception) {
+				sender.sendMessage("§c" + exception.getMessage());
+			} catch (Exception exception) {
+				sender.sendMessage("§c清除共享模块开关失败: " + exception.getMessage());
+			}
+			return true;
+		}
+		sendModulesHelp(sender, label);
+		return true;
+	}
+
 	private boolean handleTransferCommand(CommandSender sender, String label, String[] args) {
 		if (args.length < 2 || "help".equalsIgnoreCase(args[1])) {
 			sendTransferHelp(sender, label);
+			return true;
+		}
+		if (transferAdminService == null || transferAdminMenuService == null || plugin.getTeleportService() == null) {
+			sender.sendMessage("§cTransfer 管理模块当前已关闭。");
 			return true;
 		}
 		String action = args[1];
@@ -406,7 +517,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 				sender.sendMessage("§c你没有权限查看 transfer recent。\n§8需要 crossserver.transfer.menu");
 				return true;
 			}
-			if (!(sender instanceof Player player)) {
+			if (!(sender instanceof org.bukkit.entity.Player player)) {
 				sender.sendMessage("§c该命令只能由玩家执行。\n§7可改用 /" + label + " transfer history <player>");
 				return true;
 			}
@@ -457,7 +568,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 				sender.sendMessage("§c你没有权限打开 transfer 菜单。");
 				return true;
 			}
-			if (!(sender instanceof Player player)) {
+			if (!(sender instanceof org.bukkit.entity.Player player)) {
 				sender.sendMessage("§c该命令只能由玩家执行。");
 				return true;
 			}
@@ -504,6 +615,10 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		if (sender.hasPermission(ROUTE_VIEW_PERMISSION) || sender.hasPermission(ROUTE_EDIT_PERMISSION)) {
 			sender.sendMessage("§7路由管理:");
 			sendRouteHelpLines(sender, label);
+		}
+		if (sender.hasPermission(MODULE_VIEW_PERMISSION) || sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+			sender.sendMessage("§7模块配置:");
+			sendModulesHelpLines(sender, label);
 		}
 		if (sender.hasPermission(RELOAD_PERMISSION)) {
 			sender.sendMessage("§7其他:");
@@ -558,15 +673,89 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		}
 	}
 
+	private void sendModulesHelp(CommandSender sender, String label) {
+		sender.sendMessage("§aCrossServer 模块配置帮助");
+		if (!sender.hasPermission(MODULE_VIEW_PERMISSION) && !sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+			sender.sendMessage("§7你当前没有可用的模块配置子命令。");
+			return;
+		}
+		sendModulesHelpLines(sender, label);
+	}
+
+	private void sendModulesHelpLines(CommandSender sender, String label) {
+		if (sender.hasPermission(MODULE_VIEW_PERMISSION)) {
+			sendHelpLine(sender, label, "modules list", "查看模块本地默认、共享覆盖与最终有效值");
+		}
+		if (sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+			sendHelpLine(sender, label, "modules set <module> <true|false>", "设置共享模块开关覆盖");
+			sendHelpLine(sender, label, "modules clear <module>", "移除共享模块开关覆盖");
+		}
+	}
+
 	private void sendHelpLine(CommandSender sender, String label, String usage, String description) {
 		sender.sendMessage("§e/" + label + " " + usage + " §8- §7" + description);
 	}
 
+	private void sendModuleLine(CommandSender sender, String module, boolean effectiveValue, Boolean sharedOverride) {
+		boolean localDefault = localDefault(module);
+		String source = sharedOverride == null ? "local" : "shared";
+		sender.sendMessage("§7- §f" + module
+				+ " §7effective: " + boolText(effectiveValue)
+				+ " §7local: " + boolText(localDefault)
+				+ " §7shared: §f" + (sharedOverride == null ? "-" : sharedOverride)
+				+ " §8[" + source + "]");
+	}
+
+	private boolean localDefault(String module) {
+		PluginConfiguration.ModuleSettings localModules = plugin.getLocalConfiguration().modules();
+		return switch (module) {
+			case "auth" -> localModules.auth();
+			case "homes" -> localModules.homes();
+			case "warps" -> localModules.warps();
+			case "tpa" -> localModules.tpa();
+			case "route-config" -> localModules.routeConfig();
+			case "transfer-admin" -> localModules.transferAdmin();
+			case "economy-bridge" -> localModules.economyBridge();
+			case "permissions" -> localModules.permissions();
+			default -> false;
+		};
+	}
+
+	private SharedModuleConfigSnapshot mergeSharedSnapshot(SharedModuleConfigSnapshot current, String module, boolean value, boolean clear) {
+		Boolean auth = current != null ? current.auth() : null;
+		Boolean homes = current != null ? current.homes() : null;
+		Boolean warps = current != null ? current.warps() : null;
+		Boolean tpa = current != null ? current.tpa() : null;
+		Boolean routeConfig = current != null ? current.routeConfig() : null;
+		Boolean transferAdmin = current != null ? current.transferAdmin() : null;
+		Boolean economyBridge = current != null ? current.economyBridge() : null;
+		Boolean permissions = current != null ? current.permissions() : null;
+		Boolean nextValue = clear ? null : value;
+		switch (module) {
+			case "auth" -> auth = nextValue;
+			case "homes" -> homes = nextValue;
+			case "warps" -> warps = nextValue;
+			case "tpa" -> tpa = nextValue;
+			case "route-config" -> routeConfig = nextValue;
+			case "transfer-admin" -> transferAdmin = nextValue;
+			case "economy-bridge" -> economyBridge = nextValue;
+			case "permissions" -> permissions = nextValue;
+			default -> throw new IllegalArgumentException("未知模块: " + module);
+		}
+		return new SharedModuleConfigSnapshot(1, auth, homes, warps, tpa, routeConfig, transferAdmin, economyBridge, permissions, null, null);
+	}
+
+	private String boolText(boolean value) {
+		return value ? "§atrue" : "§cfalse";
+	}
+
 	private boolean canUseTransferCommands(CommandSender sender) {
-		return sender.hasPermission(TRANSFER_VIEW_PERMISSION)
-				|| sender.hasPermission(TRANSFER_MENU_PERMISSION)
-				|| sender.hasPermission(TRANSFER_CLEAR_PERMISSION)
-				|| sender.hasPermission(TRANSFER_RECONCILE_PERMISSION);
+		return transferAdminService != null && transferAdminMenuService != null && (
+				sender.hasPermission(TRANSFER_VIEW_PERMISSION)
+						|| sender.hasPermission(TRANSFER_MENU_PERMISSION)
+						|| sender.hasPermission(TRANSFER_CLEAR_PERMISSION)
+						|| sender.hasPermission(TRANSFER_RECONCILE_PERMISSION)
+		);
 	}
 
 	private List<String> visibleTransferActions(CommandSender sender) {
@@ -592,6 +781,10 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 	private boolean handleAuthCommand(CommandSender sender, String label, String[] args) {
 		if (!sender.hasPermission(AUTH_ADMIN_PERMISSION)) {
 			sender.sendMessage("§c你没有权限执行 auth 管理命令。");
+			return true;
+		}
+		if (!configuration.modules().auth()) {
+			sender.sendMessage("§cAuth 模块当前已关闭。");
 			return true;
 		}
 		if (args.length < 3) {

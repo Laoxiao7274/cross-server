@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
 import org.xiaoziyi.crossserver.inventory.PlayerInventorySyncService;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
+import org.xiaoziyi.crossserver.permission.PlayerPermissionSyncService;
 import org.xiaoziyi.crossserver.player.PlayerLocationService;
 import org.xiaoziyi.crossserver.playerstate.PlayerStateSyncService;
 import org.xiaoziyi.crossserver.session.SessionService;
@@ -35,6 +36,7 @@ public final class PlayerSessionListener implements Listener {
 	private final StorageProvider storageProvider;
 	private final PlayerInventorySyncService inventorySyncService;
 	private final PlayerStateSyncService playerStateSyncService;
+	private final PlayerPermissionSyncService playerPermissionSyncService;
 	private final HomesSyncService homesSyncService;
 	private final CrossServerTeleportService teleportService;
 	private final PlayerLocationService playerLocationService;
@@ -47,6 +49,7 @@ public final class PlayerSessionListener implements Listener {
 			StorageProvider storageProvider,
 			PlayerInventorySyncService inventorySyncService,
 			PlayerStateSyncService playerStateSyncService,
+			PlayerPermissionSyncService playerPermissionSyncService,
 			HomesSyncService homesSyncService,
 			CrossServerTeleportService teleportService,
 			PlayerLocationService playerLocationService,
@@ -57,6 +60,7 @@ public final class PlayerSessionListener implements Listener {
 		this.storageProvider = storageProvider;
 		this.inventorySyncService = inventorySyncService;
 		this.playerStateSyncService = playerStateSyncService;
+		this.playerPermissionSyncService = playerPermissionSyncService;
 		this.homesSyncService = homesSyncService;
 		this.teleportService = teleportService;
 		this.playerLocationService = playerLocationService;
@@ -94,38 +98,81 @@ public final class PlayerSessionListener implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onJoin(PlayerJoinEvent event) {
-		inventorySyncService.loadPlayerData(event.getPlayer());
-		playerStateSyncService.loadPlayerState(event.getPlayer());
-		homesSyncService.loadPlayerHomes(event.getPlayer());
-		playerLocationService.savePlayerLocation(event.getPlayer(), true);
-		Bukkit.getScheduler().runTaskLater(plugin, () -> teleportService.recoverRollbackOnJoin(event.getPlayer()), 2L);
+		if (inventorySyncService != null) {
+			inventorySyncService.loadPlayerData(event.getPlayer());
+		}
+		if (playerStateSyncService != null) {
+			playerStateSyncService.loadPlayerState(event.getPlayer());
+		}
+		if (playerPermissionSyncService != null) {
+			playerPermissionSyncService.loadPermissions(event.getPlayer());
+		}
+		if (homesSyncService != null) {
+			homesSyncService.loadPlayerHomes(event.getPlayer());
+		}
+		if (playerLocationService != null) {
+			playerLocationService.savePlayerLocation(event.getPlayer(), true);
+		}
+		if (teleportService != null) {
+			Bukkit.getScheduler().runTaskLater(plugin, () -> teleportService.recoverRollbackOnJoin(event.getPlayer()), 2L);
+		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onDeath(PlayerDeathEvent event) {
-		inventorySyncService.savePlayerData(event.getPlayer());
-		playerStateSyncService.savePlayerState(event.getPlayer());
-		playerLocationService.savePlayerLocation(event.getPlayer(), true);
+		if (inventorySyncService != null) {
+			inventorySyncService.savePlayerData(event.getPlayer());
+		}
+		if (playerStateSyncService != null) {
+			playerStateSyncService.savePlayerState(event.getPlayer());
+		}
+		if (playerPermissionSyncService != null) {
+			playerPermissionSyncService.savePermissions(event.getPlayer());
+		}
+		if (playerLocationService != null) {
+			playerLocationService.savePlayerLocation(event.getPlayer(), true);
+		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onRespawn(PlayerRespawnEvent event) {
 		Bukkit.getScheduler().runTaskLater(plugin, () -> {
-			inventorySyncService.savePlayerData(event.getPlayer());
-			playerStateSyncService.savePlayerState(event.getPlayer());
-			playerLocationService.savePlayerLocation(event.getPlayer(), true);
+			if (inventorySyncService != null) {
+				inventorySyncService.savePlayerData(event.getPlayer());
+			}
+			if (playerStateSyncService != null) {
+				playerStateSyncService.savePlayerState(event.getPlayer());
+			}
+			if (playerPermissionSyncService != null) {
+				playerPermissionSyncService.savePermissions(event.getPlayer());
+			}
+			if (playerLocationService != null) {
+				playerLocationService.savePlayerLocation(event.getPlayer(), true);
+			}
 		}, 1L);
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onQuit(PlayerQuitEvent event) {
 		if (!kickedPlayers.remove(event.getPlayer().getUniqueId())) {
-			inventorySyncService.savePlayerData(event.getPlayer());
-			playerStateSyncService.savePlayerState(event.getPlayer());
-			homesSyncService.savePlayerHomes(event.getPlayer());
-			playerLocationService.savePlayerLocation(event.getPlayer(), false);
-			homesSyncService.unloadPlayerHomes(event.getPlayer().getUniqueId());
-			if (sessionService.isTransferDeparture(event.getPlayer().getUniqueId())) {
+			if (inventorySyncService != null) {
+				inventorySyncService.savePlayerData(event.getPlayer());
+			}
+			if (playerStateSyncService != null) {
+				playerStateSyncService.savePlayerState(event.getPlayer());
+			}
+			if (playerPermissionSyncService != null) {
+				playerPermissionSyncService.savePermissions(event.getPlayer());
+				playerPermissionSyncService.clearPermissions(event.getPlayer());
+			}
+			if (homesSyncService != null) {
+				homesSyncService.savePlayerHomes(event.getPlayer());
+				homesSyncService.unloadPlayerHomes(event.getPlayer().getUniqueId());
+			}
+			if (playerLocationService != null) {
+				playerLocationService.savePlayerLocation(event.getPlayer(), false);
+			}
+			if (teleportService != null && sessionService.isTransferDeparture(event.getPlayer().getUniqueId())) {
 				sessionService.discardLocalSession(event.getPlayer().getUniqueId());
 				return;
 			}
@@ -136,12 +183,24 @@ public final class PlayerSessionListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onKick(PlayerKickEvent event) {
 		kickedPlayers.add(event.getPlayer().getUniqueId());
-		inventorySyncService.savePlayerData(event.getPlayer());
-		playerStateSyncService.savePlayerState(event.getPlayer());
-		homesSyncService.savePlayerHomes(event.getPlayer());
-		playerLocationService.savePlayerLocation(event.getPlayer(), false);
-		homesSyncService.unloadPlayerHomes(event.getPlayer().getUniqueId());
-		if (sessionService.isTransferDeparture(event.getPlayer().getUniqueId())) {
+		if (inventorySyncService != null) {
+			inventorySyncService.savePlayerData(event.getPlayer());
+		}
+		if (playerStateSyncService != null) {
+			playerStateSyncService.savePlayerState(event.getPlayer());
+		}
+		if (playerPermissionSyncService != null) {
+			playerPermissionSyncService.savePermissions(event.getPlayer());
+			playerPermissionSyncService.clearPermissions(event.getPlayer());
+		}
+		if (homesSyncService != null) {
+			homesSyncService.savePlayerHomes(event.getPlayer());
+			homesSyncService.unloadPlayerHomes(event.getPlayer().getUniqueId());
+		}
+		if (playerLocationService != null) {
+			playerLocationService.savePlayerLocation(event.getPlayer(), false);
+		}
+		if (teleportService != null && sessionService.isTransferDeparture(event.getPlayer().getUniqueId())) {
 			sessionService.discardLocalSession(event.getPlayer().getUniqueId());
 			return;
 		}

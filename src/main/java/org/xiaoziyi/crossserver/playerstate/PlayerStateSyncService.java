@@ -1,5 +1,6 @@
 package org.xiaoziyi.crossserver.playerstate;
 
+import org.bukkit.GameMode;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
@@ -64,7 +65,8 @@ public final class PlayerStateSyncService {
 				player.getExp(),
 				player.getTotalExperience(),
 				player.getFireTicks(),
-				player.getRemainingAir()
+				player.getRemainingAir(),
+				player.getGameMode().name()
 		);
 		return PlayerStateCodec.encode(snapshot);
 	}
@@ -95,5 +97,11 @@ public final class PlayerStateSyncService {
 		player.setTotalExperience(Math.max(0, state.totalExperience()));
 		player.setFireTicks(Math.max(0, state.fireTicks()));
 		player.setRemainingAir(Math.max(0, state.remainingAir()));
+		if (state.gameMode() != null && !state.gameMode().isBlank()) {
+			try {
+				player.setGameMode(GameMode.valueOf(state.gameMode()));
+			} catch (IllegalArgumentException ignored) {
+			}
+		}
 	}
 }

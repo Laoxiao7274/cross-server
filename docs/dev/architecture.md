@@ -14,7 +14,8 @@ CrossServer 采用分层架构设计：
 │   EconomyService / HomesSyncService / WarpService    │
 │   TeleportRequestService / PlayerLocationService     │
 │   AuthService / PlayerInventorySyncService           │
-│   PlayerStateSyncService / CrossServerTeleportService│
+│   PlayerStateSyncService / PlayerPermissionSyncService│
+│   CrossServerTeleportService                         │
 ├──────────────────────────────────────────────────────┤
 │                     核心引擎层                        │
 │   SyncService（同步 & 无效化广播）                    │
@@ -90,7 +91,8 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 | `economy` | JSON | 余额 |
 | `inventory` | Base64 | 背包内容（ItemStack[]） |
 | `enderchest` | Base64 | 末影箱内容 |
-| `player-state` | JSON | 血量、饥饿、经验等 |
+| `player-state` | JSON | 血量、饥饿、经验、等级、游戏模式 |
+| `player-permissions` | JSON | 玩家权限快照（当前仅 `crossserver.*`） |
 | `player-location` | JSON | 玩家位置快照（跨服 TPA） |
 | `homes` | JSON | 家园位置列表 |
 | `auth.profile` | JSON | 认证账号信息 |
@@ -107,6 +109,24 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 | `warps` | `teleport.warps` | 全局 Warp 列表 |
 | `teleport.requests` | `tpa.requests` | 跨服 TPA 请求 |
 | `route-table` | 路由相关 key | 服务器路由配置 |
+| `cluster.config` | `modules.toggles` | 集群共享模块开关 |
+
+## 生命周期装配
+
+`CrossServerPlugin` 在启动时完成以下装配：
+
+- 初始化 `StorageProvider`、`MessagingProvider`、`SyncService`、`SessionService`
+- 读取本地配置并与共享路由、共享模块配置合并
+- 注册全部 namespace
+- 按模块开关选择性装配 homes / warps / tpa / auth / permissions 等服务
+- 注册 listener、命令、GUI、自动保存和恢复任务
+
+其中权限同步模块当前实现为：
+
+- `PlayerPermissionSyncService` 负责保存、读取、应用权限快照
+- `PermissionSyncAdapter` 抽象“如何捕获/应用权限”
+- `NoopPermissionSyncAdapter` 作为默认实现，使用 `PermissionAttachment`
+- 当前仅管理 `crossserver.*` 权限，避免覆盖外部权限系统的全局状态
 
 ## 跨服传送入口
 
@@ -122,10 +142,11 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 
 1. 发起入口调用 `CrossServerTeleportService.requestTeleport()`
 2. 保存 inventory / ender chest / player-state，并生成 rollback 快照
-3. 写入 session transfer 与 `teleport.handoff`
-4. 通过代理切服
-5. 目标服由 `TeleportArrivalListener` + `tryConsumeArrival()` 消费 handoff
-6. 落点成功后清理 rollback；失败时标记 handoff 并尝试回滚
+3. 在切服前 flush 当前玩家数据（含可选权限快照）
+4. 写入 session transfer 与 `teleport.handoff`
+5. 通过代理切服
+6. 目标服由 `TeleportArrivalListener` + `tryConsumeArrival()` 消费 handoff
+7. 落点成功后清理 rollback；失败时标记 handoff 并尝试回滚
 
 ### 稳定性补强
 
@@ -133,6 +154,7 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - 跨服失败会回滚 inventory / ender chest / player-state
 - 玩家下次加入时可通过 `recoverRollbackOnJoin(...)` 做补偿恢复
 - `reconcilePendingTransfers()` 会定期检查并修复超时/悬空状态
+- 新增字段的旧快照通过手工 JSON 解析保持兼容
 
 ## GUI 结构
 
@@ -186,7 +208,8 @@ API 提供的能力：
 3. `/setwarp spawn` → `/warp` → 点击 GUI 测试 Warp
 4. `/register test123 test123` → `/login test123` 测试认证
 5. `/economy balance` 测试经济
-6. `/crossserver reload` 测试热重载
+6. 开启 `permissions` 模块后测试 `crossserver.*` 权限同步
+7. `/crossserver reload` 测试热重载
 
 ### 多服验证
 
@@ -195,4 +218,6 @@ API 提供的能力：
 3. 在 Server A `/sethome cross`，切到 Server B `/home cross` 测试跨服家园
 4. 在 Server A `/setwarp crossspawn`，Server B `/warp crossspawn` 测试跨服 Warp
 5. 在 Server A 对 Server B 玩家执行 `/tpa` 或 `/tpahere`，测试跨服请求与反馈
-6. 人为制造目标服世界缺失 / handoff 超时，验证失败回滚与诊断状态
+6. 切换游戏模式后跨服，验证 `player-state` 中的游戏模式同步
+7. 启用权限同步后跨服，验证 `crossserver.*` 权限是否保持一致
+8. 人为制造目标服世界缺失 / handoff 超时，验证失败回滚与诊断状态

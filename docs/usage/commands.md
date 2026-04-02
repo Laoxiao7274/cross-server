@@ -210,3 +210,28 @@
 |----------|------|------|
 | `crossserver.route.view` | op | 查看路由 |
 | `crossserver.route.edit` | op | 编辑路由 |
+
+### 模块配置中心
+
+| 命令 | 说明 |
+|------|------|
+| `/crossserver modules list` | 查看模块本地默认、共享覆盖与最终有效值 |
+| `/crossserver modules set <module> <true|false>` | 设置共享模块开关覆盖 |
+| `/crossserver modules clear <module>` | 清除指定模块的共享覆盖，回退本地默认 |
+
+**说明：**
+
+- 当前支持的模块：`auth`、`homes`、`warps`、`tpa`、`route-config`、`transfer-admin`、`economy-bridge`、`permissions`
+- `local` 表示当前节点 `config.yml` 中的默认值
+- `shared` 表示写入集群共享配置中心的覆盖值
+- `effective` 表示插件当前实际使用的值
+- 修改共享模块开关后，需要执行 `/crossserver reload` 才会在当前节点立即生效
+- `permissions` 模块当前只同步 `crossserver.*` 权限节点
+- 如果某个模块被关闭，对应命令、GUI 或管理入口会直接不可用
+
+**权限：**
+
+| 权限节点 | 默认 | 说明 |
+|----------|------|------|
+| `crossserver.modules.view` | op | 查看模块开关 |
+| `crossserver.modules.edit` | op | 修改共享模块开关 |

@@ -427,6 +427,17 @@ public final class SqlStorageProvider implements StorageProvider {
 	}
 
 	@Override
+	public void deletePlayerData(UUID playerId, String namespace) throws Exception {
+		String sql = "DELETE FROM player_snapshot WHERE player_uuid = ? AND namespace = ?";
+		try (Connection connection = dataSource.getConnection();
+			 PreparedStatement statement = connection.prepareStatement(sql)) {
+			statement.setString(1, playerId.toString());
+			statement.setString(2, namespace);
+			statement.executeUpdate();
+		}
+	}
+
+	@Override
 	public Optional<PlayerSnapshot> updateEconomyBalance(UUID playerId, String playerName, double amount, boolean absolute, String transactionType, String source) throws Exception {
 		BigDecimal normalizedAmount = normalizeAmount(amount);
 		String normalizedPlayerName = normalizePlayerName(playerName);
