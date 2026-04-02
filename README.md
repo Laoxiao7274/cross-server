@@ -62,6 +62,34 @@ redis-cli ping
 
 从 Releases 页面下载最新的 `cross-server-x.x-SNAPSHOT.jar`，放入每台子服的 `plugins/` 目录。
 
+### GitHub 自动构建 / 自动发布
+
+这个仓库已经配置了 GitHub Actions：
+
+- 推送到 `master` 时会自动执行 `mvn clean package`
+- 提交 Pull Request 到 `master` 时会自动检查能否正常编译
+- 每次构建完成后，都会在 Actions 页面生成可下载的构建产物
+- 推送版本标签（如 `v1.0.0`）时，会自动创建 GitHub Release 并上传构建好的 jar
+
+常用方式：
+
+```bash
+git push origin master
+```
+
+发布版本：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+如果只是想下载测试包：
+
+1. 打开仓库 `Actions`
+2. 进入最近一次 `build`
+3. 在页面底部下载 `Artifacts`
+
 ### 第四步：配置代理（Velocity）
 
 如果你使用 Velocity 代理，在 `velocity.toml` 中确保各子服已注册：
