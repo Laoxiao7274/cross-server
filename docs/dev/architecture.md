@@ -6,6 +6,14 @@ CrossServer 采用分层架构设计：
 
 ```
 ┌──────────────────────────────────────────────────────┐
+│                     Web 面板层                       │
+│   WebPanelServer (HTTP) / WebPanelDataService        │
+│   WebPanelClusterService / WebPanelLogService        │
+├──────────────────────────────────────────────────────┤
+│                     配置中心层                        │
+│   ConfigCenterService / NodeConfigSyncService        │
+│   SharedModuleConfigService / RouteTableService      │
+├──────────────────────────────────────────────────────┤
 │                     命令 & UI 层                      │
 │   Commands (crossserver/home/warp/tpa/economy/login) │
 │   Chest GUI Menus (Homes/Warp/Transfer/Route)        │
@@ -69,6 +77,26 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - `action` — 操作类型（INVALIDATE / SESSION_*）
 
 `NoopMessagingProvider` 是单服模式的空实现，不产生任何网络通信。
+
+### WebPanelServer — Web 面板 HTTP 服务
+
+基于 `com.sun.net.httpserver` 的轻量 HTTP 服务器：
+
+- 只有 `web-panel.master-server-id` 指定的节点会绑定 HTTP 端口
+- 其他开启 `web-panel.enabled` 的节点作为受管节点，只上报成员状态
+- 内置 token 鉴权（`X-CrossServer-Token` 请求头）
+- 面板页面为单文件 HTML，直接返回前端渲染
+- 支持安全重载：`requestReload()` 使用 `AtomicBoolean` 防止并发重载，异步排队执行
+
+### ConfigCenterService — 配置中心
+
+高层配置文档管理，供第三方插件接入共享配置：
+
+- `registerDocument(namespace, dataKey)` — 注册配置文档
+- `loadDocument(namespace, dataKey)` — 加载配置文档（含 payload + 元信息）
+- `loadEntry(namespace, dataKey)` — 加载配置条目（含 schemaVersion / source / summary）
+- `saveDocument(namespace, dataKey, update)` — 保存配置文档（自动补全元信息）
+- `registerDocumentListener(namespace, dataKey, listener)` — 监听文档变更
 
 ## 数据表
 
@@ -150,6 +178,24 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - 创建 `WebPanelClusterService`、`WebPanelLogService`
 - 创建 `WebPanelDataService`（注入所有上述服务）并启动 `WebPanelServer`
 - 注册 listener、命令、GUI、自动保存和恢复任务
+- 启动 Web 面板心跳定时任务，周期性执行主控选举、日志发布、配置快照刷新
+
+### 安全重载
+
+`/crossserver reload`、路由菜单的"重载本节点"、Web 面板的"重载本节点"都走同一套安全排队逻辑：
+
+1. `requestReload(actor, source)` 使用 `AtomicBoolean.compareAndSet` 防止并发重载
+2. 重载任务在 Bukkit 主线程异步排队执行
+3. 重载期间：取消心跳 → 注销面板成员 → 停止面板服务 → 关闭日志/配置同步 → 清理节点状态 → 关闭其他服务 → 重新初始化
+
+### 自动保存
+
+定时任务按 `session.heartbeatSeconds` 间隔自动保存在线玩家数据：
+
+- `inventorySyncService.savePlayerData(player)` — 背包
+- `playerStateSyncService.savePlayerState(player)` — 玩家状态（血量、饥饿、经验、等级、游戏模式）
+- `playerPermissionSyncService.savePermissions(player)` — 权限快照
+- `homesSyncService.savePlayerHomes(player)` — 家园位置
 
 其中权限同步模块当前实现为：
 
@@ -181,10 +227,13 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 ### 稳定性补强
 
 - 插件关闭时，`protectOnShutdown()` 会收口 `PENDING/PREPARING` handoff
+- 插件关闭时，`clearLocalNodeStatus()` 会清理本节点在 `node_status` 表中的记录
+- 插件关闭时，`webPanelClusterService.unregisterLocalMember()` 会注销面板集群成员
 - 跨服失败会回滚 inventory / ender chest / player-state
 - 玩家下次加入时可通过 `recoverRollbackOnJoin(...)` 做补偿恢复
 - `reconcilePendingTransfers()` 会定期检查并修复超时/悬空状态
 - 新增字段的旧快照通过手工 JSON 解析保持兼容
+- 共享模块配置与共享路由快照新增 `source`（来源节点）和 `summary`（变更摘要）元信息字段
 
 ## GUI 结构
 
@@ -226,6 +275,8 @@ API 提供的能力：
 - 会话锁管理
 - 跨服传送请求
 - 经济服务访问
+- 配置中心文档（注册、读写、监听变更）
+- 传送诊断与管理
 
 详细接口说明见 [API 文档](api.md)。
 

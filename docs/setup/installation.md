@@ -167,6 +167,25 @@ teleport:
     server-map:
       server-1: "server-1"
       server-2: "server-2"
+
+modules:
+  auth: true
+  homes: true
+  warps: true
+  tpa: true
+  route-config: true
+  transfer-admin: true
+  economy-bridge: true
+  permissions: false
+
+web-panel:
+  enabled: true
+  host: "127.0.0.1"
+  port: 8765
+  token: "请改成强随机令牌"
+  master-server-id: "server-1"
+  cluster-lease-seconds: 30
+  cluster-heartbeat-seconds: 10
 ```
 
 ### Server 2 的配置
@@ -176,6 +195,10 @@ teleport:
 ```yaml
 server:
   id: "server-2"
+
+web-panel:
+  enabled: true
+  master-server-id: "server-1"
 ```
 
 ## 第六步：重启并验证
@@ -188,7 +211,12 @@ server:
    - `/setwarp spawn` → `/warp` → 点击 Warp GUI — 测试 Warp 命令与菜单
    - 对另一台子服在线玩家执行 `/tpa <player>` 或 `/tpahere <player>` — 测试跨服 TPA
    - `/economy balance` — 确认经济系统正常
-5. 验证稳定性：
+5. 访问 Web 面板：
+   - 浏览器打开 `http://127.0.0.1:8765/`（对应主控节点的 host:port）
+   - 输入配置的 `token`，确认面板正常加载
+   - 检查"仪表盘"标签页是否显示所有节点
+   - 在"节点配置"标签页确认各节点配置快照已上报
+6. 验证稳定性：
    - 跨服过程中停服 / 重载，确认不会遗留卡住的 handoff
    - 人为制造目标世界缺失，确认失败后会回滚玩家状态
 
