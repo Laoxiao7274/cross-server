@@ -11,10 +11,12 @@ import org.xiaoziyi.crossserver.auth.AuthService;
 import org.xiaoziyi.crossserver.command.AuthCommand;
 import org.xiaoziyi.crossserver.command.CrossServerCommand;
 import org.xiaoziyi.crossserver.command.EconomyCommand;
+import org.xiaoziyi.crossserver.configcenter.NodeConfigSyncService;
 import org.xiaoziyi.crossserver.command.HomesCommand;
 import org.xiaoziyi.crossserver.command.TpaCommand;
 import org.xiaoziyi.crossserver.command.WarpCommand;
 import org.xiaoziyi.crossserver.config.ConfigLoader;
+import org.xiaoziyi.crossserver.config.NodeLocalConfigService;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
@@ -54,6 +56,11 @@ import org.xiaoziyi.crossserver.ui.RouteEditSessionService;
 import org.xiaoziyi.crossserver.ui.TransferAdminMenuService;
 import org.xiaoziyi.crossserver.ui.WarpMenuService;
 import org.xiaoziyi.crossserver.warp.WarpService;
+import org.xiaoziyi.crossserver.web.WebPanelClusterService;
+import org.xiaoziyi.crossserver.web.WebPanelClusterSnapshot;
+import org.xiaoziyi.crossserver.web.WebPanelDataService;
+import org.xiaoziyi.crossserver.web.WebPanelLogService;
+import org.xiaoziyi.crossserver.web.WebPanelServer;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -88,6 +95,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private ServerTransferGateway transferGateway;
 	private VaultEconomyProvider vaultEconomyProvider;
 	private CrossServerApi api;
+	private NodeConfigSyncService nodeConfigSyncService;
+	private WebPanelClusterService webPanelClusterService;
+	private WebPanelLogService webPanelLogService;
+	private WebPanelServer webPanelServer;
 	private PlayerSessionListener playerSessionListener;
 	private AuthListener authListener;
 	private TeleportArrivalListener teleportArrivalListener;
@@ -95,6 +106,8 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private BukkitTask nodeHeartbeatTask;
 	private BukkitTask playerDataAutoSaveTask;
 	private BukkitTask transferRecoveryTask;
+	private BukkitTask webPanelHeartbeatTask;
+	private boolean webPanelStartupHintLogged;
 	private final AtomicBoolean reloading = new AtomicBoolean(false);
 
 	@Override
@@ -142,11 +155,35 @@ public final class CrossServerPlugin extends JavaPlugin {
 			throw new IllegalStateException("CrossServer 正在重载中");
 		}
 		try {
-			shutdownPlugin();
-			initializePlugin();
+			performReloadCycle();
 		} finally {
 			reloading.set(false);
 		}
+	}
+
+	public boolean requestReload(String actorName, String source) {
+		if (!reloading.compareAndSet(false, true)) {
+			return false;
+		}
+		String actor = actorName == null || actorName.isBlank() ? "unknown" : actorName.trim();
+		String origin = source == null || source.isBlank() ? "unknown" : source.trim();
+		Bukkit.getScheduler().runTask(this, () -> {
+			try {
+				getLogger().info("收到重载请求，来源: " + origin + " 操作者: " + actor);
+				performReloadCycle();
+				getLogger().info("CrossServer 重载完成，来源: " + origin + " 操作者: " + actor);
+			} catch (Exception exception) {
+				getLogger().severe("CrossServer 重载失败，来源: " + origin + " 操作者: " + actor + " 错误: " + exception.getMessage());
+			} finally {
+				reloading.set(false);
+			}
+		});
+		return true;
+	}
+
+	private void performReloadCycle() throws Exception {
+		shutdownPlugin();
+		initializePlugin();
 	}
 
 	private void initializePlugin() throws Exception {
@@ -240,6 +277,11 @@ public final class CrossServerPlugin extends JavaPlugin {
 			this.routeEditSessionService = new RouteEditSessionService(this, routeTableService, configuration);
 			this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
 		}
+		this.nodeConfigSyncService = new NodeConfigSyncService(this, api, configuration.server(), new NodeLocalConfigService(this));
+		this.nodeConfigSyncService.publishLocalSnapshot(configuration);
+		this.webPanelClusterService = new WebPanelClusterService(api, configuration.server(), configuration.webPanel());
+		this.webPanelLogService = new WebPanelLogService(api, configuration.server(), getLogger());
+		logWebPanelStartupHint();
 		api.attachTeleportApiFacade((player, target, causeRef) -> teleportService.requestTeleport(player, target, org.xiaoziyi.crossserver.teleport.TeleportCause.HOME, causeRef));
 		if (authService != null) {
 			api.attachAuthService(authService);
@@ -274,9 +316,35 @@ public final class CrossServerPlugin extends JavaPlugin {
 		startNodeHeartbeat();
 		startPlayerDataAutoSave();
 		startTransferRecovery();
+		startWebPanelHeartbeat();
+		refreshWebPanelLeadership();
 	}
 
 	private void shutdownPlugin() {
+		if (webPanelHeartbeatTask != null) {
+			webPanelHeartbeatTask.cancel();
+			webPanelHeartbeatTask = null;
+		}
+		if (webPanelClusterService != null) {
+			try {
+				webPanelClusterService.unregisterLocalMember();
+			} catch (Exception exception) {
+				getLogger().warning("注销 Web 面板节点失败: " + exception.getMessage());
+			}
+		}
+		if (webPanelServer != null) {
+			webPanelServer.close();
+			webPanelServer = null;
+		}
+		if (webPanelLogService != null) {
+			closeQuietly(webPanelLogService);
+			webPanelLogService = null;
+		}
+		if (nodeConfigSyncService != null) {
+			closeQuietly(nodeConfigSyncService);
+			nodeConfigSyncService = null;
+		}
+		webPanelStartupHintLogged = false;
 		if (heartbeatTask != null) {
 			heartbeatTask.cancel();
 			heartbeatTask = null;
@@ -334,6 +402,9 @@ public final class CrossServerPlugin extends JavaPlugin {
 		if (sessionService != null) {
 			Bukkit.getOnlinePlayers().forEach(player -> sessionService.closePlayerSession(player.getUniqueId()));
 		}
+		if (nodeStatusService != null) {
+			nodeStatusService.clearLocalNodeStatus();
+		}
 		if (vaultEconomyProvider != null) {
 			Bukkit.getServicesManager().unregister(vaultEconomyProvider);
 			vaultEconomyProvider = null;
@@ -372,6 +443,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		configuration = null;
 		routeTableService = null;
 		sharedModuleConfigService = null;
+		webPanelClusterService = null;
 	}
 
 	private void registerCommand() {
@@ -477,26 +549,107 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private void startPlayerDataAutoSave() {
 		long period = Math.max(20L * 30L, configuration.session().heartbeatSeconds() * 20L * 2L);
 		this.playerDataAutoSaveTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
-			if (inventorySyncService == null || playerStateSyncService == null) {
-				return;
+			if (inventorySyncService != null) {
+				Bukkit.getOnlinePlayers().forEach(inventorySyncService::savePlayerData);
 			}
-			Bukkit.getOnlinePlayers().forEach(player -> {
-				inventorySyncService.savePlayerData(player);
-				playerStateSyncService.savePlayerState(player);
-				if (playerPermissionSyncService != null) {
-					playerPermissionSyncService.savePermissions(player);
-				}
-			});
+			if (playerStateSyncService != null) {
+				Bukkit.getOnlinePlayers().forEach(playerStateSyncService::savePlayerState);
+			}
+			if (playerPermissionSyncService != null) {
+				Bukkit.getOnlinePlayers().forEach(playerPermissionSyncService::savePermissions);
+			}
+			if (homesSyncService != null) {
+				Bukkit.getOnlinePlayers().forEach(homesSyncService::savePlayerHomes);
+			}
 		}, period, period);
 	}
 
 	private void startTransferRecovery() {
-		long period = Math.max(20L * 10L, configuration.teleport().arrivalCheckDelayTicks() * 2L);
-		this.transferRecoveryTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-			if (teleportService != null) {
-				teleportService.reconcilePendingTransfers();
+		if (teleportService == null) {
+			return;
+		}
+		this.transferRecoveryTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, teleportService::reconcilePendingTransfers, 20L * 10L, 20L * 10L);
+	}
+
+	private void logWebPanelStartupHint() {
+		if (webPanelStartupHintLogged) {
+			return;
+		}
+		webPanelStartupHintLogged = true;
+		if (!configuration.webPanel().enabled()) {
+			getLogger().info("Web 面板未启用。如需使用，请在 config.yml 中设置 web-panel.enabled: true");
+			return;
+		}
+		String accessAddress = "http://" + configuration.webPanel().host() + ":" + configuration.webPanel().port();
+		String token = configuration.webPanel().token();
+		String masterServerId = configuration.webPanel().masterServerId();
+		boolean localMaster = configuration.webPanel().isMasterServer(configuration.server().id());
+		getLogger().info("Web 面板主控节点: " + masterServerId + (localMaster ? "（当前节点为主控）" : "（当前节点为受管节点）"));
+		if (token == null || token.isBlank() || "change-this-token".equals(token)) {
+			getLogger().warning("Web 面板已启用，但 token 仍为默认值或为空。请修改 web-panel.token 后再对外开放。访问地址: " + accessAddress);
+		} else {
+			getLogger().info("Web 面板已启用，候选监听地址: " + accessAddress + "，请求头需携带 X-CrossServer-Token");
+		}
+	}
+
+	private void startWebPanelHeartbeat() {
+		if (!configuration.webPanel().enabled() || webPanelClusterService == null) {
+			return;
+		}
+		long period = Math.max(20L * 3L, configuration.webPanel().clusterHeartbeatSeconds() * 20L);
+		this.webPanelHeartbeatTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::refreshWebPanelLeadership, 20L, period);
+	}
+
+	private void refreshWebPanelLeadership() {
+		if (!configuration.webPanel().enabled() || webPanelClusterService == null) {
+			return;
+		}
+		try {
+			WebPanelClusterSnapshot snapshot = webPanelClusterService.heartbeat();
+			if (webPanelLogService != null) {
+				webPanelLogService.publishSnapshot();
 			}
-		}, period, period);
+			if (nodeConfigSyncService != null && configuration != null) {
+				nodeConfigSyncService.publishLocalSnapshot(configuration);
+			}
+			boolean shouldHost = webPanelClusterService.shouldHost(snapshot);
+			if (shouldHost) {
+				ensureWebPanelStarted();
+			} else if (webPanelServer != null && webPanelServer.isRunning()) {
+				webPanelServer.close();
+				getLogger().info("当前节点不是 Web 面板主控节点，已停止本地面板监听。主控节点: " + snapshot.leaderServerId());
+			}
+		} catch (Exception exception) {
+			getLogger().warning("同步 Web 面板主节点状态失败: " + exception.getMessage());
+		}
+	}
+
+	private void ensureWebPanelStarted() throws Exception {
+		if (webPanelServer != null && webPanelServer.isRunning()) {
+			return;
+		}
+		WebPanelDataService dataService = new WebPanelDataService(
+				this,
+				configuration,
+				namespaceRegistry,
+				sessionService,
+				syncService,
+				nodeStatusService,
+				routeTableService,
+				sharedModuleConfigService,
+				transferAdminService,
+				storageProvider,
+				api,
+				webPanelClusterService,
+				webPanelLogService,
+				nodeConfigSyncService
+		);
+		this.webPanelServer = new WebPanelServer(getLogger(), configuration.webPanel(), dataService);
+		this.webPanelServer.start();
+		if (webPanelLogService != null) {
+			webPanelLogService.captureStartupMessage("内置 Web 配置面板已启动: http://" + configuration.webPanel().host() + ":" + configuration.webPanel().port());
+			webPanelLogService.publishSnapshot();
+		}
 	}
 
 	private ServerTransferGateway createTransferGateway() {
@@ -504,22 +657,19 @@ public final class CrossServerPlugin extends JavaPlugin {
 		if ("proxy-plugin-message".equalsIgnoreCase(type)) {
 			return new ProxyPluginMessageServerTransferGateway(this, getLogger(), configuration.teleport().gateway());
 		}
-		if (!"unsupported".equalsIgnoreCase(type)) {
-			getLogger().warning("未知 teleport gateway 类型: " + type + "，已回退到 unsupported");
-		}
+		getLogger().warning("未识别的 transfer gateway 类型: " + type + "，将使用 unsupported gateway");
 		return new UnsupportedServerTransferGateway();
 	}
 
 	private void registerTransferGatewayChannels() {
-		if (transferGateway instanceof ProxyPluginMessageServerTransferGateway gateway) {
-			Bukkit.getMessenger().registerOutgoingPluginChannel(this, gateway.channel());
-			getLogger().info("已注册代理切服消息通道: " + gateway.channel());
+		if (transferGateway instanceof ProxyPluginMessageServerTransferGateway proxyGateway) {
+			Bukkit.getMessenger().registerOutgoingPluginChannel(this, proxyGateway.channel());
 		}
 	}
 
 	private void unregisterTransferGatewayChannels() {
-		if (transferGateway instanceof ProxyPluginMessageServerTransferGateway gateway) {
-			Bukkit.getMessenger().unregisterOutgoingPluginChannel(this, gateway.channel());
+		if (transferGateway instanceof ProxyPluginMessageServerTransferGateway proxyGateway) {
+			Bukkit.getMessenger().unregisterOutgoingPluginChannel(this, proxyGateway.channel());
 		}
 	}
 

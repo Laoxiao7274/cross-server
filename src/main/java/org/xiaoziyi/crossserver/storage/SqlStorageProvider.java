@@ -716,6 +716,20 @@ public final class SqlStorageProvider implements StorageProvider {
 	}
 
 	@Override
+	public void deleteNodeStatus(String serverId, String cluster) throws Exception {
+		String sql = """
+					DELETE FROM node_status
+					WHERE server_id = ? AND cluster = ?
+					""";
+		try (Connection connection = dataSource.getConnection();
+				 PreparedStatement statement = connection.prepareStatement(sql)) {
+			statement.setString(1, serverId);
+			statement.setString(2, cluster);
+			statement.executeUpdate();
+		}
+	}
+
+	@Override
 	public List<NodeStatusRecord> listNodeStatuses(String cluster) throws Exception {
 		String sql = """
 					SELECT server_id, cluster, last_seen, updated_at

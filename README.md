@@ -17,6 +17,9 @@
 - **跨服传送保护** — 停服保护、失败回滚、状态修复，减少卡传送与丢状态
 - **模块开关 + 共享配置中心** — 主要功能支持本地默认 + 集群共享覆盖，统一管理后通过 `/crossserver reload` 生效
 - **共享路由 + 共享模块配置** — 路由表和模块开关可集中存储到集群配置中心，避免每台子服重复改配置
+- **内置 Web 面板主控节点** — 由你指定的主控节点对外提供可交互管理面板，其他开启节点只负责登记成员状态，适合大厅服统一总管
+- **节点配置远程管理** — 主控节点可在 Web 面板中查看并修改各子服的 messaging、面板、模块开关配置，写回目标节点 config.yml 并排队重载
+- **日志中心** — Web 面板可按节点查看 CrossServer 插件日志，方便集群排障
 - **热重载** — `/crossserver reload` 不重启服务器即可生效
 - **开放 API** — 其他插件可直接接入，注册命名空间、读写数据、监听同步事件
 
@@ -46,208 +49,134 @@ CREATE DATABASE cross_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 Redis 用于跨服之间的实时数据广播。如果你只有一台服务器或者不需要实时同步通知，可以跳过此步。
 
-**安装 Redis：**
-
-- **Windows**：[下载地址](https://github.com/tporadowski/redis/releases)，解压后运行 `redis-server.exe`
-- **Linux**：`apt install redis-server` 或 `yum install redis`，然后 `systemctl start redis`
-- **Docker**：`docker run -d -p 6379:6379 redis:7`
-
-**验证 Redis 正常运行：**
-```bash
-redis-cli ping
-# 应返回 PONG
-```
-
 ### 第三步：下载插件
 
 从 Releases 页面下载最新的 `cross-server-x.x-SNAPSHOT.jar`，放入每台子服的 `plugins/` 目录。
 
-### GitHub 自动构建 / 自动发布
-
-这个仓库已经配置了 GitHub Actions：
-
-- 推送到 `master` 时会自动执行 `mvn clean package`
-- 提交 Pull Request 到 `master` 时会自动检查能否正常编译
-- 每次构建完成后，都会在 Actions 页面生成可下载的构建产物
-- 推送版本标签（如 `v1.0.0`）时，会自动创建 GitHub Release 并上传构建好的 jar
-
-常用方式：
-
-```bash
-git push origin master
-```
-
-发布版本：
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-如果只是想下载测试包：
-
-1. 打开仓库 `Actions`
-2. 进入最近一次 `build`
-3. 在页面底部下载 `Artifacts`
-
 ### 第四步：配置代理（Velocity）
 
-如果你使用 Velocity 代理，在 `velocity.toml` 中确保各子服已注册：
-
-```toml
-[servers]
-  server-1 = "127.0.0.1:25566"
-  server-2 = "127.0.0.1:25567"
-```
-
-如果你使用 BungeeCord，在 `config.yml` 中同样注册各子服。
+如果你使用 Velocity 代理，在 `velocity.toml` 中确保各子服已注册。
 
 ### 第五步：配置插件
 
-启动服务器后会生成 `plugins/cross-server/config.yml`。这份文件仍然是**每台子服的本地默认配置**，但其中的模块开关和共享路由支持通过集群配置中心统一覆盖。建议把数据库、Redis、`server.id` 这类节点差异配置保留在本地，把功能开关和路由交给共享配置中心统一管理。
-
 ```yaml
-server:
-  id: "server-1"
-  cluster: "my-cluster"
-
-database:
-  jdbc-url: "jdbc:mysql://你的MySQL地址:3306/cross_server?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
-  username: "数据库用户名"
-  password: "数据库密码"
-  maximum-pool-size: 10
-
-messaging:
+web-panel:
   enabled: true
-  redis-uri: "redis://你的Redis地址:6379/0"
-  channel: "cross-server:sync"
-
-session:
-  lock-seconds: 30
-  heartbeat-seconds: 10
-  kick-message: "你的跨服会话正在同步中，请稍后重试"
-
-node:
-  heartbeat-seconds: 15
-  offline-seconds: 45
-
-teleport:
-  handoff-seconds: 30
-  arrival-check-delay-ticks: 10
-  cooldown-seconds: 10
-  gateway:
-    type: "proxy-plugin-message"
-    plugin-message-channel: "BungeeCord"
-    connect-subchannel: "Connect"
-    server-map:
-      server-1: "server-1"
-      server-2: "server-2"
-
-modules:
-  auth: true
-  homes: true
-  warps: true
-  tpa: true
-  route-config: true
-  transfer-admin: true
-  economy-bridge: true
-  permissions: false
+  host: "127.0.0.1"
+  port: 8765
+  token: "请改成强随机令牌"
+  master-server-id: "lobby"
+  cluster-lease-seconds: 30
+  cluster-heartbeat-seconds: 10
 ```
 
-### 第六步：重载或重启服务器
+### 第六步：Web 面板集群行为
 
-配置完成后重启所有子服，插件会自动建表并开始工作。可以使用 `/crossserver status` 确认插件状态，`/crossserver nodes` 确认各节点是否在线。
+只要**有一个或多个子服开启 `web-panel.enabled: true`**：
 
-如果你已经通过 `/crossserver modules ...` 或 `/crossserver route ...` 修改了共享配置，也可以直接在各节点执行 `/crossserver reload` 让当前节点立即应用最新共享配置。
+- 插件会把这些节点登记到共享配置里
+- 只有 `web-panel.master-server-id` 指定的节点会真正监听 `host:port`
+- 其他开启节点只负责上报成员状态，不会重复绑定端口
+- 节点关闭时会主动注销自己的面板成员记录
 
-## 命令列表
+推荐做法：
 
-### 玩家命令
+- 把 `master-server-id` 固定为大厅服，例如 `lobby`
+- 所有开启面板的节点使用同一组 token
+- 只有主控节点需要对外暴露面板端口，其他节点只参与集群登记
 
-| 命令 | 说明 |
-|------|------|
-| `/home [名称]` | 传送到家园（可跨服） |
-| `/homes` | 打开家园管理菜单 |
-| `/warp [名称]` | 直接传送到 Warp，或打开 Warp GUI |
-| `/setwarp <名称>` | 设置全局 Warp |
-| `/delwarp <名称>` | 删除全局 Warp |
-| `/tpa <玩家>` | 请求传送到目标玩家 |
-| `/tpahere <玩家>` | 邀请目标玩家传送到你这里 |
-| `/tpaccept [玩家]` | 接受最近一条或指定玩家的请求 |
-| `/tpdeny [玩家]` | 拒绝最近一条或指定玩家的请求 |
-| `/tpcancel` | 取消你发出的所有请求 |
-| `/login <密码>` | 登录（简写 `/l`） |
-| `/register <密码> <确认>` | 注册（简写 `/reg`） |
-| `/changepassword <旧密码> <新密码>` | 修改密码 |
-| `/economy balance` | 查看余额 |
-| `/economy history` | 查看交易记录 |
+### 第七步：访问面板
 
-### 管理员命令
+浏览器访问主控节点的 `http://host:port/` 后，会进入一个内置的多页面管理面板。
 
-| 命令 | 说明 |
-|------|------|
-| `/crossserver status` | 查看插件运行状态 |
-| `/crossserver nodes` | 查看集群所有节点 |
-| `/crossserver node <serverId>` | 查看指定节点详情 |
-| `/crossserver transfer info <玩家>` | 查看玩家跨服传送状态 |
-| `/crossserver transfer menu <玩家>` | 打开传送管理 GUI 菜单 |
-| `/crossserver transfer history <玩家>` | 查看玩家传送历史 |
-| `/crossserver transfer recent` | 查看最近传送事件 |
-| `/crossserver transfer clear <玩家>` | 清理卡住的传送 |
-| `/crossserver transfer reconcile <玩家>` | 保守修复传送状态 |
-| `/crossserver auth inspect <玩家>` | 查看认证信息 |
-| `/crossserver auth invalidate <玩家>` | 作废免重登票据 |
-| `/crossserver route list` | 查看共享路由表 |
-| `/crossserver route menu` | 打开路由配置 GUI |
-| `/crossserver route set <key> <value>` | 设置路由 |
-| `/crossserver route remove <key>` | 删除路由 |
-| `/crossserver modules list` | 查看模块本地默认、共享覆盖与最终有效值 |
-| `/crossserver modules set <module> <true|false>` | 设置共享模块开关覆盖 |
-| `/crossserver modules clear <module>` | 清除共享模块覆盖 |
-| `/economy set <玩家> <金额>` | 设置余额 |
-| `/economy deposit <玩家> <金额>` | 增加余额 |
-| `/economy withdraw <玩家> <金额>` | 扣除余额 |
-| `/crossserver reload` | 热重载配置 |
+面板会先要求你输入：
 
-## 权限节点
+```http
+X-CrossServer-Token: 你的token
+X-CrossServer-Actor: 操作者（可选）
+```
 
-| 权限 | 默认 | 说明 |
-|------|------|------|
-| `crossserver.homes.*` | 所有玩家 | 家园相关命令 |
-| `crossserver.warps.list` | 所有玩家 | 查看 Warp 列表 / 打开 GUI |
-| `crossserver.warps.teleport` | 所有玩家 | 传送到 Warp |
-| `crossserver.warps.set` | OP | 设置 Warp |
-| `crossserver.warps.delete` | OP | 删除 Warp |
-| `crossserver.tpa.use` | 所有玩家 | `/tpa` `/tpaccept` `/tpdeny` `/tpcancel` |
-| `crossserver.tpa.here` | 所有玩家 | `/tpahere` |
-| `crossserver.auth.*` | 所有玩家 | 登录/注册/改密 |
-| `crossserver.auth.admin` | OP | 认证管理命令 |
-| `crossserver.economy.balance` | OP | 查看余额 |
-| `crossserver.economy.set` | OP | 设置余额 |
-| `crossserver.economy.deposit` | OP | 增加余额 |
-| `crossserver.economy.withdraw` | OP | 扣除余额 |
-| `crossserver.economy.history` | OP | 交易流水 |
-| `crossserver.status.view` | OP | 查看状态 |
-| `crossserver.nodes.view` | OP | 查看节点 |
-| `crossserver.transfer.*` | OP | 传送管理 |
-| `crossserver.route.*` | OP | 路由管理 |
-| `crossserver.modules.*` | OP | 共享模块配置管理 |
-| `crossserver.reload` | OP | 热重载 |
+- `X-CrossServer-Token` 用于所有 API 请求鉴权
+- `X-CrossServer-Actor` 不传时默认记为 `web-panel`
+- 页面会把你输入的 token / actor 保存在浏览器本地，便于下次继续使用
 
-## 稳定性说明
+当前页面支持：
 
-- 跨服传送失败时会自动回滚 inventory、ender chest 与 player-state
-- 插件关闭时会收口正在进行中的 handoff，避免遗留 prepared session
-- Warp 与 TPA 的跨服分支都复用同一条 handoff 主链路
-- TPA 请求支持聊天消息、Title、ActionBar 与音效反馈
-- 旧版 `player-state` 与共享模块配置快照会自动兼容新增字段
+- 查看集群状态、节点列表、Web 面板主控节点与成员信息
+- 查看并修改共享模块开关（local / shared / effective）
+- 查看并修改共享路由（来源标签与游戏内路由菜单一致）
+- 查看已注册配置文档及 payload
+- 节点配置管理：查看各节点配置快照，在线编辑 messaging / webPanel / modules 白名单字段并提交到目标节点
+- 日志中心：按节点查看 CrossServer 插件同步日志
+- 查看 recent transfer，并按玩家名查询转服诊断
+- 在网页内请求重载当前节点，并在短暂断开后自动尝试重连
 
-## 常见问题
+> 注意：在网页里保存共享模块开关或共享路由后，只是写入共享配置中心；当前节点通常仍需触发一次本节点 reload 才会立即生效。
+> 
+> 现在可用的 reload 入口已经统一：`/crossserver reload`、路由菜单里的“重载本节点”、网页里的“重载本节点”都会走同一套安全排队逻辑。
+> 
+> 这仍然是一次完整的 CrossServer 重载：若从网页触发，面板会短暂断开，然后自动尝试恢复连接。
 
-### 插件报错 `Communications link failure`（连不上数据库）
+接口：
 
-检查 `config.yml` 中的 `database.jdbc-url` 是否正确。常见原因：
-- MySQL 地址/端口写错
-- MySQL 没启动
-- 防火墙阻止了连接
-- 数据库名 `cross_server` 不存在（需要先手动 `CREATE DATABASE`）
+只读：
+
+- `/`
+- `GET /api/overview`
+- `GET /api/status`
+- `GET /api/modules`
+- `GET /api/routes`
+- `GET /api/config-documents`
+- `GET /api/logs`
+- `GET /api/node-configs`
+- `GET /api/node-configs/detail?serverId=<节点ID>`
+- `GET /api/transfers/recent`
+- `GET /api/transfers/player?player=<玩家名>`
+
+可写：
+
+- `PUT /api/modules`
+- `PUT /api/routes`
+- `POST /api/routes`
+- `DELETE /api/routes?serverId=<子服ID>`
+- `POST /api/node-configs/apply`
+
+示例：
+
+```json
+{
+  "serverId": "spawn",
+  "proxyTarget": "lobby"
+}
+```
+
+节点配置应用：
+
+```json
+{
+  "serverId": "survival-1",
+  "changes": {
+    "messaging": {
+      "enabled": true,
+      "redisUri": "redis://127.0.0.1:6379/0",
+      "channel": "crossserver"
+    },
+    "webPanel": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 8765,
+      "masterServerId": "lobby"
+    },
+    "modules": {
+      "auth": true,
+      "homes": true,
+      "warps": true,
+      "tpa": true,
+      "routeConfig": true,
+      "transferAdmin": true,
+      "economyBridge": true,
+      "permissions": false
+    }
+  }
+}
+```

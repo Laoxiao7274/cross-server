@@ -1,7 +1,8 @@
 package org.xiaoziyi.crossserver.config;
 
 import org.xiaoziyi.crossserver.api.CrossServerApi;
-import org.xiaoziyi.crossserver.model.GlobalSnapshot;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -13,6 +14,7 @@ public final class RouteTableService {
 	public static final String NAMESPACE = "cluster.config";
 	public static final String DATA_KEY = "teleport.routes";
 	private static final int SCHEMA_VERSION = 1;
+	private static final String SOURCE = "crossserver.routes";
 
 	private final Logger logger;
 	private final CrossServerApi api;
@@ -22,6 +24,7 @@ public final class RouteTableService {
 		this.logger = logger;
 		this.api = api;
 		this.serverSettings = serverSettings;
+		this.api.registerConfigDocument(NAMESPACE, DATA_KEY);
 	}
 
 	public PluginConfiguration mergeInto(PluginConfiguration configuration) {
@@ -40,7 +43,7 @@ public final class RouteTableService {
 
 	public Map<String, String> loadSharedRoutes() {
 		try {
-			Optional<GlobalSnapshot> snapshot = api.loadGlobalData(NAMESPACE, DATA_KEY);
+			Optional<ConfigDocument> snapshot = api.loadConfigDocument(NAMESPACE, DATA_KEY);
 			if (snapshot.isEmpty()) {
 				return Map.of();
 			}
@@ -72,15 +75,24 @@ public final class RouteTableService {
 			String proxyTarget = require(entry.getValue(), "proxyTarget");
 			sanitized.put(serverId, proxyTarget);
 		}
-		api.saveGlobalData(
+		RouteTableSnapshot snapshot = new RouteTableSnapshot(
+				SCHEMA_VERSION,
+				Map.copyOf(sanitized),
+				normalizeActor(actorName),
+				Instant.now(),
+				SOURCE,
+				"更新共享路由表"
+		);
+		api.saveConfigDocument(
 				NAMESPACE,
 				DATA_KEY,
-				RouteConfigCodec.encode(new RouteTableSnapshot(
+				new ConfigDocumentUpdate(
+						RouteConfigCodec.encode(snapshot),
 						SCHEMA_VERSION,
-						Map.copyOf(sanitized),
-						normalizeActor(actorName),
-						Instant.now()
-				))
+						snapshot.updatedBy(),
+						SOURCE,
+						snapshot.summary()
+				)
 		);
 	}
 

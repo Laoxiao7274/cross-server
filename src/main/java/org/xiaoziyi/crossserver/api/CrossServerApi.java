@@ -3,6 +3,12 @@ package org.xiaoziyi.crossserver.api;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.xiaoziyi.crossserver.auth.AuthService;
+import org.xiaoziyi.crossserver.configcenter.ConfigCenterService;
+import org.xiaoziyi.crossserver.configcenter.ConfigChangeEvent;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
+import org.xiaoziyi.crossserver.configcenter.ConfigEntry;
+import org.xiaoziyi.crossserver.configcenter.RegisteredConfigDocument;
 import org.xiaoziyi.crossserver.economy.EconomyService;
 import org.xiaoziyi.crossserver.model.GlobalSnapshot;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
@@ -17,13 +23,16 @@ import org.xiaoziyi.crossserver.teleport.TransferHistoryEntry;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class CrossServerApi {
 	private final SyncService syncService;
 	private final SyncNamespaceRegistry namespaceRegistry;
 	private final SessionService sessionService;
 	private final EconomyService economyService;
+	private final ConfigCenterService configCenterService;
 	private TransferAdminService transferAdminService;
 	private TeleportApiFacade teleportApiFacade;
 	private AuthService authService;
@@ -38,6 +47,7 @@ public final class CrossServerApi {
 		this.namespaceRegistry = namespaceRegistry;
 		this.sessionService = sessionService;
 		this.economyService = economyService;
+		this.configCenterService = new ConfigCenterService(this);
 	}
 
 	public void attachTransferAdminService(TransferAdminService transferAdminService) {
@@ -86,6 +96,34 @@ public final class CrossServerApi {
 
 	public Runnable registerSyncListenerHandle(SyncService.SyncListener listener) {
 		return syncService.registerListenerHandle(listener);
+	}
+
+	public void registerConfigDocument(String namespace, String dataKey) {
+		configCenterService.registerDocument(namespace, dataKey);
+	}
+
+	public Set<RegisteredConfigDocument> getRegisteredConfigDocuments() {
+		return configCenterService.getRegisteredDocuments();
+	}
+
+	public Optional<ConfigEntry> loadConfigEntry(String namespace, String dataKey) throws Exception {
+		return configCenterService.loadEntry(namespace, dataKey);
+	}
+
+	public Optional<ConfigDocument> loadConfigDocument(String namespace, String dataKey) throws Exception {
+		return configCenterService.loadDocument(namespace, dataKey);
+	}
+
+	public ConfigDocument saveConfigDocument(String namespace, String dataKey, ConfigDocumentUpdate update) throws Exception {
+		return configCenterService.saveDocument(namespace, dataKey, update);
+	}
+
+	public ConfigDocument saveConfigDocument(String namespace, String dataKey, String payload) throws Exception {
+		return configCenterService.saveDocument(namespace, dataKey, payload);
+	}
+
+	public Runnable registerConfigDocumentListener(String namespace, String dataKey, Consumer<ConfigChangeEvent> listener) {
+		return configCenterService.registerDocumentListener(namespace, dataKey, listener);
 	}
 
 	public boolean openPlayerSession(UUID playerId) throws Exception {

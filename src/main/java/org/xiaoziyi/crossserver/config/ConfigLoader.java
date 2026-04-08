@@ -26,6 +26,13 @@ public final class ConfigLoader {
 				? requireText(config.getString("messaging.channel", "cross-server:sync").trim(), "messaging.channel")
 				: config.getString("messaging.channel", "cross-server:sync").trim();
 		String kickMessage = requireText(config.getString("session.kick-message", "你的跨服会话正在同步中，请稍后重试").trim(), "session.kick-message");
+		boolean webPanelEnabled = config.getBoolean("web-panel.enabled", false);
+		String webPanelHost = requireText(config.getString("web-panel.host", "127.0.0.1").trim(), "web-panel.host");
+		int webPanelPort = Math.max(1, Math.min(65535, config.getInt("web-panel.port", 8765)));
+		String webPanelToken = config.getString("web-panel.token", "").trim();
+		String webPanelMasterServerId = requireText(config.getString("web-panel.master-server-id", serverId).trim(), "web-panel.master-server-id");
+		int webPanelLeaseSeconds = Math.max(10, config.getInt("web-panel.cluster-lease-seconds", 30));
+		int webPanelHeartbeatSeconds = Math.max(3, config.getInt("web-panel.cluster-heartbeat-seconds", 10));
 
 		return new PluginConfiguration(
 				new PluginConfiguration.ServerSettings(serverId, cluster),
@@ -69,6 +76,15 @@ public final class ConfigLoader {
 						config.getBoolean("modules.transfer-admin", true),
 						config.getBoolean("modules.economy-bridge", true),
 						config.getBoolean("modules.permissions", false)
+				),
+				new PluginConfiguration.WebPanelSettings(
+						webPanelEnabled,
+						webPanelHost,
+						webPanelPort,
+						webPanelToken,
+						webPanelMasterServerId,
+						webPanelLeaseSeconds,
+						webPanelHeartbeatSeconds
 				)
 		);
 	}

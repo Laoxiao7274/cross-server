@@ -36,6 +36,14 @@ public final class NodeStatusService {
 		}
 	}
 
+	public void clearLocalNodeStatus() {
+		try {
+			storageProvider.deleteNodeStatus(serverSettings.id(), serverSettings.cluster());
+		} catch (Exception exception) {
+			logger.warning("清理节点状态失败: " + serverSettings.id() + " -> " + exception.getMessage());
+		}
+	}
+
 	public List<NodeStatusRecord> listNodes() throws Exception {
 		List<NodeStatusRecord> records = storageProvider.listNodeStatuses(serverSettings.cluster());
 		Instant threshold = Instant.now().minusSeconds(nodeSettings.offlineSeconds());

@@ -197,13 +197,12 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 				sender.sendMessage("§c你没有权限执行此命令。");
 				return true;
 			}
-			sender.sendMessage("§e正在重载 CrossServer...");
-			try {
-				plugin.reloadPlugin();
-				sender.sendMessage("§aCrossServer 重载成功");
-			} catch (Exception exception) {
-				sender.sendMessage("§cCrossServer 重载失败: " + exception.getMessage());
+			boolean accepted = plugin.requestReload(sender.getName(), "command:/crossserver reload");
+			if (!accepted) {
+				sender.sendMessage("§cCrossServer 正在重载中，请稍后再试。");
+				return true;
 			}
+			sender.sendMessage("§e已接受重载请求，CrossServer 即将开始重载...");
 			return true;
 		}
 		sendHelp(sender, label);
@@ -742,7 +741,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 			case "permissions" -> permissions = nextValue;
 			default -> throw new IllegalArgumentException("未知模块: " + module);
 		}
-		return new SharedModuleConfigSnapshot(1, auth, homes, warps, tpa, routeConfig, transferAdmin, economyBridge, permissions, null, null);
+		return new SharedModuleConfigSnapshot(1, auth, homes, warps, tpa, routeConfig, transferAdmin, economyBridge, permissions, null, null, null, null);
 	}
 
 	private String boolText(boolean value) {

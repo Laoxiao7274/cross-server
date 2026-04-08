@@ -7,6 +7,8 @@ public record RouteTableSnapshot(
 		int schemaVersion,
 		Map<String, String> routes,
 		String updatedBy,
-		Instant updatedAt
+		Instant updatedAt,
+		String source,
+		String summary
 ) {
 }

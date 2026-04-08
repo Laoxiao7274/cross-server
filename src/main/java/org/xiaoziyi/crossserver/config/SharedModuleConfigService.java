@@ -1,7 +1,8 @@
 package org.xiaoziyi.crossserver.config;
 
 import org.xiaoziyi.crossserver.api.CrossServerApi;
-import org.xiaoziyi.crossserver.model.GlobalSnapshot;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -11,6 +12,7 @@ public final class SharedModuleConfigService {
 	public static final String NAMESPACE = "cluster.config";
 	public static final String DATA_KEY = "modules.toggles";
 	private static final int SCHEMA_VERSION = 1;
+	private static final String SOURCE = "crossserver.modules";
 
 	private final Logger logger;
 	private final CrossServerApi api;
@@ -20,6 +22,7 @@ public final class SharedModuleConfigService {
 		this.logger = logger;
 		this.api = api;
 		this.serverSettings = serverSettings;
+		this.api.registerConfigDocument(NAMESPACE, DATA_KEY);
 	}
 
 	public PluginConfiguration mergeInto(PluginConfiguration configuration) {
@@ -45,22 +48,31 @@ public final class SharedModuleConfigService {
 	}
 
 	public void saveSharedConfig(SharedModuleConfigSnapshot snapshot, String actorName) throws Exception {
-		api.saveGlobalData(
+		SharedModuleConfigSnapshot normalized = new SharedModuleConfigSnapshot(
+				SCHEMA_VERSION,
+				snapshot.auth(),
+				snapshot.homes(),
+				snapshot.warps(),
+				snapshot.tpa(),
+				snapshot.routeConfig(),
+				snapshot.transferAdmin(),
+				snapshot.economyBridge(),
+				snapshot.permissions(),
+				normalizeActor(actorName),
+				Instant.now(),
+				SOURCE,
+				"更新共享模块开关"
+		);
+		api.saveConfigDocument(
 				NAMESPACE,
 				DATA_KEY,
-				SharedModuleConfigCodec.encode(new SharedModuleConfigSnapshot(
+				new ConfigDocumentUpdate(
+						SharedModuleConfigCodec.encode(normalized),
 						SCHEMA_VERSION,
-						snapshot.auth(),
-						snapshot.homes(),
-						snapshot.warps(),
-						snapshot.tpa(),
-						snapshot.routeConfig(),
-						snapshot.transferAdmin(),
-						snapshot.economyBridge(),
-						snapshot.permissions(),
-						normalizeActor(actorName),
-						Instant.now()
-				))
+						normalized.updatedBy(),
+						SOURCE,
+						normalized.summary()
+				)
 		);
 	}
 
@@ -76,13 +88,15 @@ public final class SharedModuleConfigService {
 				modules.economyBridge(),
 				modules.permissions(),
 				normalizeActor(actorName),
-				Instant.now()
+				Instant.now(),
+				SOURCE,
+				"更新共享模块开关"
 		), actorName);
 	}
 
 	private SharedModuleConfigSnapshot loadSharedSnapshot() {
 		try {
-			Optional<GlobalSnapshot> snapshot = api.loadGlobalData(NAMESPACE, DATA_KEY);
+			Optional<ConfigDocument> snapshot = api.loadConfigDocument(NAMESPACE, DATA_KEY);
 			if (snapshot.isEmpty()) {
 				return null;
 			}

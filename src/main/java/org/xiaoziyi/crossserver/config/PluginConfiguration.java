@@ -9,7 +9,8 @@ public record PluginConfiguration(
 		SessionSettings session,
 		NodeSettings node,
 		TeleportSettings teleport,
-		ModuleSettings modules
+		ModuleSettings modules,
+		WebPanelSettings webPanel
 ) {
 	public PluginConfiguration withTeleportGatewayServerMap(Map<String, String> serverMap) {
 		return new PluginConfiguration(
@@ -29,7 +30,8 @@ public record PluginConfiguration(
 								Map.copyOf(serverMap)
 						)
 				),
-				modules
+				modules,
+				webPanel
 		);
 	}
 
@@ -41,9 +43,11 @@ public record PluginConfiguration(
 				session,
 				node,
 				teleport,
-				modules
+				modules,
+				webPanel
 		);
 	}
+
 	public record ServerSettings(
 			String id,
 			String cluster
@@ -103,5 +107,19 @@ public record PluginConfiguration(
 			boolean economyBridge,
 			boolean permissions
 	) {
+	}
+
+	public record WebPanelSettings(
+			boolean enabled,
+			String host,
+			int port,
+			String token,
+			String masterServerId,
+			int clusterLeaseSeconds,
+			int clusterHeartbeatSeconds
+	) {
+		public boolean isMasterServer(String serverId) {
+			return masterServerId != null && !masterServerId.isBlank() && masterServerId.equalsIgnoreCase(serverId);
+		}
 	}
 }

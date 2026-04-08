@@ -167,27 +167,17 @@ public final class RouteConfigMenuService {
 			return;
 		}
 		player.closeInventory();
-		player.sendMessage("§e正在重载 CrossServer...");
-		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-			try {
-				((CrossServerPlugin) plugin).reloadPlugin();
-				plugin.getServer().getScheduler().runTask(plugin, () -> {
-					player.sendMessage("§aCrossServer 重载成功。");
-					player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7F, 1.15F);
-					if (player.isOnline()) {
-						openMenu(player, returnPage);
-					}
-				});
-			} catch (Exception exception) {
-				plugin.getServer().getScheduler().runTask(plugin, () -> {
-					player.sendMessage("§cCrossServer 重载失败: " + exception.getMessage());
-					player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.7F, 1.0F);
-					if (player.isOnline()) {
-						openMenu(player, returnPage);
-					}
-				});
+		boolean accepted = ((CrossServerPlugin) plugin).requestReload(player.getName(), "route-menu");
+		if (!accepted) {
+			player.sendMessage("§cCrossServer 正在重载中，请稍后再试。");
+			player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.7F, 1.0F);
+			if (player.isOnline()) {
+				openMenu(player, returnPage);
 			}
-		});
+			return;
+		}
+		player.sendMessage("§e已接受重载请求，CrossServer 即将开始重载...");
+		player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7F, 1.1F);
 	}
 
 	private String valueOrDash(String value) {

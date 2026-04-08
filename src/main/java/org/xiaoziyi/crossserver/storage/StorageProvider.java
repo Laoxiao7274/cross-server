@@ -62,6 +62,8 @@ public interface StorageProvider extends AutoCloseable {
 
 	void upsertNodeStatus(String serverId, String cluster, Instant lastSeen, Instant updatedAt) throws Exception;
 
+	void deleteNodeStatus(String serverId, String cluster) throws Exception;
+
 	List<NodeStatusRecord> listNodeStatuses(String cluster) throws Exception;
 
 	Optional<GlobalSnapshot> loadGlobalData(String namespace, String dataKey) throws Exception;

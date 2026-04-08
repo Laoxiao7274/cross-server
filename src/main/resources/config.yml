@@ -42,3 +42,12 @@ modules:
   transfer-admin: true
   economy-bridge: true
   permissions: false
+
+web-panel:
+  enabled: false
+  host: "127.0.0.1"
+  port: 8765
+  token: "change-this-token"
+  master-server-id: "server-1"
+  cluster-lease-seconds: 30
+  cluster-heartbeat-seconds: 10

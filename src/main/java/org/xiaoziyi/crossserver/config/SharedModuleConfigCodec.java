@@ -37,8 +37,10 @@ public final class SharedModuleConfigCodec {
 					readNullableBoolean(root, "transferAdmin"),
 					readNullableBoolean(root, "economyBridge"),
 					readNullableBoolean(root, "permissions"),
-					root.path("updatedBy").asText(null),
-					readInstant(root, "updatedAt")
+					readNullableText(root, "updatedBy"),
+					readInstant(root, "updatedAt"),
+					readNullableText(root, "source"),
+					readNullableText(root, "summary")
 			);
 		} catch (JsonProcessingException exception) {
 			throw new IllegalStateException("无法反序列化共享模块开关配置", exception);
@@ -56,5 +58,14 @@ public final class SharedModuleConfigCodec {
 			return null;
 		}
 		return Instant.parse(node.asText());
+	}
+
+	private static String readNullableText(JsonNode root, String field) {
+		JsonNode node = root.get(field);
+		if (node == null || node.isNull()) {
+			return null;
+		}
+		String value = node.asText();
+		return value == null || value.isBlank() ? null : value;
 	}
 }

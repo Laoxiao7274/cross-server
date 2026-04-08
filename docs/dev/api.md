@@ -1,6 +1,6 @@
 # API 文档
 
-CrossServer 通过 Bukkit `ServicesManager` 暴露 `CrossServerApi`，其他插件可以注册命名空间、读写数据、监听同步事件。
+CrossServer 通过 Bukkit `ServicesManager` 暴露 `CrossServerApi`，其他插件可以注册命名空间、读写数据、监听同步事件，也可以接入新的配置中心文档能力。
 
 ## 获取 API
 
@@ -82,6 +82,68 @@ Warp 与 TPA 当前都复用了这个能力：
 - `warps / teleport.warps` — 全局 Warp 列表
 - `teleport.requests / tpa.requests` — 跨服 TPA 请求
 
+## 配置中心文档
+
+这是在全局数据之上的高层封装，适合第三方插件把“共享配置”接入 CrossServer 配置中心。
+
+### 注册文档
+
+```java
+api.registerConfigDocument("my-plugin.config", "main");
+```
+
+### 保存文档
+
+```java
+ConfigDocument document = api.saveConfigDocument(
+    "my-plugin.config",
+    "main",
+    new ConfigDocumentUpdate(
+        "{\"enabled\":true,\"maxHomes\":3}",
+        1,
+        "my-plugin",
+        "my-plugin",
+        "更新主配置"
+    )
+);
+```
+
+写入后，CrossServer 会自动把以下元信息补进 JSON 文档：
+
+- `schemaVersion`
+- `updatedBy`
+- `updatedAt`
+- `source`
+- `summary`
+
+### 加载文档
+
+```java
+Optional<ConfigDocument> document = api.loadConfigDocument("my-plugin.config", "main");
+if (document.isPresent()) {
+    String payload = document.get().payload();
+    long version = document.get().version();
+    String updatedBy = document.get().updatedBy();
+}
+```
+
+### 监听文档变更
+
+```java
+Runnable handle = api.registerConfigDocumentListener("my-plugin.config", "main", event -> {
+    getLogger().info("config changed: " + event.namespace() + "/" + event.dataKey());
+});
+
+// 取消监听
+handle.run();
+```
+
+### 查询已注册文档
+
+```java
+Set<RegisteredConfigDocument> documents = api.getRegisteredConfigDocuments();
+```
+
 ## 同步监听
 
 当其他服务器更新了指定命名空间的数据时，监听器会被触发。
@@ -89,15 +151,15 @@ Warp 与 TPA 当前都复用了这个能力：
 ### 注册命名空间监听器
 
 ```java
-api.registerSyncListener("my-plugin.player-data", (namespace, playerId, dataKey) -> {
-    getLogger().info("Data updated: " + namespace + "/" + dataKey);
+api.registerSyncListener("my-plugin.player-data", message -> {
+    getLogger().info("Data updated: " + message.namespace() + "/" + message.targetId());
 });
 ```
 
 ### 注册全局监听器
 
 ```java
-api.registerSyncListener((namespace, playerId, dataKey) -> {
+api.registerSyncListener(message -> {
     // 所有命名空间的变更都会触发
 });
 ```
@@ -188,3 +250,36 @@ AuthService.AuthAdminInspection auth = api.inspectAuth(playerId);
 api.invalidateAuthTickets(playerId, "admin");
 api.forceReauthenticate(playerId, "admin");
 ```
+
+## 节点配置同步
+
+通过 `NodeConfigSyncService` 管理跨节点的配置快照与变更申请。
+
+### 命名空间
+
+`node.config` — 全局快照，每个节点以 `serverId` 为 data_key 存储配置快照。
+
+快照格式：
+
+```json
+{
+  "server": { "id": "survival-1", "cluster": "my-cluster" },
+  "messaging": { "enabled": true, "redisUri": "redis://...", "channel": "crossserver" },
+  "webPanel": { "enabled": true, "host": "127.0.0.1", "port": 8765, "masterServerId": "lobby", "tokenConfigured": true },
+  "modules": { "auth": true, "homes": true, ... }
+}
+```
+
+### 工作流程
+
+1. 节点启动时 `publishLocalSnapshot()` 将可编辑配置快照发布到 `node.config`
+2. 主控节点调用 `loadClusterNodeConfigs()` 获取所有节点快照
+3. 主控节点调用 `loadNodeConfigDetail(serverId)` 获取特定节点详情
+4. 主控节点调用 `requestApply(serverId, changes, actor)` 提交变更
+5. 目标节点收到变更后写入 `config.yml` 并排队重载
+
+### 安全限制
+
+- 仅白名单字段可修改（messaging / webPanel / modules）
+- 不暴露数据库、代理等敏感配置
+- 每次申请仅影响一个目标节点

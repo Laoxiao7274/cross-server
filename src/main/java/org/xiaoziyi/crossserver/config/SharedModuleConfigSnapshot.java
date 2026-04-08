@@ -13,6 +13,8 @@ public record SharedModuleConfigSnapshot(
 		Boolean economyBridge,
 		Boolean permissions,
 		String updatedBy,
-		Instant updatedAt
+		Instant updatedAt,
+		String source,
+		String summary
 ) {
 }

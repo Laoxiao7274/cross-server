@@ -23,7 +23,15 @@ public final class RouteConfigCodec {
 
 	public static RouteTableSnapshot decode(String payload) {
 		try {
-			return OBJECT_MAPPER.readValue(payload, RouteTableSnapshot.class);
+			RouteTableSnapshot snapshot = OBJECT_MAPPER.readValue(payload, RouteTableSnapshot.class);
+			return new RouteTableSnapshot(
+					snapshot.schemaVersion(),
+					snapshot.routes(),
+					snapshot.updatedBy(),
+					snapshot.updatedAt(),
+					snapshot.source(),
+					snapshot.summary()
+			);
 		} catch (JsonProcessingException exception) {
 			throw new IllegalStateException("无法反序列化共享路由配置", exception);
 		}

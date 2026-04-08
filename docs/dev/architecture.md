@@ -110,6 +110,33 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 | `teleport.requests` | `tpa.requests` | 跨服 TPA 请求 |
 | `route-table` | 路由相关 key | 服务器路由配置 |
 | `cluster.config` | `modules.toggles` | 集群共享模块开关 |
+| `node.config` | 各节点 `serverId` | 节点配置快照（messaging / webPanel / modules 白名单字段） |
+| `web.panel.log` | 各节点 `serverId` | 节点插件日志同步 |
+
+## 配置中心关键服务
+
+### NodeConfigSyncService — 节点配置同步
+
+管理跨节点的配置快照发布与变更申请：
+
+- `publishLocalSnapshot(configuration)` — 将本地可编辑配置快照发布到 `node.config` 命名空间
+- `loadClusterNodeConfigs()` — 加载所有节点的配置快照与在线状态
+- `loadNodeConfigDetail(serverId)` — 加载指定节点的配置详情
+- `requestApply(serverId, changes, actor)` — 主控节点提交变更申请，目标节点收到后写入 config.yml 并排队重载
+
+配置快照通过 `NodeLocalConfigService` 从当前 `PluginConfiguration` 导出，仅包含白名单字段（messaging / webPanel / modules），不暴露数据库、代理等敏感配置。
+
+### WebPanelClusterService — 面板集群管理
+
+管理 Web 面板主控/受管节点的集群登记与选举：
+
+- 主控节点在启动时注册到共享配置
+- 受管节点只上报成员状态
+- 心跳 + 租约机制确保过期节点自动剔除
+
+### WebPanelLogService — 日志同步
+
+各节点通过共享配置中心的 `web.panel.log` 命名空间同步插件日志，主控节点在 Web 面板的日志中心页面展示各节点日志，便于集群排障。
 
 ## 生命周期装配
 
@@ -119,6 +146,9 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - 读取本地配置并与共享路由、共享模块配置合并
 - 注册全部 namespace
 - 按模块开关选择性装配 homes / warps / tpa / auth / permissions 等服务
+- 创建 `NodeConfigSyncService` 并发布本地配置快照
+- 创建 `WebPanelClusterService`、`WebPanelLogService`
+- 创建 `WebPanelDataService`（注入所有上述服务）并启动 `WebPanelServer`
 - 注册 listener、命令、GUI、自动保存和恢复任务
 
 其中权限同步模块当前实现为：

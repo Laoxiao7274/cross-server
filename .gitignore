@@ -9,6 +9,14 @@ dependency-reduced-pom.xml
 *.iml
 .vscode/
 *.swp
+.classpath
+.factorypath
+.project
+.settings/
+
+# Claude
+.claude/
+CLAUDE.md
 
 # OS
 .DS_Store
