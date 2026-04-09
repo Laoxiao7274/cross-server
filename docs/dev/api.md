@@ -203,6 +203,56 @@ api.removeSharedRoute("spawn", "my-plugin");
 api.saveSharedModules(snapshot, "my-plugin");
 ```
 
+### 监听共享模块与共享路由变化
+
+```java
+Runnable modulesHandle = api.registerSharedModulesListener(event -> {
+    getLogger().info("共享模块已变化，version=" + event.version());
+});
+
+Runnable routesHandle = api.registerSharedRoutesListener(event -> {
+    getLogger().info("共享路由已变化，version=" + event.version());
+});
+```
+
+## 节点配置 API
+
+```java
+Map<String, Object> nodes = api.loadNodeConfigs();
+Map<String, Object> detail = api.loadNodeConfigDetail("survival-1");
+
+Map<String, Object> result = api.requestNodeConfigApply(
+    "survival-1",
+    Map.of(
+        "modules", Map.of("tpa", false)
+    ),
+    "my-plugin"
+);
+```
+
+## 玩家位置 API
+
+```java
+Optional<PlayerLocationSnapshot> location = api.getPlayerLocation(playerId);
+if (location.isPresent() && api.isPlayerLocationFresh(location.get())) {
+    TeleportTarget target = api.toTeleportTarget(location.get());
+}
+```
+
+这很适合：
+
+- 自定义跨服玩家传送菜单
+- 观战 / 追踪插件
+- 管理员快速跳转工具
+
+## 认证业务态 API
+
+```java
+boolean authenticated = api.isAuthenticated(playerId);
+boolean blocked = api.shouldBlockUnauthenticatedPlayer(playerId);
+Optional<AuthTicket> ticket = api.loadAuthTicket(playerId);
+```
+
 ## 全局数据
 
 适用于跨服共享的配置、状态等。

@@ -3,6 +3,8 @@ package org.xiaoziyi.crossserver.api;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.xiaoziyi.crossserver.auth.AuthService;
+import org.xiaoziyi.crossserver.auth.AuthService.AuthAdminInspection;
+import org.xiaoziyi.crossserver.auth.AuthTicket;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
@@ -11,14 +13,18 @@ import org.xiaoziyi.crossserver.configcenter.ConfigCenterService;
 import org.xiaoziyi.crossserver.configcenter.ConfigChangeEvent;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchema;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchemaValidator;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 import org.xiaoziyi.crossserver.configcenter.ConfigEntry;
+import org.xiaoziyi.crossserver.configcenter.NodeConfigSyncService;
 import org.xiaoziyi.crossserver.homes.HomeEntry;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
 import org.xiaoziyi.crossserver.configcenter.RegisteredConfigDocument;
 import org.xiaoziyi.crossserver.economy.EconomyService;
 import org.xiaoziyi.crossserver.model.GlobalSnapshot;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
+import org.xiaoziyi.crossserver.player.PlayerLocationService;
+import org.xiaoziyi.crossserver.player.PlayerLocationSnapshot;
 import org.xiaoziyi.crossserver.session.SessionService;
 import org.xiaoziyi.crossserver.sync.SyncNamespaceRegistry;
 import org.xiaoziyi.crossserver.sync.SyncService;
@@ -53,6 +59,8 @@ public final class CrossServerApi {
 	private SharedModuleConfigService sharedModuleConfigService;
 	private RouteTableService routeTableService;
 	private PluginConfiguration configuration;
+	private NodeConfigSyncService nodeConfigSyncService;
+	private PlayerLocationService playerLocationService;
 
 	public CrossServerApi(
 			SyncService syncService,
@@ -101,6 +109,14 @@ public final class CrossServerApi {
 
 	public void attachConfiguration(PluginConfiguration configuration) {
 		this.configuration = configuration;
+	}
+
+	public void attachNodeConfigSyncService(NodeConfigSyncService nodeConfigSyncService) {
+		this.nodeConfigSyncService = nodeConfigSyncService;
+	}
+
+	public void attachPlayerLocationService(PlayerLocationService playerLocationService) {
+		this.playerLocationService = playerLocationService;
 	}
 
 	public void registerNamespace(String namespace) {
@@ -190,7 +206,11 @@ public final class CrossServerApi {
 	}
 
 	public void validateConfigDocument(String namespace, String dataKey, String payload) throws Exception {
-		configCenterService.saveDocument(namespace, dataKey, new ConfigDocumentUpdate(payload, 1, "validator", "api.validate", "校验配置文档"));
+		RegisteredConfigDocument registration = configCenterService.getRegisteredDocuments().stream()
+				.filter(document -> namespace.equals(document.namespace()) && dataKey.equals(document.dataKey()))
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("未注册的配置文档: " + namespace + "/" + dataKey));
+		ConfigDocumentSchemaValidator.validate(payload, registration.schema());
 	}
 
 	public boolean openPlayerSession(UUID playerId) throws Exception {
@@ -276,6 +296,10 @@ public final class CrossServerApi {
 		sharedModuleConfigService.saveSharedConfig(snapshot, actorName);
 	}
 
+	public Runnable registerSharedModulesListener(Consumer<ConfigChangeEvent> listener) {
+		return registerConfigDocumentListener(SharedModuleConfigService.NAMESPACE, SharedModuleConfigService.DATA_KEY, listener);
+	}
+
 	public Map<String, String> loadSharedRoutes() {
 		if (routeTableService == null) {
 			return Map.of();
@@ -302,6 +326,28 @@ public final class CrossServerApi {
 			return Map.of();
 		}
 		return routeTableService.mergedRoutes(configuration);
+	}
+
+	public Runnable registerSharedRoutesListener(Consumer<ConfigChangeEvent> listener) {
+		return registerConfigDocumentListener(RouteTableService.NAMESPACE, RouteTableService.DATA_KEY, listener);
+	}
+
+	public Optional<PlayerLocationSnapshot> getPlayerLocation(UUID playerId) {
+		if (playerLocationService == null) {
+			return Optional.empty();
+		}
+		return playerLocationService.getPlayerLocation(playerId);
+	}
+
+	public boolean isPlayerLocationFresh(PlayerLocationSnapshot snapshot) {
+		return playerLocationService != null && playerLocationService.isFresh(snapshot);
+	}
+
+	public TeleportTarget toTeleportTarget(PlayerLocationSnapshot snapshot) {
+		if (playerLocationService == null) {
+			throw new IllegalStateException("player location service not attached");
+		}
+		return playerLocationService.toTeleportTarget(snapshot);
 	}
 
 	public TeleportInitiationResult requestTeleport(UUID playerId, TeleportTarget target, String causeRef) {
@@ -356,6 +402,49 @@ public final class CrossServerApi {
 			return;
 		}
 		throw new IllegalStateException("teleport control facade not attached");
+	}
+
+	public Map<String, Object> loadNodeConfigDetail(String serverId) {
+		if (nodeConfigSyncService == null) {
+			return Map.of();
+		}
+		return nodeConfigSyncService.loadNodeConfigDetail(serverId);
+	}
+
+	public Map<String, Object> loadNodeConfigs() {
+		if (nodeConfigSyncService == null) {
+			return Map.of();
+		}
+		return nodeConfigSyncService.loadClusterNodeConfigs();
+	}
+
+	public Map<String, Object> requestNodeConfigApply(String serverId, Map<String, Object> changes, String actorName) throws Exception {
+		if (nodeConfigSyncService == null) {
+			throw new IllegalStateException("node config sync service not attached");
+		}
+		return nodeConfigSyncService.requestApply(serverId, changes, actorName);
+	}
+
+	public boolean isAuthenticated(UUID playerId) {
+		if (authService == null) {
+			return true;
+		}
+		return authService.isAuthenticated(playerId);
+	}
+
+	public boolean shouldBlockUnauthenticatedPlayer(UUID playerId) {
+		if (authService == null) {
+			return false;
+		}
+		return authService.shouldBlock(playerId);
+	}
+
+	public Optional<AuthTicket> loadAuthTicket(UUID playerId) throws Exception {
+		if (authService == null) {
+			return Optional.empty();
+		}
+		AuthAdminInspection inspection = authService.inspectAuth(playerId);
+		return Optional.ofNullable(inspection.ticket());
 	}
 
 	public AuthService.AuthAdminInspection inspectAuth(UUID playerId) throws Exception {

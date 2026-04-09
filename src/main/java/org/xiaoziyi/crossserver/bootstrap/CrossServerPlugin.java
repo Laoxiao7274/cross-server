@@ -237,6 +237,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			getLogger().info("权限同步模块已启用，当前适配器: " + playerPermissionSyncService.adapterName());
 		}
 		this.playerLocationService = new PlayerLocationService(this, getLogger(), api, configuration.server().id());
+		api.attachPlayerLocationService(playerLocationService);
 		if (configuration.modules().auth()) {
 			this.authService = new AuthService(this, getLogger(), api, configuration.server().id());
 		}
@@ -284,6 +285,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
 		}
 		this.nodeConfigSyncService = new NodeConfigSyncService(this, api, configuration.server(), new NodeLocalConfigService(this));
+		api.attachNodeConfigSyncService(nodeConfigSyncService);
 		this.nodeConfigSyncService.publishLocalSnapshot(configuration);
 		this.webPanelClusterService = new WebPanelClusterService(api, configuration.server(), configuration.webPanel());
 		this.webPanelLogService = new WebPanelLogService(api, configuration.server(), getLogger());
