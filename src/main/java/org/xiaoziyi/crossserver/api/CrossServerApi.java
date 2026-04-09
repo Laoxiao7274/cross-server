@@ -6,6 +6,7 @@ import org.xiaoziyi.crossserver.auth.AuthService;
 import org.xiaoziyi.crossserver.configcenter.ConfigCenterService;
 import org.xiaoziyi.crossserver.configcenter.ConfigChangeEvent;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchema;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 import org.xiaoziyi.crossserver.configcenter.ConfigEntry;
 import org.xiaoziyi.crossserver.configcenter.RegisteredConfigDocument;
@@ -22,6 +23,7 @@ import org.xiaoziyi.crossserver.teleport.TransferDiagnostics;
 import org.xiaoziyi.crossserver.teleport.TransferHistoryEntry;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -102,6 +104,10 @@ public final class CrossServerApi {
 		configCenterService.registerDocument(namespace, dataKey);
 	}
 
+	public void registerConfigDocument(String namespace, String dataKey, ConfigDocumentSchema schema) {
+		configCenterService.registerDocument(namespace, dataKey, schema);
+	}
+
 	public Set<RegisteredConfigDocument> getRegisteredConfigDocuments() {
 		return configCenterService.getRegisteredDocuments();
 	}
@@ -112,6 +118,10 @@ public final class CrossServerApi {
 
 	public Optional<ConfigDocument> loadConfigDocument(String namespace, String dataKey) throws Exception {
 		return configCenterService.loadDocument(namespace, dataKey);
+	}
+
+	public List<Map<String, Object>> loadConfigDocumentHistory(String namespace, String dataKey) throws Exception {
+		return configCenterService.loadDocumentHistory(namespace, dataKey);
 	}
 
 	public ConfigDocument saveConfigDocument(String namespace, String dataKey, ConfigDocumentUpdate update) throws Exception {

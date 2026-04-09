@@ -313,6 +313,11 @@
       background: linear-gradient(180deg, #ff6d8b 0%, #da4f70 100%);
       box-shadow: 0 10px 22px rgba(218, 79, 112, 0.34);
     }
+    button.warn {
+      background: linear-gradient(180deg, #ffbf63 0%, #f09b31 100%);
+      color: #271402;
+      box-shadow: 0 10px 22px rgba(240, 155, 49, 0.28);
+    }
     input,
     textarea,
     select {
@@ -434,6 +439,23 @@
       border-radius: 14px;
       border: 1px solid var(--border);
       background: linear-gradient(145deg, rgba(13, 23, 40, 0.88), rgba(8, 14, 26, 0.82));
+    }
+    .empty-state {
+      padding: 16px;
+      border: 1px dashed rgba(126, 154, 205, 0.36);
+      border-radius: 14px;
+      background: rgba(9, 16, 29, 0.62);
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .risk-banner {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 122, 144, 0.38);
+      background: linear-gradient(160deg, rgba(92, 25, 40, 0.34), rgba(53, 14, 23, 0.24));
+      color: #ffc9d4;
+      line-height: 1.65;
     }
     .document-meta {
       display: grid;
@@ -991,7 +1013,10 @@
     }
 
     function renderDocuments(documents) {
-      document.getElementById("documentsList").innerHTML = (documents || []).map((doc, index) => `
+      document.getElementById("documentsList").innerHTML = (documents || []).map((doc, index) => {
+        const history = Array.isArray(doc.history) ? doc.history : [];
+        const schema = doc.schemaDefinition || null;
+        return `
         <div class="document-card">
           <div class="panel-header" style="margin-bottom:6px;">
             <div>
@@ -1001,6 +1026,7 @@
             <button class="secondary" data-doc-toggle="${index}">展开内容</button>
           </div>
           <div class="document-purpose">${escapeHtml(doc.purpose || "暂无说明")}</div>
+          ${schema ? `<div class="banner">Schema：<strong>${escapeHtml(schema.name || "未命名规则")}</strong> · v${escapeHtml(schema.version ?? "-")}<br>${escapeHtml(schema.description || "此文档启用了服务端字段约束校验。")}</div>` : `<div class="banner">当前文档未注册显式 schema 规则，保存时只做格式校验，不做字段级约束。</div>`}
           <div class="document-meta">
             <div class="info-card"><div class="small">当前状态</div><strong>${doc.present ? "已存在" : "未写入"}</strong></div>
             <div class="info-card"><div class="small">版本号</div><strong>${escapeHtml(doc.version ?? "-")}</strong></div>
@@ -1030,12 +1056,19 @@
 
 enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
               </div>
+              ${schema ? `<div class="info-card"><strong>Schema 约束</strong><div class="small" style="margin-top:6px">必填字段：${escapeHtml((schema.requiredPaths || []).join(", ") || "无")}</div><div class="small" style="margin-top:4px">字段类型：${escapeHtml(Object.entries(schema.fieldTypes || {}).map(([k, v]) => `${k}: ${v}`).join("；") || "无")}</div></div>` : ""}
+              <div class="risk-banner">风险提示：保存配置文档会立即写入共享配置中心，并可能触发其他节点或其他插件的配置热更新逻辑。</div>
               <div class="actions">
-                <button type="submit">保存文档</button>
+                <button type="submit" class="warn">保存文档</button>
               </div>
             </form>
+            <details>
+              <summary>查看最近历史记录 (${history.length})</summary>
+              ${history.length ? `<table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>来源</th><th>摘要</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.source || "-")}</td><td>${escapeHtml(item.summary || "-")}</td></tr>`).join("")}</tbody></table>` : `<div class="empty-state">暂无历史记录。保存一次后，这里会显示最近 20 次变更。</div>`}
+            </details>
           </div>
-        </div>`).join("") || `<div class="muted">暂无已注册配置文档</div>`;
+        </div>`;
+      }).join("") || `<div class="empty-state">暂无已注册配置文档。只有插件主动注册了配置文档后，这里才会显示对应的共享配置入口。</div>`;
     }
 
     function renderRecentTransfers(entries) {
@@ -1328,7 +1361,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
     };
     window.deleteRoute = async function(serverId) {
       const box = document.getElementById("routesMessage");
-      if (!confirm(`确认删除共享路由覆盖 ${serverId}？`)) return;
+      if (!confirm(`确认删除共享路由覆盖 ${serverId}？该操作会影响跨服路由解析。`)) return;
       try {
         const data = await api(`/api/routes?serverId=${encodeURIComponent(serverId)}`, { method: "DELETE" });
         await reloadRoutes();
@@ -1395,6 +1428,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
         if (!namespace || !dataKey) throw new Error("缺少配置文档标识");
         if (!payload) throw new Error("payload 不能为空");
         if (!Number.isInteger(schemaVersion) || schemaVersion < 1) throw new Error("schemaVersion 必须是大于等于 1 的整数");
+        if (!confirm(`确认保存配置文档 ${namespace}/${dataKey} 吗？这可能会立即影响其他节点或其他插件的运行配置。`)) return;
         await api("/api/config-documents", {
           method: "PUT",
           body: JSON.stringify({ namespace, dataKey, payload, schemaVersion, source, summary })
@@ -1427,6 +1461,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
         const serverId = form.dataset.serverId || state.selectedNodeConfigServerId || "";
         if (!serverId) throw new Error("缺少目标节点 serverId");
         const changes = collectNodeConfigChanges(form);
+        if (!confirm(`确认向节点 ${serverId} 提交配置写回申请吗？目标节点会写回本地 config.yml 并排队重载。`)) return;
         const result = await api("/api/node-configs/apply", { method: "POST", body: JSON.stringify({ serverId, changes }) });
         setMessage(box, "success", `已提交节点配置申请：${serverId} · ${applyStatusText(result.status)} · 请求 ID ${result.requestId || "-"}`);
         await reloadNodeConfigs(true);

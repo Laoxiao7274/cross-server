@@ -3,6 +3,7 @@ package org.xiaoziyi.crossserver.web;
 import org.xiaoziyi.crossserver.api.CrossServerApi;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchema;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 
 import java.time.Instant;
@@ -15,6 +16,19 @@ public final class WebPanelClusterService {
 	public static final String DATA_KEY = "web.panel.cluster";
 	private static final int SCHEMA_VERSION = 1;
 	private static final String SOURCE = "crossserver.web-panel";
+	private static final ConfigDocumentSchema DOCUMENT_SCHEMA = new ConfigDocumentSchema(
+			"WebPanelCluster",
+			1,
+			java.util.List.of("leaderServerId", "members"),
+			java.util.Map.of(
+					"schemaVersion", "integer",
+					"leaderServerId", "string",
+					"members", "object"
+			),
+			true,
+			null,
+			"Web 面板集群成员状态"
+	);
 
 	private final CrossServerApi api;
 	private final PluginConfiguration.ServerSettings serverSettings;
@@ -24,7 +38,7 @@ public final class WebPanelClusterService {
 		this.api = api;
 		this.serverSettings = serverSettings;
 		this.settings = settings;
-		this.api.registerConfigDocument(NAMESPACE, DATA_KEY);
+		this.api.registerConfigDocument(NAMESPACE, DATA_KEY, DOCUMENT_SCHEMA);
 	}
 
 	public WebPanelClusterSnapshot heartbeat() throws Exception {

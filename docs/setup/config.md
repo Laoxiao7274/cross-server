@@ -172,7 +172,7 @@ web-panel:
 | 仪表盘 | 集群状态总览、节点列表、面板成员信息 |
 | 模块 | 查看并修改共享模块开关（local / shared / effective） |
 | 路由 | 查看并修改共享路由（新增 / 整体覆盖 / 删除） |
-| 配置文档 | 查看并编辑已注册配置文档的 JSON / YAML payload、schema/source/summary |
+| 配置文档 | 查看并编辑已注册配置文档的 JSON / YAML payload、schema/source/summary，并展示 schema 约束与最近历史 |
 | 节点配置 | 查看各节点配置快照，在线编辑 messaging / webPanel / modules 并提交 |
 | 日志中心 | 按节点查看 CrossServer 插件同步日志 |
 | 转服诊断 | 查看最近转服记录，按玩家名查询详细诊断 |
@@ -182,6 +182,22 @@ web-panel:
 - 在面板中保存共享模块开关或共享路由后，只是写入共享配置中心；当前节点通常仍需触发一次本节点 reload 才会立即生效
 - `/crossserver reload`、路由菜单里的"重载本节点"、面板内的"重载本节点"现在都使用同一套安全排队式 reload 逻辑（`AtomicBoolean` 防并发）
 - 面板触发重载时会短暂断开，然后自动尝试重连
+- 配置文档页会在保存前提示风险操作确认，并显示最近历史记录
+
+### 配置中心 schema 约束
+
+CrossServer 现在支持为配置文档注册 schema 规则，用于对共享配置做最基本的服务端字段约束校验。
+
+当前第一版支持：
+
+- 必填字段路径校验
+- 字段类型校验（`object` / `array` / `string` / `boolean` / `number` / `integer`）
+
+这项能力适合：
+
+- 防止 Web 面板误保存错误字段结构
+- 给第三方插件的共享配置提供最基础的格式保护
+- 在多人协作运维时减少误操作风险
 
 ### 节点配置远程管理
 

@@ -2,6 +2,7 @@ package org.xiaoziyi.crossserver.config;
 
 import org.xiaoziyi.crossserver.api.CrossServerApi;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchema;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 
 import java.time.Instant;
@@ -13,6 +14,25 @@ public final class SharedModuleConfigService {
 	public static final String DATA_KEY = "modules.toggles";
 	private static final int SCHEMA_VERSION = 1;
 	private static final String SOURCE = "crossserver.modules";
+	private static final ConfigDocumentSchema DOCUMENT_SCHEMA = new ConfigDocumentSchema(
+			"SharedModuleConfig",
+			1,
+			java.util.List.of(),
+			java.util.Map.of(
+					"schemaVersion", "integer",
+					"auth", "boolean",
+					"homes", "boolean",
+					"warps", "boolean",
+					"tpa", "boolean",
+					"routeConfig", "boolean",
+					"transferAdmin", "boolean",
+					"economyBridge", "boolean",
+					"permissions", "boolean"
+			),
+			true,
+			null,
+			"集群共享模块开关"
+	);
 
 	private final Logger logger;
 	private final CrossServerApi api;
@@ -22,7 +42,7 @@ public final class SharedModuleConfigService {
 		this.logger = logger;
 		this.api = api;
 		this.serverSettings = serverSettings;
-		this.api.registerConfigDocument(NAMESPACE, DATA_KEY);
+		this.api.registerConfigDocument(NAMESPACE, DATA_KEY, DOCUMENT_SCHEMA);
 	}
 
 	public PluginConfiguration mergeInto(PluginConfiguration configuration) {

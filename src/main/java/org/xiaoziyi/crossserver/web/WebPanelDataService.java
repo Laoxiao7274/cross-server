@@ -236,6 +236,7 @@ public final class WebPanelDataService {
 			item.put("dataKey", document.dataKey());
 			item.put("title", documentTitle(document.namespace(), document.dataKey()));
 			item.put("purpose", documentPurpose(document.namespace(), document.dataKey()));
+			item.put("schemaDefinition", schemaToMap(document.schema()));
 			item.put("present", loaded.isPresent());
 			loaded.ifPresent(value -> {
 				item.put("format", value.format() == null ? null : value.format().name().toLowerCase(java.util.Locale.ROOT));
@@ -249,6 +250,7 @@ public final class WebPanelDataService {
 				item.put("payloadPretty", prettyPayload(value.payload()));
 				item.put("payloadType", payloadType(value.payload()));
 			});
+			item.put("history", api.loadConfigDocumentHistory(document.namespace(), document.dataKey()));
 			result.add(item);
 		}
 		return result;
@@ -538,6 +540,21 @@ public final class WebPanelDataService {
 		} catch (Exception exception) {
 			throw new IllegalArgumentException("payload 必须是合法 JSON 或 YAML: " + exception.getMessage());
 		}
+	}
+
+	private Map<String, Object> schemaToMap(org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchema schema) {
+		if (schema == null) {
+			return null;
+		}
+		Map<String, Object> item = new LinkedHashMap<>();
+		item.put("name", schema.name());
+		item.put("version", schema.version());
+		item.put("requiredPaths", schema.requiredPaths());
+		item.put("fieldTypes", schema.fieldTypes());
+		item.put("allowAdditionalFields", schema.allowAdditionalFields());
+		item.put("examplePayload", schema.examplePayload());
+		item.put("description", schema.description());
+		return item;
 	}
 
 	private int readSchemaVersion(Object value) {

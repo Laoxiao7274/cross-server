@@ -204,6 +204,30 @@ Warp 与 TPA 当前都复用了这个能力：
 api.registerConfigDocument("my-plugin.config", "main");
 ```
 
+### 注册文档并附带 schema
+
+```java
+api.registerConfigDocument(
+    "my-plugin.config",
+    "main",
+    new ConfigDocumentSchema(
+        "MyPluginConfig",
+        1,
+        List.of("enabled", "limits.maxHomes"),
+        Map.of(
+            "enabled", "boolean",
+            "limits", "object",
+            "limits.maxHomes", "integer"
+        ),
+        true,
+        "enabled: true\nlimits:\n  maxHomes: 3\n",
+        "我的插件共享配置"
+    )
+);
+```
+
+保存时，CrossServer 会根据 schema 做服务端校验；如果缺少必填字段或字段类型不匹配，会直接拒绝保存。
+
 ### 保存文档
 
 ```java
@@ -283,6 +307,18 @@ public void shutdownSharedConfig() {
 ```java
 Set<RegisteredConfigDocument> documents = api.getRegisteredConfigDocuments();
 ```
+
+### 查询文档历史
+
+```java
+List<Map<String, Object>> history = api.loadConfigDocumentHistory("my-plugin.config", "main");
+```
+
+当前默认会保留最近 20 次文档版本历史，适合：
+
+- 在 Web 面板查看最近变更
+- 自己做简单审计展示
+- 排查“谁把配置改坏了”
 
 ## 同步监听
 

@@ -2,6 +2,7 @@ package org.xiaoziyi.crossserver.configcenter;
 
 public record RegisteredConfigDocument(
 		String namespace,
-		String dataKey
+		String dataKey,
+		ConfigDocumentSchema schema
 ) {
 }
