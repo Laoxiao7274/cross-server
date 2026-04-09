@@ -54,7 +54,10 @@ nav:
       - 配置指南: setup/config.md
       - Velocity 代理: setup/velocity.md
   - 使用指南:
-      - 命令与权限: usage/commands.md
+      - 使用指南总览: usage/commands.md
+      - 玩家指南: usage/player-guide.md
+      - 服主指南: usage/owner-guide.md
+      - 技术管理员指南: usage/admin-guide.md
       - 路由管理: usage/routes.md
   - 开发者:
       - 架构概览: dev/architecture.md
