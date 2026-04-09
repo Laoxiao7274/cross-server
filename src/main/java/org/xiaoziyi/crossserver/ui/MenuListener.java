@@ -11,12 +11,14 @@ public final class MenuListener implements Listener {
 	private final WarpMenuService warpMenuService;
 	private final TransferAdminMenuService transferAdminMenuService;
 	private final RouteConfigMenuService routeConfigMenuService;
+	private final CrossServerMainMenuService crossServerMainMenuService;
 
-	public MenuListener(HomesMenuService homesMenuService, WarpMenuService warpMenuService, TransferAdminMenuService transferAdminMenuService, RouteConfigMenuService routeConfigMenuService) {
+	public MenuListener(HomesMenuService homesMenuService, WarpMenuService warpMenuService, TransferAdminMenuService transferAdminMenuService, RouteConfigMenuService routeConfigMenuService, CrossServerMainMenuService crossServerMainMenuService) {
 		this.homesMenuService = homesMenuService;
 		this.warpMenuService = warpMenuService;
 		this.transferAdminMenuService = transferAdminMenuService;
 		this.routeConfigMenuService = routeConfigMenuService;
+		this.crossServerMainMenuService = crossServerMainMenuService;
 	}
 
 	@EventHandler
@@ -49,6 +51,13 @@ public final class MenuListener implements Listener {
 			event.setCancelled(true);
 			if (routeConfigMenuService != null && event.getClickedInventory() == event.getView().getTopInventory()) {
 				routeConfigMenuService.handleClick(player, holder, event.getSlot(), event.isLeftClick(), event.isRightClick());
+			}
+			return;
+		}
+		if (event.getView().getTopInventory().getHolder() instanceof CrossServerMainMenuHolder) {
+			event.setCancelled(true);
+			if (crossServerMainMenuService != null && event.getClickedInventory() == event.getView().getTopInventory()) {
+				crossServerMainMenuService.handleClick(player, event.getSlot());
 			}
 		}
 	}

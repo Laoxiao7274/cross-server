@@ -203,12 +203,18 @@ web-panel:
 - 分页帮助：`/cs help [page]`
 - 总入口导航：`/cs menu`
 
-其中 `/cs menu` 会把玩家或管理员快速引导到已有菜单入口，例如：
+其中 `/cs menu` 现在会打开一个真正的 GUI 总菜单，可跳转到已有功能菜单，例如：
 
 - `/homes`
 - `/warp`
 - `/cs route menu`
 - `/cs transfer recent`
+
+同时，跨服传送提示现在也会按场景显示更准确的语义，例如：
+
+- Home：已传送至目标家园
+- Warp：已传送至目标地标
+- TPA：已传送至目标玩家附近
 
 ## 文档入口
 

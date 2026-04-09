@@ -328,13 +328,40 @@ public final class CrossServerTeleportService {
 			api.sessionService().clearPreparedTransfer(player.getUniqueId());
 			clearRollbackSnapshots(player.getUniqueId());
 			plugin.getServer().getScheduler().runTask(plugin, () -> {
-				player.sendTitle("§a跨服传送成功", "§7欢迎来到 §f" + handoff.targetServerId(), 5, 45, 10);
-				player.sendActionBar(Component.text("已到达目标服务器: " + handoff.targetServerId()));
+				player.sendTitle(successTitle(handoff), successSubtitle(handoff), 5, 45, 10);
+				player.sendActionBar(Component.text(successActionBar(handoff)));
 				player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8F, 1.15F);
 			});
 		} catch (Exception exception) {
 			logger.warning("完成跨服传送到达阶段失败: requestId=" + handoff.requestId() + " player=" + player.getUniqueId() + " -> " + exception.getMessage());
 		}
+	}
+
+	private String successTitle(TeleportHandoff handoff) {
+		return switch (handoff.cause()) {
+			case HOME -> "§a家园传送成功";
+			case WARP -> "§a地标传送成功";
+			case TPA -> "§a玩家传送成功";
+			case TPA_HERE -> "§a玩家传送成功";
+		};
+	}
+
+	private String successSubtitle(TeleportHandoff handoff) {
+		return switch (handoff.cause()) {
+			case HOME -> "§7已到达家园所在节点 §f" + handoff.targetServerId();
+			case WARP -> "§7已到达地标所在节点 §f" + handoff.targetServerId();
+			case TPA -> "§7已到达目标玩家所在节点 §f" + handoff.targetServerId();
+			case TPA_HERE -> "§7已完成玩家传送邀请 §f" + handoff.targetServerId();
+		};
+	}
+
+	private String successActionBar(TeleportHandoff handoff) {
+		return switch (handoff.cause()) {
+			case HOME -> "已传送至目标家园";
+			case WARP -> "已传送至目标地标";
+			case TPA -> "已传送至目标玩家附近";
+			case TPA_HERE -> "已完成玩家传送邀请";
+		};
 	}
 
 	public void reconcilePendingTransfers() {

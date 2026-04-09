@@ -42,11 +42,20 @@ public final class ProxyPluginMessageServerTransferGateway implements ServerTran
 			}
 			player.sendPluginMessage(plugin, channel, byteStream.toByteArray());
 			logger.info("已发送代理切服请求: requestId=" + handoff.requestId() + " player=" + player.getUniqueId() + " targetServerId=" + handoff.targetServerId() + " proxyTarget=" + proxyServerName);
-			return new TeleportInitiationResult(true, true, "§a跨服传送准备完成，正在连接目标服务器...", handoff.requestId());
+			return new TeleportInitiationResult(true, true, successMessage(handoff), handoff.requestId());
 		} catch (IOException exception) {
 			logger.warning("发送代理切服消息失败: requestId=" + handoff.requestId() + " -> " + exception.getMessage());
 			return new TeleportInitiationResult(false, true, "§c代理切服消息发送失败，请稍后重试。", handoff.requestId());
 		}
+	}
+
+	private String successMessage(TeleportHandoff handoff) {
+		return switch (handoff.cause()) {
+			case HOME -> "§a正在前往家园，正在连接目标服务器...";
+			case WARP -> "§a正在前往地标，正在连接目标服务器...";
+			case TPA -> "§a正在前往目标玩家，正在连接目标服务器...";
+			case TPA_HERE -> "§a正在处理玩家传送邀请，正在连接目标服务器...";
+		};
 	}
 
 	public String channel() {

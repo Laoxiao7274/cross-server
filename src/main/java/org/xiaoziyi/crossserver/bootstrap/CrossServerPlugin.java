@@ -50,6 +50,7 @@ import org.xiaoziyi.crossserver.teleport.TeleportRequestService;
 import org.xiaoziyi.crossserver.teleport.TransferAdminService;
 import org.xiaoziyi.crossserver.teleport.UnsupportedServerTransferGateway;
 import org.xiaoziyi.crossserver.ui.HomesMenuService;
+import org.xiaoziyi.crossserver.ui.CrossServerMainMenuService;
 import org.xiaoziyi.crossserver.ui.MenuListener;
 import org.xiaoziyi.crossserver.ui.RouteConfigMenuService;
 import org.xiaoziyi.crossserver.ui.RouteEditSessionService;
@@ -88,6 +89,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private SharedModuleConfigService sharedModuleConfigService;
 	private WarpService warpService;
 	private HomesMenuService homesMenuService;
+	private CrossServerMainMenuService crossServerMainMenuService;
 	private WarpMenuService warpMenuService;
 	private TransferAdminMenuService transferAdminMenuService;
 	private RouteConfigMenuService routeConfigMenuService;
@@ -149,6 +151,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 
 	public RouteConfigMenuService getRouteConfigMenuService() {
 		return routeConfigMenuService;
+	}
+
+	public CrossServerMainMenuService getCrossServerMainMenuService() {
+		return crossServerMainMenuService;
 	}
 
 	public void reloadPlugin() throws Exception {
@@ -287,6 +293,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			this.routeEditSessionService = new RouteEditSessionService(this, routeTableService, configuration);
 			this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
 		}
+		this.crossServerMainMenuService = new CrossServerMainMenuService(this, homesMenuService, warpMenuService, routeConfigMenuService, transferAdminMenuService);
 		this.nodeConfigSyncService = new NodeConfigSyncService(this, api, configuration.server(), new NodeLocalConfigService(this));
 		api.attachNodeConfigSyncService(nodeConfigSyncService);
 		this.nodeConfigSyncService.publishLocalSnapshot(configuration);
@@ -327,8 +334,8 @@ public final class CrossServerPlugin extends JavaPlugin {
 		if (routeEditSessionService != null) {
 			Bukkit.getPluginManager().registerEvents(new RouteChatInputListener(routeEditSessionService), this);
 		}
-		if (homesMenuService != null || warpMenuService != null || transferAdminMenuService != null || routeConfigMenuService != null) {
-			Bukkit.getPluginManager().registerEvents(new MenuListener(homesMenuService, warpMenuService, transferAdminMenuService, routeConfigMenuService), this);
+		if (homesMenuService != null || warpMenuService != null || transferAdminMenuService != null || routeConfigMenuService != null || crossServerMainMenuService != null) {
+			Bukkit.getPluginManager().registerEvents(new MenuListener(homesMenuService, warpMenuService, transferAdminMenuService, routeConfigMenuService, crossServerMainMenuService), this);
 		}
 		Bukkit.getServicesManager().register(CrossServerApi.class, api, this, ServicePriority.Normal);
 		registerVaultProvider();
@@ -455,6 +462,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		warpService = null;
 		transferAdminService = null;
 		homesMenuService = null;
+		crossServerMainMenuService = null;
 		warpMenuService = null;
 		transferAdminMenuService = null;
 		routeConfigMenuService = null;

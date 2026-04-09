@@ -100,7 +100,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 			return true;
 		}
 		if ("menu".equalsIgnoreCase(args[0])) {
-			sendMainMenu(sender, label);
+			openMainMenu(sender, label);
 			return true;
 		}
 		if ("status".equalsIgnoreCase(args[0])) {
@@ -667,11 +667,15 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		}
 	}
 
-	private void sendMainMenu(CommandSender sender, String label) {
+	private void openMainMenu(CommandSender sender, String label) {
 		if (!(sender instanceof Player player)) {
 			sender.sendMessage("§aCrossServer 总菜单");
 			sender.sendMessage("§7玩家功能: /homes, /warp, /tpa");
 			sender.sendMessage("§7管理功能: /" + label + " route menu, /" + label + " transfer recent");
+			return;
+		}
+		if (plugin.getCrossServerMainMenuService() != null) {
+			plugin.getCrossServerMainMenuService().openMenu(player);
 			return;
 		}
 		player.sendMessage(Component.text("CrossServer 总入口", NamedTextColor.GREEN));
