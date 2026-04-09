@@ -31,7 +31,7 @@ CrossServer 是一个 **Paper 1.21+ 跨服数据同步插件**，为 Velocity / 
 
 **已安装完成？** 查看使用指南：
 
-- [命令与权限](usage/commands.md) — 完整命令列表和权限说明
+- [使用指南](usage/commands.md) — 完整功能手册，按玩家功能 / 管理功能 / Web 面板 / 权限 / 常见场景分类
 - [路由管理](usage/routes.md) — 跨服传送路由配置
 
 **开发者？** 查看技术文档：
