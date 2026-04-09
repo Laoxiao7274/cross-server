@@ -1,5 +1,5 @@
 name: cross-server
-version: '1.0-SNAPSHOT'
+version: '${project.version}'
 main: org.xiaoziyi.crossserver.bootstrap.CrossServerPlugin
 api-version: '1.21'
 commands:
