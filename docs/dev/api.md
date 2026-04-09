@@ -187,12 +187,19 @@ String teleportResult = api.teleportWarp(player, "spawn");
 boolean created = api.createTpaRequest(senderId, senderName, receiverId, receiverName, "lobby", TeleportRequestService.TpaType.TPA);
 Optional<TeleportRequestService.PendingRequest> latest = api.getLatestTpaRequest(receiverId);
 TeleportRequestService.RequestStatus status = api.getTpaRequestStatus(receiverId, senderId);
+List<TeleportRequestService.PendingRequest> pending = api.listPendingTpaRequests(receiverId);
+
+CrossServerApi.TpaActionResult denied = api.denyTpaRequest(receiverId, senderId);
+CrossServerApi.TpaActionResult accepted = api.acceptTpaRequest(receiverPlayer, senderId);
 ```
 
 额外还支持：
 
 - `consumeTpaRequest(...)`
 - `cancelOutgoingTpaRequests(...)`
+- `listPendingTpaRequests(...)`
+- `acceptTpaRequest(...)`
+- `denyTpaRequest(...)`
 
 ### 监听 TPA 请求变化
 

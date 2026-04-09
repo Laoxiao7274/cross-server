@@ -326,11 +326,65 @@ public final class CrossServerApi {
 		return teleportRequestService.removeRequestsBySender(senderId);
 	}
 
+	public List<TeleportRequestService.PendingRequest> listPendingTpaRequests(UUID receiverId) {
+		if (teleportRequestService == null) {
+			return List.of();
+		}
+		return teleportRequestService.listPendingRequests(receiverId);
+	}
+
 	public TeleportRequestService.RequestStatus getTpaRequestStatus(UUID receiverId, UUID senderId) {
 		if (teleportRequestService == null) {
 			return TeleportRequestService.RequestStatus.NONE;
 		}
 		return teleportRequestService.getRequestStatus(receiverId, senderId);
+	}
+
+	public TpaActionResult denyTpaRequest(UUID receiverId, UUID senderId) {
+		if (teleportRequestService == null) {
+			return new TpaActionResult(false, "tpa service not attached", null);
+		}
+		Optional<TeleportRequestService.PendingRequest> consumed = teleportRequestService.consumeRequest(receiverId, senderId);
+		if (consumed.isEmpty()) {
+			return new TpaActionResult(false, "未找到待处理的 TPA 请求", null);
+		}
+		return new TpaActionResult(true, "已拒绝 TPA 请求", consumed.get());
+	}
+
+	public TpaActionResult acceptTpaRequest(Player receiver, UUID senderId) {
+		if (teleportRequestService == null || playerLocationService == null) {
+			return new TpaActionResult(false, "tpa service or player location service not attached", null);
+		}
+		Optional<TeleportRequestService.PendingRequest> consumed = teleportRequestService.consumeRequest(receiver.getUniqueId(), senderId);
+		if (consumed.isEmpty()) {
+			return new TpaActionResult(false, "未找到待处理的 TPA 请求", null);
+		}
+		TeleportRequestService.PendingRequest request = consumed.get();
+		if (request.type() == TeleportRequestService.TpaType.TPA) {
+			Player senderPlayer = Bukkit.getPlayer(request.senderId());
+			if (senderPlayer != null && senderPlayer.getServer().equals(receiver.getServer())) {
+				senderPlayer.teleportAsync(receiver.getLocation());
+				return new TpaActionResult(true, "已接受 TPA 请求并执行本服传送", request);
+			}
+			TeleportInitiationResult result = requestTeleport(request.senderId(), playerLocationService.toTeleportTarget(new PlayerLocationSnapshot(
+					receiver.getServer().getName(),
+					receiver.getWorld().getName(),
+					receiver.getLocation().getX(),
+					receiver.getLocation().getY(),
+					receiver.getLocation().getZ(),
+					receiver.getLocation().getYaw(),
+					receiver.getLocation().getPitch(),
+					true,
+					Instant.now()
+			)), "tpa:" + receiver.getUniqueId());
+			return new TpaActionResult(result.success(), result.message(), request);
+		}
+		Optional<PlayerLocationSnapshot> senderLocation = playerLocationService.getPlayerLocation(request.senderId());
+		if (senderLocation.isEmpty() || !playerLocationService.isFresh(senderLocation.get()) || !senderLocation.get().online()) {
+			return new TpaActionResult(false, "请求发起者当前不在线，无法跨服传送", request);
+		}
+		TeleportInitiationResult result = requestTeleport(receiver.getUniqueId(), playerLocationService.toTeleportTarget(senderLocation.get()), "tpahere:" + request.senderId());
+		return new TpaActionResult(result.success(), result.message(), request);
 	}
 
 	public Optional<SharedModuleConfigSnapshot> loadSharedModules() {
@@ -646,6 +700,9 @@ public final class CrossServerApi {
 	}
 
 	public record TpaRequestsChangeEvent(String dataKey, long version, String sourceServerId, Instant occurredAt) {
+	}
+
+	public record TpaActionResult(boolean success, String message, TeleportRequestService.PendingRequest request) {
 	}
 
 	public record TransferChangeEvent(UUID playerId, long version, String sourceServerId, Instant occurredAt) {

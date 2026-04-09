@@ -94,6 +94,19 @@ public final class TeleportRequestService {
 		}
 	}
 
+	public List<PendingRequest> listPendingRequests(UUID receiverId) {
+		try {
+			return loadRequests().values().stream()
+					.filter(r -> r.receiverId().equals(receiverId))
+					.filter(r -> r.expiresAt().isAfter(Instant.now()))
+					.sorted((a, b) -> b.expiresAt().compareTo(a.expiresAt()))
+					.toList();
+		} catch (Exception exception) {
+			logger.warning("列出 TPA 请求失败: " + exception.getMessage());
+			return List.of();
+		}
+	}
+
 	public List<PendingRequest> removeRequestsBySender(UUID senderId) {
 		try {
 			Map<String, PendingRequest> requests = new LinkedHashMap<>(loadRequests());

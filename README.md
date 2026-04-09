@@ -57,7 +57,7 @@ CrossServer 的目标就是把这些问题一次性解决掉。
 - **日志中心**：按节点查看插件同步日志
 - **转服诊断与修复**：查看 handoff、history、recovery 状态，并执行 reconcile / clear
 - **开放 API**：其他插件可直接接入同步与配置中心能力
-- **开放 API**：其他插件可直接接入 homes、warps、TPA、共享路由、共享模块、节点配置、玩家位置、认证业务态、配置文档、transfer 修复、回滚能力，以及多类变化监听器；homes/warps 现已支持主动操作 facade
+- **开放 API**：其他插件可直接接入 homes、warps、TPA、共享路由、共享模块、节点配置、玩家位置、认证业务态、配置文档、transfer 修复、回滚能力，以及多类变化监听器；homes/warps 已支持主动操作，TPA 已支持完整请求闭环 API
 
 ## 功能一览
 
