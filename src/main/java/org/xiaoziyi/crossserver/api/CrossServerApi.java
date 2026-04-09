@@ -249,6 +249,20 @@ public final class CrossServerApi {
 		return homesSyncService.setDefaultHome(playerId, homeName);
 	}
 
+	public String setHome(Player player, String homeName) {
+		if (homesSyncService == null) {
+			throw new IllegalStateException("homes service not attached");
+		}
+		return homesSyncService.setHome(player, homeName);
+	}
+
+	public String teleportHome(Player player, String homeName) {
+		if (homesSyncService == null) {
+			throw new IllegalStateException("homes service not attached");
+		}
+		return homesSyncService.teleportHome(player, homeName);
+	}
+
 	public String deleteHome(UUID playerId, String homeName) {
 		if (homesSyncService == null) {
 			throw new IllegalStateException("homes service not attached");
@@ -268,6 +282,20 @@ public final class CrossServerApi {
 			throw new IllegalStateException("warp service not attached");
 		}
 		return warpService.deleteWarp(warpName, actorName);
+	}
+
+	public String setWarp(Player player, String warpName) {
+		if (warpService == null) {
+			throw new IllegalStateException("warp service not attached");
+		}
+		return warpService.setWarp(player, warpName);
+	}
+
+	public String teleportWarp(Player player, String warpName) {
+		if (warpService == null) {
+			throw new IllegalStateException("warp service not attached");
+		}
+		return warpService.teleportWarp(player, warpName);
 	}
 
 	public boolean createTpaRequest(UUID senderId, String senderName, UUID receiverId, String receiverName, String senderServerId, TeleportRequestService.TpaType type) {

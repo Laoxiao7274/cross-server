@@ -157,6 +157,8 @@ String defaultHome = api.getDefaultHome(playerId);
 
 String result = api.setDefaultHome(playerId, "main");
 String deleteResult = api.deleteHome(playerId, "old-home");
+String setResult = api.setHome(player, "main");
+String teleportResult = api.teleportHome(player, "main");
 ```
 
 适合：
@@ -170,6 +172,8 @@ String deleteResult = api.deleteHome(playerId, "old-home");
 ```java
 List<WarpEntry> warps = api.listWarps();
 String deleteResult = api.deleteWarp("spawn", "my-plugin");
+String setResult = api.setWarp(player, "spawn");
+String teleportResult = api.teleportWarp(player, "spawn");
 ```
 
 适合：
