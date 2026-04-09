@@ -61,4 +61,7 @@ nav:
       - 路由管理: usage/routes.md
   - 开发者:
       - 架构概览: dev/architecture.md
-      - API 文档: dev/api.md
+      - API 总览: dev/api.md
+      - 玩家功能 API: dev/api-player.md
+      - 配置与运维 API: dev/api-platform.md
+      - 监听器与事件 API: dev/api-events.md

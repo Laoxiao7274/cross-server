@@ -40,4 +40,7 @@ CrossServer 是一个 **Paper 1.21+ 跨服数据同步插件**，为 Velocity / 
 **开发者？** 查看技术文档：
 
 - [架构概览](dev/architecture.md) — 从启动装配、核心服务、命名空间、传送链路到代码阅读入口的完整说明
-- [API 文档](dev/api.md) — 其他插件接入指南，包含共享配置、跨服数据、监听器、跨服传送等示例
+- [API 总览](dev/api.md) — 先看 API 分页结构与接入入口
+- [玩家功能 API](dev/api-player.md) — homes / warps / TPA / 玩家位置 / auth 玩家侧能力
+- [配置与运维 API](dev/api-platform.md) — 配置中心、共享模块、共享路由、节点配置、transfer 管理
+- [监听器与事件 API](dev/api-events.md) — homes / warps / TPA / auth / transfer / shared config / node config 监听器
