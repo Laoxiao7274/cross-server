@@ -640,6 +640,9 @@
             </div>
             <div id="statusSummary" class="grid-two"></div>
             <div id="clusterSummary" class="chips" style="margin-top:12px"></div>
+            <div class="search-row" style="margin-top:12px">
+              <input id="dashboardNodesSearch" type="text" placeholder="搜索节点 ID / 集群 / 状态">
+            </div>
             <div id="clusterMembers" class="cluster-grid"></div>
             <table>
               <thead><tr><th>节点</th><th>状态</th><th>最后心跳</th><th>耗时</th></tr></thead>
@@ -700,6 +703,9 @@
                 </div>
               </div>
             </details>
+            <div class="search-row" style="margin:12px 0 10px">
+              <input id="routesSearchInput" type="text" placeholder="搜索服务器 ID / 路由目标 / 来源">
+            </div>
             <table>
               <thead><tr><th>服务器 ID</th><th>本地目标</th><th>共享目标</th><th>最终生效</th><th>来源</th><th>操作</th></tr></thead>
               <tbody id="routesBody"></tbody>
@@ -719,6 +725,9 @@
                 <div class="small">这里会解释每份配置文档是做什么的，并支持在线编辑 JSON / YAML payload 后直接保存到配置中心</div>
               </div>
             </div>
+            <div class="search-row" style="margin-bottom:12px">
+              <input id="documentsSearchInput" type="text" placeholder="搜索 namespace / dataKey / 标题 / 摘要">
+            </div>
             <div id="documentsList"></div>
             <div id="documentsMessage" class="message"></div>
           </section>
@@ -736,6 +745,10 @@
               <button class="secondary" id="reloadLogsBtn">重新读取</button>
             </div>
             <div id="logsSummary" class="chips"></div>
+            <div class="search-row" style="margin-top:12px">
+              <input id="logsServerSearch" type="text" placeholder="筛选节点 serverId">
+              <input id="logsKeywordSearch" type="text" placeholder="筛选日志关键字 / 级别">
+            </div>
             <div id="logsList" class="stack" style="margin-top:12px"></div>
           </section>
         </div>
@@ -752,6 +765,9 @@
               <button class="secondary" id="reloadNodeConfigsBtn">重新读取</button>
             </div>
             <div id="nodeConfigsSummary" class="chips"></div>
+            <div class="search-row" style="margin:12px 0 10px">
+              <input id="nodeConfigsSearchInput" type="text" placeholder="搜索节点 ID / 状态 / 申请结果">
+            </div>
             <table>
               <thead><tr><th>节点</th><th>在线状态</th><th>配置快照</th><th>最近申请</th><th>操作</th></tr></thead>
               <tbody id="nodeConfigsBody"></tbody>
@@ -818,7 +834,20 @@
       { value: "true", label: "开启" },
       { value: "false", label: "关闭" }
     ];
-    const state = { overview: null, selectedNodeConfigServerId: null, nodeConfigDetail: null, confirmResolve: null };
+    const state = {
+      overview: null,
+      selectedNodeConfigServerId: null,
+      nodeConfigDetail: null,
+      confirmResolve: null,
+      filters: {
+        dashboardNodes: "",
+        routes: "",
+        documents: "",
+        logsServer: "",
+        logsKeyword: "",
+        nodeConfigs: ""
+      }
+    };
     const tokenInput = document.getElementById("tokenInput");
     const actorInput = document.getElementById("actorInput");
     const authMessage = document.getElementById("authMessage");
@@ -874,6 +903,11 @@
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return String(value);
       return date.toLocaleString("zh-CN", { hour12: false });
+    }
+    function includesFilter(value, keyword) {
+      const source = String(value ?? "").toLowerCase();
+      const search = String(keyword ?? "").trim().toLowerCase();
+      return !search || source.includes(search);
     }
     function renderKeyValues(items, highlight = false) {
       return `<div class="info-card${highlight ? " highlight" : ""}">` + items.map(([label, value]) => `<div class="kv"><span class="small">${escapeHtml(label)}</span><span>${escapeHtml(value ?? "-")}</span></div>`).join("") + `</div>`;
@@ -1035,7 +1069,10 @@
         const localBadge = isLocal ? `<span class="chip">当前访问节点</span>` : "";
         return `<div class="info-card${member.leader ? " highlight" : ""}"><div class="panel-header" style="margin-bottom:8px"><div><strong>${escapeHtml(member.serverId || "-")}</strong><div class="small">${isLocal ? "当前访问节点" : "集群成员节点"}</div></div><div class="chips">${roleBadge}${localBadge}</div></div><div class="kv"><span class="small">面板角色</span><span>${escapeHtml(roleText)}</span></div><div class="kv"><span class="small">监听地址</span><span>${escapeHtml(member.host || "-")}:${escapeHtml(member.port ?? "-")}</span></div><div class="kv"><span class="small">最近上报</span><span>${escapeHtml(formatTime(member.advertisedAt))}</span></div></div>`;
       }).join("") || `<div class="info-card muted">暂无已登记的运维面板成员</div>`;
-      const nodes = Array.isArray(status.nodes) ? status.nodes : [];
+      const nodes = (Array.isArray(status.nodes) ? status.nodes : []).filter(node => {
+        const keyword = state.filters.dashboardNodes;
+        return includesFilter(node.serverId, keyword) || includesFilter(node.cluster, keyword) || includesFilter(node.status, keyword);
+      });
       document.getElementById("nodesBody").innerHTML = nodes.map(node => {
         const cls = node.status === "online" ? "good" : "bad";
         return `<tr><td><strong>${escapeHtml(node.serverId)}</strong><div class="small">${escapeHtml(node.cluster || "-")}</div></td><td class="${cls}">${escapeHtml(node.status || "-")}</td><td>${escapeHtml(formatTime(node.lastSeen || node.updatedAt))}</td><td>${escapeHtml(node.latencyMillis ?? "-")} ms</td></tr>`;
@@ -1074,7 +1111,10 @@
     }
 
     function renderRoutes(routes) {
-      const entries = Array.isArray(routes.entries) ? routes.entries : [];
+      const entries = (Array.isArray(routes.entries) ? routes.entries : []).filter(entry => {
+        const keyword = state.filters.routes;
+        return includesFilter(entry.serverId, keyword) || includesFilter(entry.localTarget, keyword) || includesFilter(entry.sharedTarget, keyword) || includesFilter(entry.effectiveTarget, keyword) || includesFilter(entry.source, keyword);
+      });
       document.getElementById("routesBody").innerHTML = entries.map(entry => {
         const serverId = String(entry.serverId || "");
         const safeServerId = escapeHtml(serverId);
@@ -1097,7 +1137,10 @@
     }
 
     function renderDocuments(documents) {
-      document.getElementById("documentsList").innerHTML = (documents || []).map((doc, index) => {
+      document.getElementById("documentsList").innerHTML = (documents || []).filter(doc => {
+        const keyword = state.filters.documents;
+        return includesFilter(doc.namespace, keyword) || includesFilter(doc.dataKey, keyword) || includesFilter(doc.title, keyword) || includesFilter(doc.summary, keyword);
+      }).map((doc, index) => {
         const history = Array.isArray(doc.history) ? doc.history : [];
         const schema = doc.schemaDefinition || null;
         return `
@@ -1160,14 +1203,14 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
     }
 
     function renderLogs(logs) {
-      const servers = Array.isArray(logs.servers) ? logs.servers : [];
+      const servers = (Array.isArray(logs.servers) ? logs.servers : []).filter(server => includesFilter(server.serverId, state.filters.logsServer));
       document.getElementById("logsSummary").innerHTML = [
         `<span class="chip">本地节点：${escapeHtml(logs.localServerId || "-")}</span>`,
         `<span class="chip">日志节点数：${servers.length}</span>`,
         `<span class="chip">最近刷新：${escapeHtml(formatTime(logs.updatedAt))}</span>`
       ].join("");
       document.getElementById("logsList").innerHTML = servers.map(server => {
-        const entries = Array.isArray(server.entries) ? server.entries : [];
+        const entries = (Array.isArray(server.entries) ? server.entries : []).filter(entry => includesFilter(entry.level, state.filters.logsKeyword) || includesFilter(entry.message, state.filters.logsKeyword));
         const blocks = entries.map(entry => `<tr><td>${escapeHtml(formatTime(entry.occurredAt))}</td><td>${escapeHtml(entry.level || "-")}</td><td>${escapeHtml(entry.message || "-")}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">暂无同步日志</td></tr>`;
         return `<div class="info-card${server.local ? " highlight" : ""}"><div class="panel-header" style="margin-bottom:8px"><div><strong>${escapeHtml(server.serverId || "-")}</strong><div class="small">${server.local ? "当前节点" : "集群节点"}</div></div><div class="chips"><span class="chip">日志条数：${escapeHtml(server.entryCount ?? 0)}</span><span class="chip">最近同步：${escapeHtml(formatTime(server.updatedAt))}</span></div></div><table><thead><tr><th>时间</th><th>级别</th><th>内容</th></tr></thead><tbody>${blocks}</tbody></table></div>`;
       }).join("") || `<div class="info-card muted">暂无已同步日志</div>`;
@@ -1210,7 +1253,10 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       return `<div class="field-card"><label>${escapeHtml(label)}</label>${control}${helper ? `<div class="small">${escapeHtml(helper)}</div>` : ""}</div>`;
     }
     function renderNodeConfigs(nodeConfigs) {
-      const nodes = Array.isArray(nodeConfigs.nodes) ? nodeConfigs.nodes : [];
+      const nodes = (Array.isArray(nodeConfigs.nodes) ? nodeConfigs.nodes : []).filter(node => {
+        const keyword = state.filters.nodeConfigs;
+        return includesFilter(node.serverId, keyword) || includesFilter(node.nodeStatus?.status, keyword) || includesFilter(node.latestApply?.resultMessage, keyword) || includesFilter(node.latestApply?.status, keyword);
+      });
       const onlineCount = nodes.filter(node => String(node.nodeStatus?.status || "").toLowerCase() === "online").length;
       const snapshotCount = nodes.filter(node => node.hasSnapshot).length;
       document.getElementById("nodeConfigsSummary").innerHTML = [
@@ -1768,6 +1814,30 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
         setMessage(box, "error", error.message);
         reportGlobalError(error);
       }
+    });
+    document.getElementById("dashboardNodesSearch")?.addEventListener("input", event => {
+      state.filters.dashboardNodes = event.target.value || "";
+      renderStatus(state.overview?.status || {});
+    });
+    document.getElementById("routesSearchInput")?.addEventListener("input", event => {
+      state.filters.routes = event.target.value || "";
+      renderRoutes(state.overview?.routes || {});
+    });
+    document.getElementById("documentsSearchInput")?.addEventListener("input", event => {
+      state.filters.documents = event.target.value || "";
+      renderDocuments(state.overview?.documents || []);
+    });
+    document.getElementById("logsServerSearch")?.addEventListener("input", event => {
+      state.filters.logsServer = event.target.value || "";
+      renderLogs(state.overview?.logs || {});
+    });
+    document.getElementById("logsKeywordSearch")?.addEventListener("input", event => {
+      state.filters.logsKeyword = event.target.value || "";
+      renderLogs(state.overview?.logs || {});
+    });
+    document.getElementById("nodeConfigsSearchInput")?.addEventListener("input", event => {
+      state.filters.nodeConfigs = event.target.value || "";
+      renderNodeConfigs(state.overview?.nodeConfigs || {});
     });
     document.getElementById("saveRouteBtn").addEventListener("click", async () => {
       const box = document.getElementById("routesMessage");
