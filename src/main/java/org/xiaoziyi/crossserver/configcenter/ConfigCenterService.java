@@ -26,6 +26,7 @@ public final class ConfigCenterService {
 
 	public ConfigCenterService(CrossServerApi api) {
 		this.api = api;
+		this.api.registerNamespace(HISTORY_NAMESPACE);
 	}
 
 	public void registerDocument(String namespace, String dataKey) {
