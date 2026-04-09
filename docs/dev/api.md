@@ -147,6 +147,62 @@ public void savePlayerState(Player player, String payload) {
 }
 ```
 
+## Homes API
+
+如果你不想自己处理 homes 命名空间 payload，可以直接使用功能级 API：
+
+```java
+List<HomeEntry> homes = api.listHomes(playerId);
+String defaultHome = api.getDefaultHome(playerId);
+```
+
+适合：
+
+- 自定义家园 GUI
+- NPC 菜单
+- 网页面板或 Bot 展示玩家 homes
+
+## Warps API
+
+```java
+List<WarpEntry> warps = api.listWarps();
+```
+
+适合：
+
+- 自定义全局 Warp GUI
+- 第三方菜单插件展示 Warp 列表
+
+## TPA API
+
+```java
+boolean created = api.createTpaRequest(senderId, senderName, receiverId, receiverName, "lobby", TeleportRequestService.TpaType.TPA);
+Optional<TeleportRequestService.PendingRequest> latest = api.getLatestTpaRequest(receiverId);
+TeleportRequestService.RequestStatus status = api.getTpaRequestStatus(receiverId, senderId);
+```
+
+额外还支持：
+
+- `consumeTpaRequest(...)`
+- `cancelOutgoingTpaRequests(...)`
+
+## 共享模块与共享路由 API
+
+```java
+Optional<SharedModuleConfigSnapshot> sharedModules = api.loadSharedModules();
+Map<String, String> sharedRoutes = api.loadSharedRoutes();
+Map<String, String> effectiveRoutes = api.mergedRoutes();
+
+api.setSharedRoute("spawn", "lobby", "my-plugin");
+api.removeSharedRoute("spawn", "my-plugin");
+```
+
+如果你已经自己构建好了模块快照，也可以直接：
+
+```java
+api.saveSharedModules(snapshot, "my-plugin");
+```
+
 ## 全局数据
 
 适用于跨服共享的配置、状态等。
@@ -321,6 +377,12 @@ Set<RegisteredConfigDocument> documents = api.getRegisteredConfigDocuments();
 List<Map<String, Object>> history = api.loadConfigDocumentHistory("my-plugin.config", "main");
 ```
 
+### 回滚文档到历史版本
+
+```java
+ConfigDocument rolledBack = api.rollbackConfigDocument("my-plugin.config", "main", 12L, "my-plugin");
+```
+
 当前默认会保留最近 20 次文档版本历史，适合：
 
 - 在 Web 面板查看最近变更
@@ -415,6 +477,18 @@ if (result.success()) {
 
 - `causeRef` 尽量带上你的插件标识，便于诊断
 - 例如：`my-plugin:arena-join`、`my-plugin:dungeon-enter`
+
+### Transfer 修复 API
+
+```java
+api.reconcileTransfer(playerId, playerName);
+```
+
+适合：
+
+- 自定义运维工具
+- 自动修复脚本
+- 自己做 transfer 管理面板
 
 ## 经济服务
 

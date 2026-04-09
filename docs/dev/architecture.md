@@ -165,6 +165,20 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 
 对于第三方插件来说，优先考虑走 `ConfigCenterService / CrossServerApi`，而不是手写全局快照协议。
 
+## 对外 API 开放现状
+
+当前 `CrossServerApi` 不再只开放底层快照能力，也开始逐步提供功能级 facade：
+
+- homes 查询
+- warps 查询
+- TPA 请求创建 / 查询 / 消费 / 取消
+- 共享模块配置读取与保存
+- 共享路由读取、设置、删除
+- 配置文档历史与回滚
+- transfer reconcile 修复
+
+这意味着第三方插件已经可以在不直接依赖内部 service 包的情况下，接入越来越多的现成功能。
+
 ## 启动装配顺序
 
 理解 `CrossServerPlugin.initializePlugin()` 很重要，因为它几乎决定了整个项目的运行结构。

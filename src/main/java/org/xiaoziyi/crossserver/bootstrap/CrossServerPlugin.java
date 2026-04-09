@@ -222,7 +222,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 		this.api = new CrossServerApi(syncService, namespaceRegistry, sessionService, economyService);
 		this.routeTableService = new RouteTableService(getLogger(), api, baseConfiguration.server());
 		this.sharedModuleConfigService = new SharedModuleConfigService(getLogger(), api, baseConfiguration.server());
+		api.attachRouteTableService(routeTableService);
+		api.attachSharedModuleConfigService(sharedModuleConfigService);
 		this.configuration = sharedModuleConfigService.mergeInto(routeTableService.mergeInto(baseConfiguration));
+		api.attachConfiguration(configuration);
 		if (!reloading.get()) {
 			new NodeIdentityGuardService(storageProvider, configuration.server(), configuration.node()).assertStartupAllowed();
 		}
@@ -256,15 +259,18 @@ public final class CrossServerPlugin extends JavaPlugin {
 		);
 		if (configuration.modules().tpa()) {
 			this.teleportRequestService = new TeleportRequestService(api, getLogger(), configuration.teleport().handoffSeconds());
+			api.attachTeleportRequestService(teleportRequestService);
 		}
 		if (configuration.modules().homes()) {
 			this.homesSyncService = new HomesSyncService(this, getLogger(), api, configuration.server().id(), teleportService);
 			teleportService.bindHomesSyncService(homesSyncService);
 			this.homesMenuService = new HomesMenuService(this, homesSyncService);
+			api.attachHomesSyncService(homesSyncService);
 		}
 		if (configuration.modules().warps()) {
 			this.warpService = new WarpService(this, getLogger(), api, configuration.server().id(), teleportService);
 			this.warpMenuService = new WarpMenuService(this, warpService);
+			api.attachWarpService(warpService);
 		}
 		if (configuration.modules().transferAdmin() || configuration.modules().tpa()) {
 			this.transferAdminService = new TransferAdminService(api, storageProvider, sessionService);
@@ -282,7 +288,17 @@ public final class CrossServerPlugin extends JavaPlugin {
 		this.webPanelClusterService = new WebPanelClusterService(api, configuration.server(), configuration.webPanel());
 		this.webPanelLogService = new WebPanelLogService(api, configuration.server(), getLogger());
 		logWebPanelStartupHint();
-		api.attachTeleportApiFacade((player, target, causeRef) -> teleportService.requestTeleport(player, target, org.xiaoziyi.crossserver.teleport.TeleportCause.HOME, causeRef));
+		api.attachTeleportApiFacade(new CrossServerApi.TeleportControlFacade() {
+			@Override
+			public org.xiaoziyi.crossserver.teleport.TeleportInitiationResult requestTeleport(org.bukkit.entity.Player player, org.xiaoziyi.crossserver.teleport.TeleportTarget target, String causeRef) {
+				return teleportService.requestTeleport(player, target, org.xiaoziyi.crossserver.teleport.TeleportCause.HOME, causeRef);
+			}
+
+			@Override
+			public void reconcileTransfer(java.util.UUID playerId, String playerName) throws Exception {
+				teleportService.reconcilePlayerTransfer(playerId, playerName);
+			}
+		});
 		if (authService != null) {
 			api.attachAuthService(authService);
 		}

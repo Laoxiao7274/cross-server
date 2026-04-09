@@ -3,12 +3,18 @@ package org.xiaoziyi.crossserver.api;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.xiaoziyi.crossserver.auth.AuthService;
+import org.xiaoziyi.crossserver.config.PluginConfiguration;
+import org.xiaoziyi.crossserver.config.RouteTableService;
+import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
+import org.xiaoziyi.crossserver.config.SharedModuleConfigSnapshot;
 import org.xiaoziyi.crossserver.configcenter.ConfigCenterService;
 import org.xiaoziyi.crossserver.configcenter.ConfigChangeEvent;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentSchema;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 import org.xiaoziyi.crossserver.configcenter.ConfigEntry;
+import org.xiaoziyi.crossserver.homes.HomeEntry;
+import org.xiaoziyi.crossserver.homes.HomesSyncService;
 import org.xiaoziyi.crossserver.configcenter.RegisteredConfigDocument;
 import org.xiaoziyi.crossserver.economy.EconomyService;
 import org.xiaoziyi.crossserver.model.GlobalSnapshot;
@@ -21,6 +27,9 @@ import org.xiaoziyi.crossserver.teleport.TeleportTarget;
 import org.xiaoziyi.crossserver.teleport.TransferAdminService;
 import org.xiaoziyi.crossserver.teleport.TransferDiagnostics;
 import org.xiaoziyi.crossserver.teleport.TransferHistoryEntry;
+import org.xiaoziyi.crossserver.teleport.TeleportRequestService;
+import org.xiaoziyi.crossserver.warp.WarpEntry;
+import org.xiaoziyi.crossserver.warp.WarpService;
 
 import java.util.List;
 import java.util.Map;
@@ -38,6 +47,12 @@ public final class CrossServerApi {
 	private TransferAdminService transferAdminService;
 	private TeleportApiFacade teleportApiFacade;
 	private AuthService authService;
+	private HomesSyncService homesSyncService;
+	private WarpService warpService;
+	private TeleportRequestService teleportRequestService;
+	private SharedModuleConfigService sharedModuleConfigService;
+	private RouteTableService routeTableService;
+	private PluginConfiguration configuration;
 
 	public CrossServerApi(
 			SyncService syncService,
@@ -62,6 +77,30 @@ public final class CrossServerApi {
 
 	public void attachAuthService(AuthService authService) {
 		this.authService = authService;
+	}
+
+	public void attachHomesSyncService(HomesSyncService homesSyncService) {
+		this.homesSyncService = homesSyncService;
+	}
+
+	public void attachWarpService(WarpService warpService) {
+		this.warpService = warpService;
+	}
+
+	public void attachTeleportRequestService(TeleportRequestService teleportRequestService) {
+		this.teleportRequestService = teleportRequestService;
+	}
+
+	public void attachSharedModuleConfigService(SharedModuleConfigService sharedModuleConfigService) {
+		this.sharedModuleConfigService = sharedModuleConfigService;
+	}
+
+	public void attachRouteTableService(RouteTableService routeTableService) {
+		this.routeTableService = routeTableService;
+	}
+
+	public void attachConfiguration(PluginConfiguration configuration) {
+		this.configuration = configuration;
 	}
 
 	public void registerNamespace(String namespace) {
@@ -136,6 +175,24 @@ public final class CrossServerApi {
 		return configCenterService.registerDocumentListener(namespace, dataKey, listener);
 	}
 
+	public ConfigDocument rollbackConfigDocument(String namespace, String dataKey, long version, String actorName) throws Exception {
+		Map<String, Object> historyItem = configCenterService.loadDocumentHistory(namespace, dataKey).stream()
+				.filter(item -> item.get("version") instanceof Number number && number.longValue() == version)
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("未找到指定历史版本: " + version));
+		Object payloadValue = historyItem.get("payload");
+		if (!(payloadValue instanceof String payload) || payload.isBlank()) {
+			throw new IllegalArgumentException("历史版本 payload 为空");
+		}
+		int schemaVersion = historyItem.get("schemaVersion") instanceof Number number ? number.intValue() : 1;
+		String actor = actorName == null || actorName.isBlank() ? "api" : actorName.trim();
+		return saveConfigDocument(namespace, dataKey, new ConfigDocumentUpdate(payload, schemaVersion, actor, "api.rollback", "回滚配置文档到历史版本 " + version));
+	}
+
+	public void validateConfigDocument(String namespace, String dataKey, String payload) throws Exception {
+		configCenterService.saveDocument(namespace, dataKey, new ConfigDocumentUpdate(payload, 1, "validator", "api.validate", "校验配置文档"));
+	}
+
 	public boolean openPlayerSession(UUID playerId) throws Exception {
 		return sessionService.openPlayerSession(playerId);
 	}
@@ -150,6 +207,101 @@ public final class CrossServerApi {
 
 	public EconomyService getEconomyService() {
 		return economyService;
+	}
+
+	public List<HomeEntry> listHomes(UUID playerId) {
+		if (homesSyncService == null) {
+			return List.of();
+		}
+		return homesSyncService.listHomes(playerId);
+	}
+
+	public String getDefaultHome(UUID playerId) {
+		return homesSyncService == null ? null : homesSyncService.getDefaultHome(playerId);
+	}
+
+	public List<WarpEntry> listWarps() {
+		if (warpService == null) {
+			return List.of();
+		}
+		return warpService.listWarps();
+	}
+
+	public boolean createTpaRequest(UUID senderId, String senderName, UUID receiverId, String receiverName, String senderServerId, TeleportRequestService.TpaType type) {
+		if (teleportRequestService == null) {
+			return false;
+		}
+		return teleportRequestService.submitRequest(senderId, senderName, receiverId, receiverName, senderServerId, type);
+	}
+
+	public Optional<TeleportRequestService.PendingRequest> getLatestTpaRequest(UUID receiverId) {
+		if (teleportRequestService == null) {
+			return Optional.empty();
+		}
+		return teleportRequestService.findLatestRequest(receiverId);
+	}
+
+	public Optional<TeleportRequestService.PendingRequest> consumeTpaRequest(UUID receiverId, UUID senderId) {
+		if (teleportRequestService == null) {
+			return Optional.empty();
+		}
+		return teleportRequestService.consumeRequest(receiverId, senderId);
+	}
+
+	public List<TeleportRequestService.PendingRequest> cancelOutgoingTpaRequests(UUID senderId) {
+		if (teleportRequestService == null) {
+			return List.of();
+		}
+		return teleportRequestService.removeRequestsBySender(senderId);
+	}
+
+	public TeleportRequestService.RequestStatus getTpaRequestStatus(UUID receiverId, UUID senderId) {
+		if (teleportRequestService == null) {
+			return TeleportRequestService.RequestStatus.NONE;
+		}
+		return teleportRequestService.getRequestStatus(receiverId, senderId);
+	}
+
+	public Optional<SharedModuleConfigSnapshot> loadSharedModules() {
+		if (sharedModuleConfigService == null) {
+			return Optional.empty();
+		}
+		return sharedModuleConfigService.loadSharedConfig();
+	}
+
+	public void saveSharedModules(SharedModuleConfigSnapshot snapshot, String actorName) throws Exception {
+		if (sharedModuleConfigService == null) {
+			throw new IllegalStateException("shared module config service not attached");
+		}
+		sharedModuleConfigService.saveSharedConfig(snapshot, actorName);
+	}
+
+	public Map<String, String> loadSharedRoutes() {
+		if (routeTableService == null) {
+			return Map.of();
+		}
+		return routeTableService.loadSharedRoutes();
+	}
+
+	public void setSharedRoute(String serverId, String proxyTarget, String actorName) throws Exception {
+		if (routeTableService == null) {
+			throw new IllegalStateException("route table service not attached");
+		}
+		routeTableService.setSharedRoute(serverId, proxyTarget, actorName);
+	}
+
+	public boolean removeSharedRoute(String serverId, String actorName) throws Exception {
+		if (routeTableService == null) {
+			throw new IllegalStateException("route table service not attached");
+		}
+		return routeTableService.removeSharedRoute(serverId, actorName);
+	}
+
+	public Map<String, String> mergedRoutes() {
+		if (routeTableService == null || configuration == null) {
+			return Map.of();
+		}
+		return routeTableService.mergedRoutes(configuration);
 	}
 
 	public TeleportInitiationResult requestTeleport(UUID playerId, TeleportTarget target, String causeRef) {
@@ -198,6 +350,14 @@ public final class CrossServerApi {
 		return transferAdminService.clearTransfer(playerId, actorName);
 	}
 
+	public void reconcileTransfer(UUID playerId, String playerName) throws Exception {
+		if (teleportApiFacade instanceof TeleportControlFacade controlFacade) {
+			controlFacade.reconcileTransfer(playerId, playerName);
+			return;
+		}
+		throw new IllegalStateException("teleport control facade not attached");
+	}
+
 	public AuthService.AuthAdminInspection inspectAuth(UUID playerId) throws Exception {
 		if (authService == null) {
 			throw new IllegalStateException("auth service not attached");
@@ -221,5 +381,9 @@ public final class CrossServerApi {
 
 	public interface TeleportApiFacade {
 		TeleportInitiationResult requestTeleport(Player player, TeleportTarget target, String causeRef);
+	}
+
+	public interface TeleportControlFacade extends TeleportApiFacade {
+		void reconcileTransfer(UUID playerId, String playerName) throws Exception;
 	}
 }
