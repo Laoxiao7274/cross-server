@@ -154,6 +154,9 @@ public void savePlayerState(Player player, String payload) {
 ```java
 List<HomeEntry> homes = api.listHomes(playerId);
 String defaultHome = api.getDefaultHome(playerId);
+
+String result = api.setDefaultHome(playerId, "main");
+String deleteResult = api.deleteHome(playerId, "old-home");
 ```
 
 适合：
@@ -166,6 +169,7 @@ String defaultHome = api.getDefaultHome(playerId);
 
 ```java
 List<WarpEntry> warps = api.listWarps();
+String deleteResult = api.deleteWarp("spawn", "my-plugin");
 ```
 
 适合：
@@ -203,6 +207,9 @@ Map<String, String> effectiveRoutes = api.mergedRoutes();
 
 api.setSharedRoute("spawn", "lobby", "my-plugin");
 api.removeSharedRoute("spawn", "my-plugin");
+
+SharedModuleConfigSnapshot rolledBackModules = api.rollbackSharedModules(10L, "my-plugin");
+Map<String, String> rolledBackRoutes = api.rollbackSharedRoutes(8L, "my-plugin");
 ```
 
 如果你已经自己构建好了模块快照，也可以直接：
@@ -236,6 +243,18 @@ Map<String, Object> result = api.requestNodeConfigApply(
     ),
     "my-plugin"
 );
+```
+
+### 监听节点配置变化
+
+```java
+Runnable snapshotHandle = api.registerNodeConfigSnapshotListener("survival-1", event -> {
+    getLogger().info("节点配置快照已变化: " + event.serverId());
+});
+
+Runnable applyHandle = api.registerNodeConfigApplyListener("survival-1", event -> {
+    getLogger().info("节点配置申请状态已变化: " + event.serverId());
+});
 ```
 
 ## 事件 / 监听器 API

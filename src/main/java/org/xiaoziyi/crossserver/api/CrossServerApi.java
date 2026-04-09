@@ -7,6 +7,7 @@ import org.xiaoziyi.crossserver.auth.AuthService.AuthAdminInspection;
 import org.xiaoziyi.crossserver.auth.AuthTicket;
 import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
+import org.xiaoziyi.crossserver.config.SharedModuleConfigCodec;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigSnapshot;
 import org.xiaoziyi.crossserver.configcenter.ConfigCenterService;
@@ -241,11 +242,32 @@ public final class CrossServerApi {
 		return homesSyncService == null ? null : homesSyncService.getDefaultHome(playerId);
 	}
 
+	public String setDefaultHome(UUID playerId, String homeName) {
+		if (homesSyncService == null) {
+			throw new IllegalStateException("homes service not attached");
+		}
+		return homesSyncService.setDefaultHome(playerId, homeName);
+	}
+
+	public String deleteHome(UUID playerId, String homeName) {
+		if (homesSyncService == null) {
+			throw new IllegalStateException("homes service not attached");
+		}
+		return homesSyncService.deleteHome(playerId, homeName);
+	}
+
 	public List<WarpEntry> listWarps() {
 		if (warpService == null) {
 			return List.of();
 		}
 		return warpService.listWarps();
+	}
+
+	public String deleteWarp(String warpName, String actorName) {
+		if (warpService == null) {
+			throw new IllegalStateException("warp service not attached");
+		}
+		return warpService.deleteWarp(warpName, actorName);
 	}
 
 	public boolean createTpaRequest(UUID senderId, String senderName, UUID receiverId, String receiverName, String senderServerId, TeleportRequestService.TpaType type) {
@@ -297,6 +319,21 @@ public final class CrossServerApi {
 		sharedModuleConfigService.saveSharedConfig(snapshot, actorName);
 	}
 
+	public SharedModuleConfigSnapshot rollbackSharedModules(long version, String actorName) throws Exception {
+		Map<String, Object> historyItem = configCenterService.loadDocumentHistory(SharedModuleConfigService.NAMESPACE, SharedModuleConfigService.DATA_KEY).stream()
+				.filter(item -> item.get("version") instanceof Number number && number.longValue() == version)
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("未找到指定历史版本: " + version));
+		Object payloadValue = historyItem.get("payload");
+		if (!(payloadValue instanceof String payload) || payload.isBlank()) {
+			throw new IllegalArgumentException("历史版本 payload 为空");
+		}
+		int schemaVersion = historyItem.get("schemaVersion") instanceof Number number ? number.intValue() : 1;
+		String actor = actorName == null || actorName.isBlank() ? "api" : actorName.trim();
+		ConfigDocument saved = saveConfigDocument(SharedModuleConfigService.NAMESPACE, SharedModuleConfigService.DATA_KEY, new ConfigDocumentUpdate(payload, schemaVersion, actor, "api.rollback", "回滚共享模块到历史版本 " + version));
+		return SharedModuleConfigCodec.decode(saved.payload());
+	}
+
 	public Runnable registerSharedModulesListener(Consumer<ConfigChangeEvent> listener) {
 		return registerConfigDocumentListener(SharedModuleConfigService.NAMESPACE, SharedModuleConfigService.DATA_KEY, listener);
 	}
@@ -327,6 +364,21 @@ public final class CrossServerApi {
 			return Map.of();
 		}
 		return routeTableService.mergedRoutes(configuration);
+	}
+
+	public Map<String, String> rollbackSharedRoutes(long version, String actorName) throws Exception {
+		Map<String, Object> historyItem = configCenterService.loadDocumentHistory(RouteTableService.NAMESPACE, RouteTableService.DATA_KEY).stream()
+				.filter(item -> item.get("version") instanceof Number number && number.longValue() == version)
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("未找到指定历史版本: " + version));
+		Object payloadValue = historyItem.get("payload");
+		if (!(payloadValue instanceof String payload) || payload.isBlank()) {
+			throw new IllegalArgumentException("历史版本 payload 为空");
+		}
+		int schemaVersion = historyItem.get("schemaVersion") instanceof Number number ? number.intValue() : 1;
+		String actor = actorName == null || actorName.isBlank() ? "api" : actorName.trim();
+		saveConfigDocument(RouteTableService.NAMESPACE, RouteTableService.DATA_KEY, new ConfigDocumentUpdate(payload, schemaVersion, actor, "api.rollback", "回滚共享路由到历史版本 " + version));
+		return routeTableService.loadSharedRoutes();
 	}
 
 	public Runnable registerSharedRoutesListener(Consumer<ConfigChangeEvent> listener) {
@@ -424,6 +476,16 @@ public final class CrossServerApi {
 			throw new IllegalStateException("node config sync service not attached");
 		}
 		return nodeConfigSyncService.requestApply(serverId, changes, actorName);
+	}
+
+	public Runnable registerNodeConfigSnapshotListener(String serverId, Consumer<NodeConfigChangeEvent> listener) {
+		String dataKey = "snapshot." + serverId;
+		return registerConfigDocumentListener(NodeConfigSyncService.NAMESPACE, dataKey, event -> listener.accept(new NodeConfigChangeEvent(serverId, NodeConfigChangeType.SNAPSHOT_CHANGED, event.version(), event.sourceServerId(), event.occurredAt())));
+	}
+
+	public Runnable registerNodeConfigApplyListener(String serverId, Consumer<NodeConfigChangeEvent> listener) {
+		String dataKey = "apply." + serverId;
+		return registerConfigDocumentListener(NodeConfigSyncService.NAMESPACE, dataKey, event -> listener.accept(new NodeConfigChangeEvent(serverId, NodeConfigChangeType.APPLY_CHANGED, event.version(), event.sourceServerId(), event.occurredAt())));
 	}
 
 	public boolean isAuthenticated(UUID playerId) {
@@ -562,5 +624,13 @@ public final class CrossServerApi {
 	}
 
 	public record AuthChangeEvent(UUID playerId, AuthEventType type, long version, String sourceServerId, Instant occurredAt) {
+	}
+
+	public enum NodeConfigChangeType {
+		SNAPSHOT_CHANGED,
+		APPLY_CHANGED
+	}
+
+	public record NodeConfigChangeEvent(String serverId, NodeConfigChangeType type, long version, String sourceServerId, Instant occurredAt) {
 	}
 }
