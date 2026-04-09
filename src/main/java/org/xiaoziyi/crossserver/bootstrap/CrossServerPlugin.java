@@ -109,6 +109,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private BukkitTask webPanelHeartbeatTask;
 	private boolean webPanelStartupHintLogged;
 	private final AtomicBoolean reloading = new AtomicBoolean(false);
+	private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
 	@Override
 	public void onEnable() {
@@ -182,8 +183,10 @@ public final class CrossServerPlugin extends JavaPlugin {
 	}
 
 	private void performReloadCycle() throws Exception {
+		shuttingDown.set(true);
 		shutdownPlugin();
 		initializePlugin();
+		shuttingDown.set(false);
 	}
 
 	private void initializePlugin() throws Exception {
@@ -339,6 +342,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 	}
 
 	private void shutdownPlugin() {
+		shuttingDown.set(true);
 		if (webPanelHeartbeatTask != null) {
 			webPanelHeartbeatTask.cancel();
 			webPanelHeartbeatTask = null;
@@ -462,6 +466,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		routeTableService = null;
 		sharedModuleConfigService = null;
 		webPanelClusterService = null;
+		shuttingDown.set(false);
 	}
 
 	private void registerCommand() {
@@ -567,6 +572,9 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private void startPlayerDataAutoSave() {
 		long period = Math.max(20L * 30L, configuration.session().heartbeatSeconds() * 20L * 2L);
 		this.playerDataAutoSaveTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
+			if (shuttingDown.get()) {
+				return;
+			}
 			if (inventorySyncService != null) {
 				Bukkit.getOnlinePlayers().forEach(inventorySyncService::savePlayerData);
 			}

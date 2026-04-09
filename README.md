@@ -195,6 +195,21 @@ web-panel:
 3. `/homes`、`/warp`、`/tpa` 试跑基础功能
 4. 打开 Web 面板确认集群视图正常
 
+## 命令体验补充
+
+当前 `crossserver` 主命令支持：
+
+- 别名：`/cs`
+- 分页帮助：`/cs help [page]`
+- 总入口导航：`/cs menu`
+
+其中 `/cs menu` 会把玩家或管理员快速引导到已有菜单入口，例如：
+
+- `/homes`
+- `/warp`
+- `/cs route menu`
+- `/cs transfer recent`
+
 ## 文档入口
 
 ### 给第一次使用的人

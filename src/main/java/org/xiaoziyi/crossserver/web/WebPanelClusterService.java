@@ -97,9 +97,10 @@ public final class WebPanelClusterService {
 		Map<String, WebPanelMemberSnapshot> members = new LinkedHashMap<>(loadSnapshot().map(WebPanelClusterSnapshot::members).orElse(Map.of()));
 		pruneExpiredMembers(members, now);
 		members.remove(serverSettings.id());
+		String leaderServerId = members.isEmpty() ? serverSettings.id() : settings.masterServerId();
 		WebPanelClusterSnapshot snapshot = new WebPanelClusterSnapshot(
 				SCHEMA_VERSION,
-				settings.masterServerId(),
+				leaderServerId,
 				Map.copyOf(members),
 				now,
 				serverSettings.id(),

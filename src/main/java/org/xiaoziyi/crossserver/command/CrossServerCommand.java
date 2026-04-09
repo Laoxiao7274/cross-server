@@ -1,8 +1,12 @@
 package org.xiaoziyi.crossserver.command;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.command.TabCompleter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,6 +38,7 @@ import java.util.UUID;
 public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 	private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 	private static final int NODES_PAGE_SIZE = 5;
+	private static final int HELP_PAGE_SIZE = 5;
 	private static final String COMMAND_PERMISSION = "crossserver.command";
 	private static final String STATUS_PERMISSION = "crossserver.status.view";
 	private static final String NODES_PERMISSION = "crossserver.nodes.view";
@@ -91,7 +96,11 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 			return true;
 		}
 		if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
-			sendHelp(sender, label);
+			sendHelp(sender, label, args.length >= 2 ? args[1] : null);
+			return true;
+		}
+		if ("menu".equalsIgnoreCase(args[0])) {
+			sendMainMenu(sender, label);
 			return true;
 		}
 		if ("status".equalsIgnoreCase(args[0])) {
@@ -205,7 +214,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 			sender.sendMessage("§e已接受重载请求，CrossServer 即将开始重载...");
 			return true;
 		}
-		sendHelp(sender, label);
+		sendHelp(sender, label, null);
 		return true;
 	}
 
@@ -217,6 +226,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		if (args.length == 1) {
 			List<String> result = new ArrayList<>();
 			result.add("help");
+			result.add("menu");
 			if (sender.hasPermission(STATUS_PERMISSION)) {
 				result.add("status");
 			}
@@ -587,42 +597,96 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		return true;
 	}
 
-	private void sendHelp(CommandSender sender, String label) {
-		sender.sendMessage("§aCrossServer 命令帮助");
-		sender.sendMessage("§7使用 §f/" + label + " <子命令> §7执行对应功能");
-		sender.sendMessage("§7基础命令:");
-		sendHelpLine(sender, label, "help", "显示此帮助");
+	private void sendHelp(CommandSender sender, String label, String pageArgument) {
+		List<String> lines = new ArrayList<>();
+		lines.add("§e/" + label + " help [page] §8- §7显示帮助（每页 5 条）");
+		lines.add("§e/" + label + " menu §8- §7显示总菜单入口说明");
 		if (sender.hasPermission(STATUS_PERMISSION)) {
-			sendHelpLine(sender, label, "status", "查看当前节点与同步状态");
+			lines.add("§e/" + label + " status §8- §7查看当前节点与同步状态");
 		}
 		if (sender.hasPermission(NODES_PERMISSION)) {
-			sendHelpLine(sender, label, "nodes [page]", "分页查看节点列表");
+			lines.add("§e/" + label + " nodes [page] §8- §7分页查看节点列表");
 		}
 		if (sender.hasPermission(NODE_PERMISSION)) {
-			sendHelpLine(sender, label, "node <serverId>", "查看单个节点详情");
+			lines.add("§e/" + label + " node <serverId> §8- §7查看单个节点详情");
 		}
 		if (canUseTransferCommands(sender)) {
-			sender.sendMessage("§7Transfer 命令:");
-			sendTransferHelpLines(sender, label);
+			if (sender.hasPermission(TRANSFER_VIEW_PERMISSION)) {
+				lines.add("§e/" + label + " transfer <player> §8- §7按玩家名快速查看 transfer 诊断");
+				lines.add("§e/" + label + " transfer info <player> §8- §7查看 transfer 诊断详情");
+				lines.add("§e/" + label + " transfer history <player> §8- §7查看最近 transfer 历史");
+			}
+			if (sender.hasPermission(TRANSFER_MENU_PERMISSION)) {
+				lines.add("§e/" + label + " transfer menu <player> §8- §7打开指定玩家的 transfer 菜单");
+				lines.add("§e/" + label + " transfer recent [page] §8- §7打开 recent transfer 管理菜单");
+			}
+			if (sender.hasPermission(TRANSFER_RECONCILE_PERMISSION)) {
+				lines.add("§e/" + label + " transfer reconcile <player> §8- §7触发一次保守 reconcile 修补");
+			}
+			if (sender.hasPermission(TRANSFER_CLEAR_PERMISSION)) {
+				lines.add("§e/" + label + " transfer clear <player> §8- §7清理 handoff 与 prepared transfer 状态");
+			}
 		}
 		if (sender.hasPermission(AUTH_ADMIN_PERMISSION)) {
-			sender.sendMessage("§7Auth 管理:");
-			sendHelpLine(sender, label, "auth inspect <player>", "查看 auth 运行时与快照状态");
-			sendHelpLine(sender, label, "auth invalidate <player>", "使玩家跨服 ticket 失效");
-			sendHelpLine(sender, label, "auth forcereauth <player>", "强制玩家重新认证");
+			lines.add("§e/" + label + " auth inspect <player> §8- §7查看 auth 运行时与快照状态");
+			lines.add("§e/" + label + " auth invalidate <player> §8- §7使玩家跨服 ticket 失效");
+			lines.add("§e/" + label + " auth forcereauth <player> §8- §7强制玩家重新认证");
 		}
-		if (sender.hasPermission(ROUTE_VIEW_PERMISSION) || sender.hasPermission(ROUTE_EDIT_PERMISSION)) {
-			sender.sendMessage("§7路由管理:");
-			sendRouteHelpLines(sender, label);
+		if (sender.hasPermission(ROUTE_VIEW_PERMISSION)) {
+			lines.add("§e/" + label + " route list §8- §7查看共享路由与本地合并结果");
+			lines.add("§e/" + label + " route menu §8- §7打开路由管理菜单");
 		}
-		if (sender.hasPermission(MODULE_VIEW_PERMISSION) || sender.hasPermission(MODULE_EDIT_PERMISSION)) {
-			sender.sendMessage("§7模块配置:");
-			sendModulesHelpLines(sender, label);
+		if (sender.hasPermission(ROUTE_EDIT_PERMISSION)) {
+			lines.add("§e/" + label + " route set <serverId> <proxyServer> §8- §7设置共享路由覆盖");
+			lines.add("§e/" + label + " route remove <serverId> §8- §7移除共享路由覆盖");
+		}
+		if (sender.hasPermission(MODULE_VIEW_PERMISSION)) {
+			lines.add("§e/" + label + " modules list §8- §7查看模块本地默认、共享覆盖与最终有效值");
+		}
+		if (sender.hasPermission(MODULE_EDIT_PERMISSION)) {
+			lines.add("§e/" + label + " modules set <module> <true|false> §8- §7设置共享模块开关覆盖");
+			lines.add("§e/" + label + " modules clear <module> §8- §7移除共享模块开关覆盖");
 		}
 		if (sender.hasPermission(RELOAD_PERMISSION)) {
-			sender.sendMessage("§7其他:");
-			sendHelpLine(sender, label, "reload", "热重载配置与内部服务");
+			lines.add("§e/" + label + " reload §8- §7热重载配置与内部服务");
 		}
+		int page = parsePage(pageArgument);
+		int totalPages = Math.max(1, (lines.size() + HELP_PAGE_SIZE - 1) / HELP_PAGE_SIZE);
+		if (page > totalPages) {
+			page = totalPages;
+		}
+		int fromIndex = (page - 1) * HELP_PAGE_SIZE;
+		int toIndex = Math.min(lines.size(), fromIndex + HELP_PAGE_SIZE);
+		sender.sendMessage("§aCrossServer 命令帮助 §8(第 " + page + "/" + totalPages + " 页)");
+		sender.sendMessage("§7别名: §f/" + label + " §7或 §f/cs");
+		for (String line : lines.subList(fromIndex, toIndex)) {
+			sender.sendMessage(line);
+		}
+		if (totalPages > 1) {
+			sender.sendMessage("§8使用 /" + label + " help <页码> 查看更多，每页 5 条。玩家命令可用 /homes、/warp、/tpa 等。");
+		}
+	}
+
+	private void sendMainMenu(CommandSender sender, String label) {
+		if (!(sender instanceof Player player)) {
+			sender.sendMessage("§aCrossServer 总菜单");
+			sender.sendMessage("§7玩家功能: /homes, /warp, /tpa");
+			sender.sendMessage("§7管理功能: /" + label + " route menu, /" + label + " transfer recent");
+			return;
+		}
+		player.sendMessage(Component.text("CrossServer 总入口", NamedTextColor.GREEN));
+		player.sendMessage(Component.text("点击下方项目可直接跳转对应功能", NamedTextColor.GRAY));
+		player.sendMessage(clickLine("家园菜单", "/homes", NamedTextColor.AQUA));
+		player.sendMessage(clickLine("Warp 菜单", "/warp", NamedTextColor.AQUA));
+		player.sendMessage(clickLine("路由管理菜单", "/" + label + " route menu", NamedTextColor.YELLOW));
+		player.sendMessage(clickLine("Transfer 最近记录", "/" + label + " transfer recent", NamedTextColor.YELLOW));
+		player.sendMessage(clickLine("命令帮助", "/" + label + " help 1", NamedTextColor.GRAY));
+	}
+
+	private Component clickLine(String title, String command, NamedTextColor color) {
+		return Component.text("- ", NamedTextColor.DARK_GRAY)
+				.append(Component.text(title + "  ", color))
+				.append(Component.text("[点击打开]", NamedTextColor.WHITE).clickEvent(ClickEvent.runCommand(command)));
 	}
 
 	private void sendTransferHelp(CommandSender sender, String label) {
