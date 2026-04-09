@@ -515,6 +515,31 @@
       border-color: rgba(255, 122, 144, 0.45);
       color: #ffd1da;
     }
+    .modal-root {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2, 6, 12, 0.72);
+      z-index: 20;
+      padding: 18px;
+    }
+    .modal-root.show { display: flex; }
+    .modal-card {
+      width: min(560px, 100%);
+      border-radius: 18px;
+      border: 1px solid var(--border-strong);
+      background: linear-gradient(165deg, rgba(13, 21, 36, 0.98), rgba(8, 14, 26, 0.96));
+      box-shadow: var(--shadow-lg);
+      padding: 20px;
+    }
+    .modal-body {
+      white-space: pre-wrap;
+      line-height: 1.7;
+      color: #d6e3fb;
+      margin-top: 8px;
+    }
     .field-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -772,17 +797,37 @@
       </section>
     </main>
   </div>
+  <div id="confirmModal" class="modal-root" aria-hidden="true">
+    <div class="modal-card">
+      <div class="panel-header" style="margin-bottom:0">
+        <div>
+          <h3 id="confirmModalTitle">操作确认</h3>
+          <div class="small">请确认本次运维操作的影响范围。</div>
+        </div>
+      </div>
+      <div id="confirmModalBody" class="modal-body"></div>
+      <div class="actions" style="margin-top:16px;justify-content:flex-end;">
+        <button type="button" class="secondary" id="confirmCancelBtn">取消</button>
+        <button type="button" class="warn" id="confirmAcceptBtn">确认继续</button>
+      </div>
+    </div>
+  </div>
   <script>
     const moduleKeys = ["auth", "homes", "warps", "tpa", "routeConfig", "transferAdmin", "economyBridge", "permissions"];
     const booleanOptions = [
       { value: "true", label: "开启" },
       { value: "false", label: "关闭" }
     ];
-    const state = { overview: null, selectedNodeConfigServerId: null, nodeConfigDetail: null };
+    const state = { overview: null, selectedNodeConfigServerId: null, nodeConfigDetail: null, confirmResolve: null };
     const tokenInput = document.getElementById("tokenInput");
     const actorInput = document.getElementById("actorInput");
     const authMessage = document.getElementById("authMessage");
     const navButtons = Array.from(document.querySelectorAll(".nav button[data-tab]"));
+    const confirmModal = document.getElementById("confirmModal");
+    const confirmModalTitle = document.getElementById("confirmModalTitle");
+    const confirmModalBody = document.getElementById("confirmModalBody");
+    const confirmCancelBtn = document.getElementById("confirmCancelBtn");
+    const confirmAcceptBtn = document.getElementById("confirmAcceptBtn");
 
     function savedToken() { return localStorage.getItem("crossserver.web.token") || ""; }
     function savedActor() { return localStorage.getItem("crossserver.web.actor") || "web-panel"; }
@@ -867,6 +912,33 @@
       element.className = "message";
       element.textContent = "";
     }
+    function diffText(fromValue, toValue) {
+      const fromText = typeof fromValue === "string" ? fromValue : JSON.stringify(fromValue ?? null, null, 2);
+      const toText = typeof toValue === "string" ? toValue : JSON.stringify(toValue ?? null, null, 2);
+      return `旧值：\n${fromText || "-"}\n\n新值：\n${toText || "-"}`;
+    }
+    function askConfirm(title, body, confirmLabel = "确认继续") {
+      return new Promise(resolve => {
+        state.confirmResolve = resolve;
+        confirmModalTitle.textContent = title || "操作确认";
+        confirmModalBody.textContent = body || "确认继续执行此操作吗？";
+        confirmAcceptBtn.textContent = confirmLabel;
+        confirmModal.classList.add("show");
+        confirmModal.setAttribute("aria-hidden", "false");
+      });
+    }
+    function closeConfirm(result) {
+      confirmModal.classList.remove("show");
+      confirmModal.setAttribute("aria-hidden", "true");
+      const resolver = state.confirmResolve;
+      state.confirmResolve = null;
+      if (resolver) resolver(!!result);
+    }
+    confirmCancelBtn.addEventListener("click", () => closeConfirm(false));
+    confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
+    confirmModal.addEventListener("click", event => {
+      if (event.target === confirmModal) closeConfirm(false);
+    });
 
     async function api(path, options = {}) {
       const token = tokenInput.value.trim();
@@ -997,7 +1069,7 @@
       }).join("");
       const historyBox = document.getElementById("modulesHistory");
       if (historyBox) {
-        historyBox.innerHTML = history.length ? `<details><summary>查看最近模块变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无模块变更历史。</div>`;
+        historyBox.innerHTML = history.length ? `<details><summary>查看最近模块变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th><th>操作</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td><td><div class="actions"><button type="button" class="secondary" data-history-view="modules" data-history-version="${escapeHtml(item.version ?? "")}">查看详情</button><button type="button" class="warn" data-history-rollback="modules" data-history-version="${escapeHtml(item.version ?? "")}">回滚</button></div></td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无模块变更历史。</div>`;
       }
     }
 
@@ -1020,7 +1092,7 @@
       const history = Array.isArray(routes.history) ? routes.history : [];
       const historyBox = document.getElementById("routesHistory");
       if (historyBox) {
-        historyBox.innerHTML = history.length ? `<details><summary>查看最近路由变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无路由变更历史。</div>`;
+        historyBox.innerHTML = history.length ? `<details><summary>查看最近路由变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th><th>操作</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td><td><div class="actions"><button type="button" class="secondary" data-history-view="routes" data-history-version="${escapeHtml(item.version ?? "")}">查看详情</button><button type="button" class="warn" data-history-rollback="routes" data-history-version="${escapeHtml(item.version ?? "")}">回滚</button></div></td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无路由变更历史。</div>`;
       }
     }
 
@@ -1074,9 +1146,9 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
                 <button type="submit" class="warn">保存文档</button>
               </div>
             </form>
-            <details>
+              <details>
               <summary>查看最近历史记录 (${history.length})</summary>
-              ${history.length ? `<table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>来源</th><th>摘要</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.source || "-")}</td><td>${escapeHtml(item.summary || "-")}</td></tr>`).join("")}</tbody></table>` : `<div class="empty-state">暂无历史记录。保存一次后，这里会显示最近 20 次变更。</div>`}
+              ${history.length ? `<table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>来源</th><th>摘要</th><th>操作</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.source || "-")}</td><td>${escapeHtml(item.summary || "-")}</td><td><div class="actions"><button type="button" class="secondary" data-history-view="document" data-doc-namespace="${escapeHtml(doc.namespace)}" data-doc-key="${escapeHtml(doc.dataKey)}" data-history-version="${escapeHtml(item.version ?? "")}">查看详情</button><button type="button" class="warn" data-history-rollback="document" data-doc-namespace="${escapeHtml(doc.namespace)}" data-doc-key="${escapeHtml(doc.dataKey)}" data-history-version="${escapeHtml(item.version ?? "")}">回滚</button></div></td></tr>`).join("")}</tbody></table>` : `<div class="empty-state">暂无历史记录。保存一次后，这里会显示最近 20 次变更。</div>`}
             </details>
           </div>
         </div>`;
@@ -1374,7 +1446,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
     };
     window.deleteRoute = async function(serverId) {
       const box = document.getElementById("routesMessage");
-      if (!confirm(`确认删除共享路由覆盖 ${serverId}？该操作会影响跨服路由解析。`)) return;
+      if (!(await askConfirm("删除共享路由", `确认删除共享路由覆盖 ${serverId}？该操作会影响跨服路由解析。`, "确认删除"))) return;
       try {
         const data = await api(`/api/routes?serverId=${encodeURIComponent(serverId)}`, { method: "DELETE" });
         await reloadRoutes();
@@ -1414,12 +1486,60 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
         return;
       }
       const fillButton = event.target.closest("button[data-doc-fill]");
-      if (!fillButton) return;
-      const index = fillButton.dataset.docFill;
-      const doc = Array.isArray(state.overview?.documents) ? state.overview.documents[Number(index)] : null;
-      const textarea = document.querySelector(`textarea[data-doc-payload="${index}"]`);
-      if (!doc || !textarea) return;
-      textarea.value = doc.payloadPretty || doc.payload || "";
+      if (fillButton) {
+        const index = fillButton.dataset.docFill;
+        const doc = Array.isArray(state.overview?.documents) ? state.overview.documents[Number(index)] : null;
+        const textarea = document.querySelector(`textarea[data-doc-payload="${index}"]`);
+        if (!doc || !textarea) return;
+        textarea.value = doc.payloadPretty || doc.payload || "";
+        return;
+      }
+      const viewButton = event.target.closest("button[data-history-view]");
+      if (viewButton) {
+        const type = viewButton.dataset.historyView;
+        const version = Number(viewButton.dataset.historyVersion || "0");
+        const namespace = viewButton.dataset.docNamespace || "";
+        const dataKey = viewButton.dataset.docKey || "";
+        let item = null;
+        if (type === "document") {
+          const doc = (state.overview?.documents || []).find(entry => entry.namespace === namespace && entry.dataKey === dataKey);
+          item = (doc?.history || []).find(entry => Number(entry.version) === version) || null;
+        } else if (type === "modules") {
+          item = (state.overview?.modules?.history || []).find(entry => Number(entry.version) === version) || null;
+        } else if (type === "routes") {
+          item = (state.overview?.routes?.history || []).find(entry => Number(entry.version) === version) || null;
+        }
+        if (!item) return;
+        askConfirm(`历史详情 · ${type} · v${version}`, diffText(item.payload || "-", item.payload || "-"), "关闭").then(() => {});
+        return;
+      }
+      const rollbackButton = event.target.closest("button[data-history-rollback]");
+      if (!rollbackButton) return;
+      const type = rollbackButton.dataset.historyRollback;
+      const version = Number(rollbackButton.dataset.historyVersion || "0");
+      const namespace = rollbackButton.dataset.docNamespace || "";
+      const dataKey = rollbackButton.dataset.docKey || "";
+      (async () => {
+        const box = document.getElementById("documentsMessage");
+        const ok = await askConfirm("确认回滚", `确认回滚 ${type} 到历史版本 ${version} 吗？该操作会生成一个新的当前版本。`, "确认回滚");
+        if (!ok) return;
+        try {
+          if (type === "document") {
+            await api("/api/config-documents", { method: "POST", body: JSON.stringify({ namespace, dataKey, version }) });
+            await reloadDocuments();
+          } else if (type === "modules") {
+            await api("/api/modules", { method: "POST", body: JSON.stringify({ version }) });
+            await reloadModules();
+          } else if (type === "routes") {
+            await api("/api/routes", { method: "POST", body: JSON.stringify({ version }) });
+            await reloadRoutes();
+          }
+          setMessage(box, "success", `已回滚 ${type} 到历史版本 ${version}`);
+        } catch (error) {
+          setMessage(box, "error", error.message);
+          reportGlobalError(error);
+        }
+      })();
     });
     document.getElementById("documentsList").addEventListener("submit", async event => {
       const form = event.target.closest("form[data-doc-form]");
@@ -1441,7 +1561,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
         if (!namespace || !dataKey) throw new Error("缺少配置文档标识");
         if (!payload) throw new Error("payload 不能为空");
         if (!Number.isInteger(schemaVersion) || schemaVersion < 1) throw new Error("schemaVersion 必须是大于等于 1 的整数");
-        if (!confirm(`确认保存配置文档 ${namespace}/${dataKey} 吗？这可能会立即影响其他节点或其他插件的运行配置。`)) return;
+        if (!(await askConfirm("保存配置文档", `确认保存配置文档 ${namespace}/${dataKey} 吗？这可能会立即影响其他节点或其他插件的运行配置。`, "确认保存"))) return;
         await api("/api/config-documents", {
           method: "PUT",
           body: JSON.stringify({ namespace, dataKey, payload, schemaVersion, source, summary })
@@ -1474,7 +1594,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
         const serverId = form.dataset.serverId || state.selectedNodeConfigServerId || "";
         if (!serverId) throw new Error("缺少目标节点 serverId");
         const changes = collectNodeConfigChanges(form);
-        if (!confirm(`确认向节点 ${serverId} 提交配置写回申请吗？目标节点会写回本地 config.yml 并排队重载。`)) return;
+        if (!(await askConfirm("提交节点配置申请", `确认向节点 ${serverId} 提交配置写回申请吗？目标节点会写回本地 config.yml 并排队重载。`, "确认提交"))) return;
         const result = await api("/api/node-configs/apply", { method: "POST", body: JSON.stringify({ serverId, changes }) });
         setMessage(box, "success", `已提交节点配置申请：${serverId} · ${applyStatusText(result.status)} · 请求 ID ${result.requestId || "-"}`);
         await reloadNodeConfigs(true);
@@ -1589,7 +1709,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       }
     });
     document.getElementById("reloadBtn").addEventListener("click", async () => {
-      if (!confirm("确认重载当前节点上的 CrossServer 吗？面板会短暂断开，并自动尝试重连。")) {
+      if (!(await askConfirm("重载当前节点", "确认重载当前节点上的 CrossServer 吗？面板会短暂断开，并自动尝试重连。", "确认重载"))) {
         return;
       }
       try {

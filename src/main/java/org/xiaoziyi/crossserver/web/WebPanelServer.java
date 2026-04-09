@@ -246,6 +246,10 @@ public final class WebPanelServer implements AutoCloseable {
 				handleJson(exchange, "PUT", () -> dataService.updateModules(readJsonBody(exchange), actorName(exchange)));
 				return;
 			}
+			if ("POST".equalsIgnoreCase(method)) {
+				handleJson(exchange, "POST", () -> dataService.rollbackModules(readJsonBody(exchange), actorName(exchange)));
+				return;
+			}
 			sendJson(exchange, 405, Map.of("error", "method_not_allowed"));
 		}
 	}
@@ -263,7 +267,12 @@ public final class WebPanelServer implements AutoCloseable {
 				return;
 			}
 			if ("POST".equalsIgnoreCase(method)) {
-				handleJson(exchange, "POST", () -> dataService.upsertRoute(readJsonBody(exchange), actorName(exchange)));
+				Map<String, Object> body = readJsonBody(exchange);
+				if (body.containsKey("version")) {
+					handleJson(exchange, "POST", () -> dataService.rollbackRoutes(body, actorName(exchange)));
+					return;
+				}
+				handleJson(exchange, "POST", () -> dataService.upsertRoute(body, actorName(exchange)));
 				return;
 			}
 			if ("DELETE".equalsIgnoreCase(method)) {
@@ -290,6 +299,10 @@ public final class WebPanelServer implements AutoCloseable {
 			}
 			if ("PUT".equalsIgnoreCase(method)) {
 				handleJson(exchange, "PUT", () -> dataService.updateConfigDocument(readJsonBody(exchange), actorName(exchange)));
+				return;
+			}
+			if ("POST".equalsIgnoreCase(method)) {
+				handleJson(exchange, "POST", () -> dataService.rollbackConfigDocument(readJsonBody(exchange), actorName(exchange)));
 				return;
 			}
 			sendJson(exchange, 405, Map.of("error", "method_not_allowed"));

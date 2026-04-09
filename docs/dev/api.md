@@ -327,6 +327,12 @@ List<Map<String, Object>> history = api.loadConfigDocumentHistory("my-plugin.con
 - 自己做简单审计展示
 - 排查“谁把配置改坏了”
 
+如果你愿意，也可以基于历史记录自己实现“回滚到某一版”的功能：
+
+1. 读取 `loadConfigDocumentHistory(...)`
+2. 找到目标版本的 `payload`
+3. 再调用一次 `saveConfigDocument(...)` 写回
+
 ## 同步监听
 
 当其他服务器更新了指定命名空间的数据时，监听器会被触发。

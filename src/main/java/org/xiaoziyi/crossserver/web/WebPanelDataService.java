@@ -299,6 +299,36 @@ public final class WebPanelDataService {
 		return result;
 	}
 
+	public Map<String, Object> rollbackConfigDocument(Map<String, Object> request, String actorName) throws Exception {
+		String namespace = normalizeText(request.get("namespace"), "namespace");
+		String dataKey = normalizeText(request.get("dataKey"), "dataKey");
+		long version = readVersion(request.get("version"));
+		Map<String, Object> historyItem = requireHistoryItem(namespace, dataKey, version);
+		String payload = normalizePayload(historyItem.get("payload"));
+		int schemaVersion = readSchemaVersion(historyItem.get("schemaVersion"));
+		String updatedBy = actorName == null || actorName.isBlank() ? "web-panel" : actorName.trim();
+		String summary = "回滚配置文档到历史版本 " + version;
+		ConfigDocument saved = api.saveConfigDocument(namespace, dataKey, new ConfigDocumentUpdate(payload, schemaVersion, updatedBy, "web-panel.rollback", summary));
+		return Map.of(
+				"namespace", saved.namespace(),
+				"dataKey", saved.dataKey(),
+				"version", saved.version(),
+				"message", summary + "，当前版本为 " + saved.version()
+		);
+	}
+
+	public Map<String, Object> rollbackModules(Map<String, Object> request, String actorName) throws Exception {
+		long version = readVersion(request.get("version"));
+		restoreHistoryDocument(SharedModuleConfigService.NAMESPACE, SharedModuleConfigService.DATA_KEY, version, actorName, "回滚共享模块开关到历史版本 " + version);
+		return loadModules();
+	}
+
+	public Map<String, Object> rollbackRoutes(Map<String, Object> request, String actorName) throws Exception {
+		long version = readVersion(request.get("version"));
+		restoreHistoryDocument(RouteTableService.NAMESPACE, RouteTableService.DATA_KEY, version, actorName, "回滚共享路由到历史版本 " + version);
+		return loadRoutes();
+	}
+
 	public List<TransferHistoryEntry> loadRecentTransfers() throws Exception {
 		if (transferAdminService == null) {
 			return List.of();
@@ -603,6 +633,38 @@ public final class WebPanelDataService {
 		}
 		String text = String.valueOf(value).trim();
 		return text.isEmpty() ? null : text;
+	}
+
+	private long readVersion(Object value) {
+		if (value instanceof Number number) {
+			return number.longValue();
+		}
+		if (value instanceof String text) {
+			try {
+				return Long.parseLong(text.trim());
+			} catch (NumberFormatException exception) {
+				throw new IllegalArgumentException("version 必须是整数");
+			}
+		}
+		throw new IllegalArgumentException("version 必须是整数");
+	}
+
+	private Map<String, Object> requireHistoryItem(String namespace, String dataKey, long version) throws Exception {
+		for (Map<String, Object> item : api.loadConfigDocumentHistory(namespace, dataKey)) {
+			Object current = item.get("version");
+			if (current instanceof Number number && number.longValue() == version) {
+				return item;
+			}
+		}
+		throw new IllegalArgumentException("未找到指定历史版本: " + version);
+	}
+
+	private void restoreHistoryDocument(String namespace, String dataKey, long version, String actorName, String summary) throws Exception {
+		Map<String, Object> historyItem = requireHistoryItem(namespace, dataKey, version);
+		String payload = normalizePayload(historyItem.get("payload"));
+		int schemaVersion = readSchemaVersion(historyItem.get("schemaVersion"));
+		String updatedBy = actorName == null || actorName.isBlank() ? "web-panel" : actorName.trim();
+		api.saveConfigDocument(namespace, dataKey, new ConfigDocumentUpdate(payload, schemaVersion, updatedBy, "web-panel.rollback", summary));
 	}
 
 	private String routeSource(boolean local, boolean shared) {
