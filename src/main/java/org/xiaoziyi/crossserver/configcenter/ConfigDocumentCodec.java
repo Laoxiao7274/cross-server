@@ -1,19 +1,12 @@
 package org.xiaoziyi.crossserver.configcenter;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.xiaoziyi.crossserver.model.GlobalSnapshot;
 
 import java.time.Instant;
 import java.util.Optional;
 
 public final class ConfigDocumentCodec {
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-			.registerModule(new JavaTimeModule())
-			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
 	private ConfigDocumentCodec() {
 	}
 
@@ -23,11 +16,13 @@ public final class ConfigDocumentCodec {
 
 	public static ConfigDocument fromSnapshot(String namespace, String dataKey, String payload, long version, Instant updatedAt) {
 		try {
-			JsonNode root = OBJECT_MAPPER.readTree(payload);
+			ConfigDocumentFormat format = ConfigDocumentFormats.detect(payload);
+			JsonNode root = ConfigDocumentFormats.parse(payload);
 			return new ConfigDocument(
 					namespace,
 					dataKey,
 					payload,
+					format,
 					version,
 					root.path("schemaVersion").asInt(1),
 					readNullableText(root, "updatedBy"),

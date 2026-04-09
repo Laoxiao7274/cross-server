@@ -6,6 +6,7 @@ public record ConfigDocument(
 		String namespace,
 		String dataKey,
 		String payload,
+		ConfigDocumentFormat format,
 		long version,
 		int schemaVersion,
 		String updatedBy,

@@ -67,7 +67,7 @@ public final class WebPanelServer implements AutoCloseable {
 		server.createContext("/api/modules", new ModulesHandler());
 		server.createContext("/api/routes", new RoutesHandler());
 		server.createContext("/api/reload", new ReloadHandler());
-		server.createContext("/api/config-documents", exchange -> handleJson(exchange, "GET", () -> dataService.loadConfigDocuments()));
+		server.createContext("/api/config-documents", new ConfigDocumentsHandler());
 		server.createContext("/api/transfers/recent", exchange -> handleJson(exchange, "GET", () -> dataService.loadRecentTransfers()));
 		server.createContext("/api/logs", exchange -> handleJson(exchange, "GET", () -> dataService.loadLogs()));
 		server.createContext("/api/node-configs", exchange -> handleJson(exchange, "GET", () -> dataService.loadNodeConfigs()));
@@ -274,6 +274,22 @@ public final class WebPanelServer implements AutoCloseable {
 					}
 					return dataService.deleteRoute(serverId, actorName(exchange));
 				});
+				return;
+			}
+			sendJson(exchange, 405, Map.of("error", "method_not_allowed"));
+		}
+	}
+
+	private final class ConfigDocumentsHandler implements HttpHandler {
+		@Override
+		public void handle(HttpExchange exchange) throws IOException {
+			String method = exchange.getRequestMethod();
+			if ("GET".equalsIgnoreCase(method)) {
+				handleJson(exchange, "GET", () -> dataService.loadConfigDocuments());
+				return;
+			}
+			if ("PUT".equalsIgnoreCase(method)) {
+				handleJson(exchange, "PUT", () -> dataService.updateConfigDocument(readJsonBody(exchange), actorName(exchange)));
 				return;
 			}
 			sendJson(exchange, 405, Map.of("error", "method_not_allowed"));

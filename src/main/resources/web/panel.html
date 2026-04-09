@@ -667,10 +667,11 @@
             <div class="panel-header">
               <div>
                 <h3>配置文档</h3>
-                <div class="small">这里会解释每份配置文档是做什么的，并支持按格式化 JSON 查看 payload</div>
+                <div class="small">这里会解释每份配置文档是做什么的，并支持在线编辑 JSON / YAML payload 后直接保存到配置中心</div>
               </div>
             </div>
             <div id="documentsList"></div>
+            <div id="documentsMessage" class="message"></div>
           </section>
         </div>
       </section>
@@ -791,6 +792,9 @@
         "json-object": "JSON 对象",
         "json-array": "JSON 数组",
         "json-value": "JSON 值",
+        "yaml-object": "YAML 对象",
+        "yaml-array": "YAML 数组",
+        "yaml-value": "YAML 值",
         text: "纯文本",
         empty: "空内容"
       };
@@ -1010,9 +1014,27 @@
           </div>
           <div class="small" style="margin-top:10px">${escapeHtml(doc.summary || "暂无摘要")}</div>
           <div class="payload-toolbar">
-            <span class="payload-label">Payload 已按格式化方式展示，方便直接阅读和复制。</span>
+            <span class="payload-label">可直接编辑 JSON / YAML payload、schema/source/summary，并保存回配置中心。</span>
+            <button type="button" class="secondary" data-doc-fill="${index}">填入当前内容</button>
           </div>
-          <div id="payload-${index}" class="payload-block"><pre>${escapeHtml(doc.payloadPretty || doc.payload || "")}</pre></div>
+          <div id="payload-${index}" class="payload-block">
+            <form class="stack" data-doc-form="${index}" data-doc-namespace="${escapeHtml(doc.namespace)}" data-doc-key="${escapeHtml(doc.dataKey)}">
+              <div class="field-grid">
+                ${fieldCard(`schemaVersion`, inputHtml("number", `schemaVersion-${index}`, doc.schemaVersion ?? 1, "1", 'min="1" step="1"'), "Schema 版本")}
+                ${fieldCard(`source`, inputHtml("text", `source-${index}`, doc.source || "web-panel", "web-panel"), "来源标识")}
+              </div>
+              ${fieldCard(`summary`, inputHtml("text", `summary-${index}`, doc.summary || "", "本次变更摘要"), "变更摘要")}
+              <div>
+                <label>payload (${escapeHtml(formatPayloadType(doc.payloadType))})</label>
+                <textarea name="payload-${index}" data-doc-payload="${index}" placeholder='{"enabled":true}
+
+enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
+              </div>
+              <div class="actions">
+                <button type="submit">保存文档</button>
+              </div>
+            </form>
+          </div>
         </div>`).join("") || `<div class="muted">暂无已注册配置文档</div>`;
     }
 
@@ -1279,6 +1301,12 @@
       if (state.overview) state.overview.logs = data;
       renderLogs(data);
     }
+    async function reloadDocuments() {
+      const data = await api("/api/config-documents");
+      if (state.overview) state.overview.documents = data;
+      renderDocuments(data);
+      return data;
+    }
 
     window.setModuleState = async function(key, mode) {
       const box = document.getElementById("modulesMessage");
@@ -1334,9 +1362,49 @@
     });
     document.getElementById("documentsList").addEventListener("click", event => {
       const button = event.target.closest("button[data-doc-toggle]");
-      if (!button) return;
-      togglePayload(button.dataset.docToggle);
-      button.textContent = document.getElementById(`payload-${button.dataset.docToggle}`)?.classList.contains("show") ? "收起内容" : "展开内容";
+      if (button) {
+        togglePayload(button.dataset.docToggle);
+        button.textContent = document.getElementById(`payload-${button.dataset.docToggle}`)?.classList.contains("show") ? "收起内容" : "展开内容";
+        return;
+      }
+      const fillButton = event.target.closest("button[data-doc-fill]");
+      if (!fillButton) return;
+      const index = fillButton.dataset.docFill;
+      const doc = Array.isArray(state.overview?.documents) ? state.overview.documents[Number(index)] : null;
+      const textarea = document.querySelector(`textarea[data-doc-payload="${index}"]`);
+      if (!doc || !textarea) return;
+      textarea.value = doc.payloadPretty || doc.payload || "";
+    });
+    document.getElementById("documentsList").addEventListener("submit", async event => {
+      const form = event.target.closest("form[data-doc-form]");
+      if (!form) return;
+      event.preventDefault();
+      const box = document.getElementById("documentsMessage");
+      try {
+        const index = form.dataset.docForm;
+        const payloadField = form.querySelector(`textarea[data-doc-payload="${index}"]`);
+        const schemaField = form.elements.namedItem(`schemaVersion-${index}`);
+        const sourceField = form.elements.namedItem(`source-${index}`);
+        const summaryField = form.elements.namedItem(`summary-${index}`);
+        const namespace = form.dataset.docNamespace || "";
+        const dataKey = form.dataset.docKey || "";
+        const payload = String(payloadField?.value || "").trim();
+        const schemaVersion = Number(String(schemaField?.value || "1").trim());
+        const source = String(sourceField?.value || "").trim();
+        const summary = String(summaryField?.value || "").trim();
+        if (!namespace || !dataKey) throw new Error("缺少配置文档标识");
+        if (!payload) throw new Error("payload 不能为空");
+        if (!Number.isInteger(schemaVersion) || schemaVersion < 1) throw new Error("schemaVersion 必须是大于等于 1 的整数");
+        await api("/api/config-documents", {
+          method: "PUT",
+          body: JSON.stringify({ namespace, dataKey, payload, schemaVersion, source, summary })
+        });
+        await reloadDocuments();
+        setMessage(box, "success", `已保存配置文档：${namespace}/${dataKey}`);
+      } catch (error) {
+        setMessage(box, "error", error.message);
+        reportGlobalError(error);
+      }
     });
     document.getElementById("nodeConfigsBody").addEventListener("click", async event => {
       const button = event.target.closest("button[data-node-config-open]");

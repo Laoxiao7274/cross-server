@@ -137,7 +137,7 @@ X-CrossServer-Actor: 操作者（可选）
 - 查看集群状态、节点列表、Web 面板主控节点与成员信息
 - 查看并修改共享模块开关（local / shared / effective）
 - 查看并修改共享路由（来源标签与游戏内路由菜单一致）
-- 查看已注册配置文档及 payload
+- 查看并编辑已注册配置文档的 JSON / YAML payload、schema/source/summary
 - 节点配置管理：查看各节点配置快照，在线编辑 messaging / webPanel / modules 白名单字段并提交到目标节点
 - 日志中心：按节点查看 CrossServer 插件同步日志
 - 查看 recent transfer，并按玩家名查询转服诊断
@@ -169,6 +169,7 @@ X-CrossServer-Actor: 操作者（可选）
 
 - `PUT /api/modules`
 - `PUT /api/routes`
+- `PUT /api/config-documents`
 - `POST /api/routes`
 - `DELETE /api/routes?serverId=<子服ID>`
 - `POST /api/node-configs/apply`
@@ -212,3 +213,30 @@ X-CrossServer-Actor: 操作者（可选）
   }
 }
 ```
+
+配置文档保存：
+
+```yaml
+namespace: my-plugin.config
+dataKey: main
+schemaVersion: 2
+source: web-panel
+summary: 调整默认配置
+payload: |
+  enabled: true
+  maxHomes: 5
+```
+
+## 自动构建与发版
+
+仓库已经配置好 GitHub Actions：
+
+- 推送到 `master`：自动执行 `mvn clean package`
+- 推送 tag（如 `v1.0.2`）：自动构建 JAR、创建 GitHub Release、上传发布产物
+- 推送文档改动到 `master`：自动执行 `mkdocs build` 并部署文档站点
+
+推荐发版流程：
+
+1. 把 `pom.xml` 的版本号提升一个小版本，例如 `1.0.2`
+2. 推送 `master`
+3. 创建并推送同版本 tag，例如 `v1.0.2`

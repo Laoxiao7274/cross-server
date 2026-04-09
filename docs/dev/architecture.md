@@ -98,6 +98,8 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - `saveDocument(namespace, dataKey, update)` — 保存配置文档（自动补全元信息）
 - `registerDocumentListener(namespace, dataKey, listener)` — 监听文档变更
 
+配置文档支持 JSON / YAML 双格式。配置中心会在保存时保留原格式，并自动补齐元信息字段。
+
 ## 数据表
 
 | 表名 | 用途 |

@@ -86,6 +86,11 @@ Warp 与 TPA 当前都复用了这个能力：
 
 这是在全局数据之上的高层封装，适合第三方插件把“共享配置”接入 CrossServer 配置中心。
 
+配置文档当前支持两种格式：
+
+- JSON
+- YAML
+
 ### 注册文档
 
 ```java
@@ -108,7 +113,7 @@ ConfigDocument document = api.saveConfigDocument(
 );
 ```
 
-写入后，CrossServer 会自动把以下元信息补进 JSON 文档：
+写入后，CrossServer 会自动把以下元信息补进配置文档：
 
 - `schemaVersion`
 - `updatedBy`
@@ -116,12 +121,15 @@ ConfigDocument document = api.saveConfigDocument(
 - `source`
 - `summary`
 
+如果原始 payload 是 YAML，保存后会继续按 YAML 写回；如果原始 payload 是 JSON，保存后会继续按 JSON 写回。
+
 ### 加载文档
 
 ```java
 Optional<ConfigDocument> document = api.loadConfigDocument("my-plugin.config", "main");
 if (document.isPresent()) {
     String payload = document.get().payload();
+    ConfigDocumentFormat format = document.get().format();
     long version = document.get().version();
     String updatedBy = document.get().updatedBy();
 }

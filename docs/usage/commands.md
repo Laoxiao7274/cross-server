@@ -18,7 +18,7 @@
 - 查看集群状态、节点列表、Web 面板主控节点信息
 - 查看并修改共享模块开关（local / shared / effective）
 - 查看并修改共享路由（仅本地 / 仅共享 / 本地 + 共享覆盖）
-- 查看已注册配置文档与 payload
+- 查看并编辑已注册配置文档与 JSON / YAML payload
 - 节点配置管理：查看各节点配置快照，在线编辑 messaging / webPanel / modules 并提交到目标节点
 - 日志中心：按节点查看 CrossServer 插件同步日志
 - 查看 recent transfer，并按玩家名查询转服诊断
@@ -50,6 +50,7 @@
 
 - `PUT /api/modules` — 覆盖共享模块开关
 - `PUT /api/routes` — 整体覆盖共享路由表
+- `PUT /api/config-documents` — 保存配置文档（支持 JSON / YAML payload）
 - `POST /api/routes` — 新增或更新单条共享路由
 - `DELETE /api/routes?serverId=<子服ID>` — 删除单条共享路由
 - `POST /api/node-configs/apply` — 提交节点配置变更申请
@@ -128,5 +129,18 @@ X-CrossServer-Actor: 操作者（可选）
       "permissions": false
     }
   }
+}
+```
+
+保存配置文档：
+
+```json
+{
+  "namespace": "my-plugin.config",
+  "dataKey": "main",
+  "schemaVersion": 2,
+  "source": "web-panel",
+  "summary": "调整默认配置",
+  "payload": "{\n  \"enabled\": true,\n  \"maxHomes\": 5\n}"
 }
 ```

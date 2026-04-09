@@ -7,6 +7,9 @@ import org.xiaoziyi.crossserver.config.RouteTableService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigSnapshot;
 import org.xiaoziyi.crossserver.configcenter.ConfigDocument;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentFormat;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentFormats;
+import org.xiaoziyi.crossserver.configcenter.ConfigDocumentUpdate;
 import org.xiaoziyi.crossserver.configcenter.NodeConfigSyncService;
 import org.xiaoziyi.crossserver.configcenter.RegisteredConfigDocument;
 import org.xiaoziyi.crossserver.model.NodeStatusRecord;
@@ -235,6 +238,7 @@ public final class WebPanelDataService {
 			item.put("purpose", documentPurpose(document.namespace(), document.dataKey()));
 			item.put("present", loaded.isPresent());
 			loaded.ifPresent(value -> {
+				item.put("format", value.format() == null ? null : value.format().name().toLowerCase(java.util.Locale.ROOT));
 				item.put("version", value.version());
 				item.put("schemaVersion", value.schemaVersion());
 				item.put("updatedBy", value.updatedBy());
@@ -247,6 +251,39 @@ public final class WebPanelDataService {
 			});
 			result.add(item);
 		}
+		return result;
+	}
+
+	public Map<String, Object> updateConfigDocument(Map<String, Object> request, String actorName) throws Exception {
+		Objects.requireNonNull(request, "request");
+		String namespace = normalizeText(request.get("namespace"), "namespace");
+		String dataKey = normalizeText(request.get("dataKey"), "dataKey");
+		String payload = normalizePayload(request.get("payload"));
+		int schemaVersion = readSchemaVersion(request.get("schemaVersion"));
+		String source = optionalText(request.get("source"));
+		String summary = optionalText(request.get("summary"));
+		String updatedBy = actorName == null || actorName.isBlank() ? "web-panel" : actorName.trim();
+		ConfigDocument saved = api.saveConfigDocument(namespace, dataKey, new ConfigDocumentUpdate(
+				payload,
+				schemaVersion,
+				updatedBy,
+				source == null ? "web-panel" : source,
+				summary == null ? "通过 Web 面板更新配置文档" : summary
+		));
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("namespace", saved.namespace());
+		result.put("dataKey", saved.dataKey());
+		result.put("version", saved.version());
+		result.put("schemaVersion", saved.schemaVersion());
+		result.put("updatedBy", saved.updatedBy());
+		result.put("updatedAt", saved.updatedAt());
+		result.put("source", saved.source());
+		result.put("summary", saved.summary());
+		result.put("payload", saved.payload());
+		result.put("format", saved.format() == null ? null : saved.format().name().toLowerCase(java.util.Locale.ROOT));
+		result.put("payloadPretty", prettyPayload(saved.payload()));
+		result.put("payloadType", payloadType(saved.payload()));
+		result.put("message", "配置文档已保存");
 		return result;
 	}
 
@@ -470,29 +507,70 @@ public final class WebPanelDataService {
 			return "empty";
 		}
 		try {
-			Object value = DOCUMENT_OBJECT_MAPPER.readValue(payload, Object.class);
+			ConfigDocumentFormat format = ConfigDocumentFormats.detect(payload);
+			Object value = DOCUMENT_OBJECT_MAPPER.readValue(ConfigDocumentFormats.write(ConfigDocumentFormats.parse(payload), ConfigDocumentFormat.JSON), Object.class);
 			if (value instanceof Map<?, ?>) {
-				return "json-object";
+				return format == ConfigDocumentFormat.YAML ? "yaml-object" : "json-object";
 			}
 			if (value instanceof List<?>) {
-				return "json-array";
+				return format == ConfigDocumentFormat.YAML ? "yaml-array" : "json-array";
 			}
-			return "json-value";
+			return format == ConfigDocumentFormat.YAML ? "yaml-value" : "json-value";
 		} catch (Exception ignored) {
 			return "text";
 		}
 	}
 
 	private String prettyPayload(String payload) {
-		if (payload == null || payload.isBlank()) {
-			return "";
+		return ConfigDocumentFormats.pretty(payload);
+	}
+
+	private String normalizePayload(Object value) {
+		if (!(value instanceof String text)) {
+			throw new IllegalArgumentException("payload 字段必须是字符串");
+		}
+		String payload = text.trim();
+		if (payload.isEmpty()) {
+			throw new IllegalArgumentException("payload 不能为空");
 		}
 		try {
-			Object value = DOCUMENT_OBJECT_MAPPER.readValue(payload, Object.class);
-			return DOCUMENT_OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value);
-		} catch (Exception ignored) {
-			return payload;
+			return ConfigDocumentFormats.pretty(payload);
+		} catch (Exception exception) {
+			throw new IllegalArgumentException("payload 必须是合法 JSON 或 YAML: " + exception.getMessage());
 		}
+	}
+
+	private int readSchemaVersion(Object value) {
+		if (value == null) {
+			return 1;
+		}
+		if (value instanceof Number number) {
+			int schemaVersion = number.intValue();
+			if (schemaVersion < 1) {
+				throw new IllegalArgumentException("schemaVersion 必须大于等于 1");
+			}
+			return schemaVersion;
+		}
+		if (value instanceof String text) {
+			try {
+				int schemaVersion = Integer.parseInt(text.trim());
+				if (schemaVersion < 1) {
+					throw new IllegalArgumentException("schemaVersion 必须大于等于 1");
+				}
+				return schemaVersion;
+			} catch (NumberFormatException exception) {
+				throw new IllegalArgumentException("schemaVersion 必须是整数");
+			}
+		}
+		throw new IllegalArgumentException("schemaVersion 必须是整数");
+	}
+
+	private String optionalText(Object value) {
+		if (value == null) {
+			return null;
+		}
+		String text = String.valueOf(value).trim();
+		return text.isEmpty() ? null : text;
 	}
 
 	private String routeSource(boolean local, boolean shared) {

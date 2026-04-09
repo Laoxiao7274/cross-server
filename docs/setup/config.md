@@ -172,7 +172,7 @@ web-panel:
 | 仪表盘 | 集群状态总览、节点列表、面板成员信息 |
 | 模块 | 查看并修改共享模块开关（local / shared / effective） |
 | 路由 | 查看并修改共享路由（新增 / 整体覆盖 / 删除） |
-| 配置文档 | 查看已注册配置文档及 payload |
+| 配置文档 | 查看并编辑已注册配置文档的 JSON / YAML payload、schema/source/summary |
 | 节点配置 | 查看各节点配置快照，在线编辑 messaging / webPanel / modules 并提交 |
 | 日志中心 | 按节点查看 CrossServer 插件同步日志 |
 | 转服诊断 | 查看最近转服记录，按玩家名查询详细诊断 |
@@ -209,3 +209,17 @@ web-panel:
 ### 日志中心
 
 Web 面板的"日志中心"标签页可按节点查看 CrossServer 插件同步到配置中心的日志，便于集群排障。日志通过共享配置中心的 `web.panel.log` 命名空间同步，主控和受管节点均可参与。
+
+### GitHub 自动构建与发版
+
+仓库默认已配置两条 GitHub Actions 工作流：
+
+- `build.yml`：push 到 `master` 时自动执行 `mvn clean package`
+- `build.yml` 的 release job：push `v*` tag 时自动创建 GitHub Release 并上传 JAR
+- `docs.yml`：push 到 `master` 时自动执行 `mkdocs build` 并部署文档站点
+
+推荐版本管理方式：
+
+1. 修改 `pom.xml` 中的 `<version>`，按小版本递增，例如 `1.0.2`
+2. 推送 `master`，触发普通构建
+3. 创建并推送同版本 tag，例如 `v1.0.2`，触发 Release 打包与上传
