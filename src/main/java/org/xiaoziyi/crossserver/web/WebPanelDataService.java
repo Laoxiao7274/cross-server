@@ -125,6 +125,11 @@ public final class WebPanelDataService {
 		result.put("local", modulesToMap(local));
 		result.put("shared", shared.map(this::sharedModulesToMap).orElse(Map.of()));
 		result.put("effective", modulesToMap(sharedModuleConfigService.mergeInto(configuration).modules()));
+		try {
+			result.put("history", api.loadConfigDocumentHistory(SharedModuleConfigService.NAMESPACE, SharedModuleConfigService.DATA_KEY));
+		} catch (Exception exception) {
+			result.put("history", List.of());
+		}
 		return result;
 	}
 
@@ -153,6 +158,11 @@ public final class WebPanelDataService {
 		result.put("shared", sharedRoutes);
 		result.put("effective", effectiveRoutes);
 		result.put("entries", entries);
+		try {
+			result.put("history", api.loadConfigDocumentHistory(RouteTableService.NAMESPACE, RouteTableService.DATA_KEY));
+		} catch (Exception exception) {
+			result.put("history", List.of());
+		}
 		return result;
 	}
 
@@ -375,6 +385,11 @@ public final class WebPanelDataService {
 			return result;
 		}
 		result.putAll(nodeConfigSyncService.loadNodeConfigDetail(serverId));
+		try {
+			result.put("applyHistory", api.loadConfigDocumentHistory(NodeConfigSyncService.NAMESPACE, "apply." + serverId));
+		} catch (Exception exception) {
+			result.put("applyHistory", List.of());
+		}
 		try {
 			NodeStatusRecord record = nodeStatusService.getNode(serverId);
 			result.put("nodeStatus", record == null ? null : nodeToMap(record));

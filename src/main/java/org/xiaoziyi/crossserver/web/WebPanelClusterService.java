@@ -25,6 +25,11 @@ public final class WebPanelClusterService {
 					"leaderServerId", "string",
 					"members", "object"
 			),
+			java.util.Map.of(),
+			java.util.Map.of(),
+			java.util.Map.of(),
+			java.util.List.of("leaderServerId", "members"),
+			java.util.Map.of(),
 			true,
 			null,
 			"Web 面板集群成员状态"

@@ -29,6 +29,11 @@ public final class SharedModuleConfigService {
 					"economyBridge", "boolean",
 					"permissions", "boolean"
 			),
+			java.util.Map.of(),
+			java.util.Map.of(),
+			java.util.Map.of(),
+			java.util.List.of(),
+			java.util.Map.of(),
 			true,
 			null,
 			"集群共享模块开关"

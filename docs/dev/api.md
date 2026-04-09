@@ -228,6 +228,13 @@ api.registerConfigDocument(
 
 保存时，CrossServer 会根据 schema 做服务端校验；如果缺少必填字段或字段类型不匹配，会直接拒绝保存。
 
+当前 schema 第一版额外支持：
+
+- 枚举值校验
+- 数值最小 / 最大值校验
+- 非空字段校验
+- 数组元素类型校验
+
 ### 保存文档
 
 ```java

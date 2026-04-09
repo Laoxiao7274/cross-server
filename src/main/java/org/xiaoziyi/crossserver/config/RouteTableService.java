@@ -24,6 +24,11 @@ public final class RouteTableService {
 					"schemaVersion", "integer",
 					"routes", "object"
 			),
+			java.util.Map.of(),
+			java.util.Map.of(),
+			java.util.Map.of(),
+			java.util.List.of("routes"),
+			java.util.Map.of(),
 			true,
 			null,
 			"集群共享路由表"

@@ -31,6 +31,54 @@ public final class ConfigDocumentSchemaValidator {
 				errors.add("字段类型不匹配: " + entry.getKey() + " 需要 " + entry.getValue());
 			}
 		}
+		for (String path : schema.nonEmptyPaths()) {
+			JsonNode node = resolve(root, path);
+			if (node == null || node.isMissingNode() || node.isNull()) {
+				continue;
+			}
+			if ((node.isTextual() && node.asText().trim().isEmpty()) || (node.isArray() && node.isEmpty()) || (node.isObject() && node.isEmpty())) {
+				errors.add("字段不能为空: " + path);
+			}
+		}
+		for (Map.Entry<String, List<String>> entry : schema.enumValues().entrySet()) {
+			JsonNode node = resolve(root, entry.getKey());
+			if (node == null || node.isMissingNode() || node.isNull()) {
+				continue;
+			}
+			String value = node.isTextual() ? node.asText() : node.toString();
+			if (!entry.getValue().contains(value)) {
+				errors.add("字段取值非法: " + entry.getKey() + " 允许值为 " + String.join(", ", entry.getValue()));
+			}
+		}
+		for (Map.Entry<String, Double> entry : schema.minValues().entrySet()) {
+			JsonNode node = resolve(root, entry.getKey());
+			if (node == null || node.isMissingNode() || node.isNull() || !node.isNumber()) {
+				continue;
+			}
+			if (node.asDouble() < entry.getValue()) {
+				errors.add("字段值过小: " + entry.getKey() + " 最小值为 " + entry.getValue());
+			}
+		}
+		for (Map.Entry<String, Double> entry : schema.maxValues().entrySet()) {
+			JsonNode node = resolve(root, entry.getKey());
+			if (node == null || node.isMissingNode() || node.isNull() || !node.isNumber()) {
+				continue;
+			}
+			if (node.asDouble() > entry.getValue()) {
+				errors.add("字段值过大: " + entry.getKey() + " 最大值为 " + entry.getValue());
+			}
+		}
+		for (Map.Entry<String, String> entry : schema.arrayItemTypes().entrySet()) {
+			JsonNode node = resolve(root, entry.getKey());
+			if (node == null || node.isMissingNode() || node.isNull() || !node.isArray()) {
+				continue;
+			}
+			for (int i = 0; i < node.size(); i++) {
+				if (!matchesType(node.get(i), entry.getValue())) {
+					errors.add("数组元素类型不匹配: " + entry.getKey() + "[" + i + "] 需要 " + entry.getValue());
+				}
+			}
+		}
 		if (!errors.isEmpty()) {
 			throw new IllegalArgumentException(String.join("；", errors));
 		}

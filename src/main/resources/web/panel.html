@@ -638,6 +638,7 @@
               <thead><tr><th>模块</th><th>状态概览</th><th>共享覆盖控制</th></tr></thead>
               <tbody id="modulesBody"></tbody>
             </table>
+            <div id="modulesHistory" style="margin-top:12px"></div>
             <div id="modulesMessage" class="message"></div>
           </section>
         </div>
@@ -678,6 +679,7 @@
               <thead><tr><th>服务器 ID</th><th>本地目标</th><th>共享目标</th><th>最终生效</th><th>来源</th><th>操作</th></tr></thead>
               <tbody id="routesBody"></tbody>
             </table>
+            <div id="routesHistory" style="margin-top:12px"></div>
             <div id="routesMessage" class="message"></div>
           </section>
         </div>
@@ -969,6 +971,7 @@
     }
 
     function renderModules(modules) {
+      const history = Array.isArray(modules.history) ? modules.history : [];
       document.getElementById("modulesBody").innerHTML = moduleKeys.map(key => {
         const local = modules.local?.[key];
         const shared = modules.shared?.[key];
@@ -992,6 +995,10 @@
             </td>
           </tr>`;
       }).join("");
+      const historyBox = document.getElementById("modulesHistory");
+      if (historyBox) {
+        historyBox.innerHTML = history.length ? `<details><summary>查看最近模块变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无模块变更历史。</div>`;
+      }
     }
 
     function renderRoutes(routes) {
@@ -1010,6 +1017,11 @@
         return `<tr><td><strong>${safeServerId}</strong></td><td>${safeLocalTarget}</td><td>${safeSharedTarget}</td><td>${safeEffectiveTarget}</td><td>${safeSource}</td><td><div class="actions">${editButton}${actions}</div></td></tr>`;
       }).join("") || `<tr><td colspan="6" class="muted">暂无路由数据</td></tr>`;
       document.getElementById("routesBulkInput").value = JSON.stringify({ routes: routes.shared || {} }, null, 2);
+      const history = Array.isArray(routes.history) ? routes.history : [];
+      const historyBox = document.getElementById("routesHistory");
+      if (historyBox) {
+        historyBox.innerHTML = history.length ? `<details><summary>查看最近路由变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无路由变更历史。</div>`;
+      }
     }
 
     function renderDocuments(documents) {
@@ -1161,6 +1173,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       state.nodeConfigDetail = detail;
       const snapshot = detail.snapshot || null;
       const latestApply = detail.latestApply || null;
+      const applyHistory = Array.isArray(detail.applyHistory) ? detail.applyHistory : [];
       const editableConfig = snapshot?.editableConfig || {};
       const messaging = editableConfig.messaging || {};
       const webPanel = editableConfig.webPanel || {};
@@ -1221,7 +1234,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
             ${moduleKeys.map(key => fieldCard(`modules.${key}`, booleanSelectHtml(`modules.${key}`, modules[key]), `${moduleName(key)}模块`)).join("")}
           </div>
         </form>`;
-      raw.innerHTML = `<details><summary>查看当前节点原始数据</summary><pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre></details>`;
+      raw.innerHTML = `${applyHistory.length ? `<details><summary>查看最近申请历史 (${applyHistory.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>申请人</th><th>状态</th><th>结果</th></tr></thead><tbody>${applyHistory.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt || item.requestedAt))}</td><td>${escapeHtml(item.updatedBy || item.requestedBy || "-")}</td><td>${escapeHtml(applyStatusText(item.status))}</td><td>${escapeHtml(item.summary || item.resultMessage || "-")}</td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无节点配置申请历史。</div>`}<details><summary>查看当前节点原始数据</summary><pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre></details>`;
     }
     function formValue(form, name) {
       return String(form.elements.namedItem(name)?.value ?? "").trim();
