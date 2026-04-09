@@ -186,6 +186,14 @@ TeleportRequestService.RequestStatus status = api.getTpaRequestStatus(receiverId
 - `consumeTpaRequest(...)`
 - `cancelOutgoingTpaRequests(...)`
 
+### 监听 TPA 请求变化
+
+```java
+Runnable handle = api.registerTpaRequestsListener(event -> {
+    getLogger().info("TPA 请求数据已变化，version=" + event.version());
+});
+```
+
 ## 共享模块与共享路由 API
 
 ```java
@@ -229,6 +237,48 @@ Map<String, Object> result = api.requestNodeConfigApply(
     "my-plugin"
 );
 ```
+
+## 事件 / 监听器 API
+
+除了共享模块与共享路由监听器，现在还支持这些 facade 监听器：
+
+### Homes 变化
+
+```java
+Runnable homesHandle = api.registerHomesListener(event -> {
+    getLogger().info("玩家 homes 已变化: " + event.playerId());
+});
+```
+
+### Warps 变化
+
+```java
+Runnable warpsHandle = api.registerWarpsListener(event -> {
+    getLogger().info("Warp 数据已变化，version=" + event.version());
+});
+```
+
+### Transfer 变化
+
+```java
+Runnable transferHandle = api.registerTransferListener(event -> {
+    getLogger().info("Transfer handoff 已变化: " + event.playerId());
+});
+```
+
+### 认证变化
+
+```java
+Runnable authProfileHandle = api.registerAuthProfileListener(event -> {
+    getLogger().info("Auth profile 已变化: " + event.playerId());
+});
+
+Runnable authTicketHandle = api.registerAuthTicketListener(event -> {
+    getLogger().info("Auth ticket 已变化: " + event.playerId());
+});
+```
+
+这些监听器底层仍基于 CrossServer 的同步层，但现在外部插件不需要自己记 namespace 了。
 
 ## 玩家位置 API
 

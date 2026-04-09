@@ -179,6 +179,7 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - 节点配置读取与申请提交
 - 玩家位置读取与转 TeleportTarget
 - 认证业务态查询
+- homes / warps / tpa / transfer / auth 等模块变化监听器
 
 这意味着第三方插件已经可以在不直接依赖内部 service 包的情况下，接入越来越多的现成功能。
 

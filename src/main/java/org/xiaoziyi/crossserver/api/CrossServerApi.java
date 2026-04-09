@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.time.Instant;
 
 public final class CrossServerApi {
 	private final SyncService syncService;
@@ -447,6 +448,62 @@ public final class CrossServerApi {
 		return Optional.ofNullable(inspection.ticket());
 	}
 
+	public Runnable registerHomesListener(Consumer<HomesChangeEvent> listener) {
+		return registerSyncListenerHandle(HomesSyncService.NAMESPACE, message -> listener.accept(new HomesChangeEvent(
+				parseUuid(message.targetId()),
+				message.version(),
+				message.sourceServerId(),
+				message.occurredAt()
+		)));
+	}
+
+	public Runnable registerWarpsListener(Consumer<WarpsChangeEvent> listener) {
+		return registerSyncListenerHandle(WarpService.NAMESPACE, message -> listener.accept(new WarpsChangeEvent(
+				message.targetId(),
+				message.version(),
+				message.sourceServerId(),
+				message.occurredAt()
+		)));
+	}
+
+	public Runnable registerTpaRequestsListener(Consumer<TpaRequestsChangeEvent> listener) {
+		return registerSyncListenerHandle(TeleportRequestService.NAMESPACE, message -> listener.accept(new TpaRequestsChangeEvent(
+				message.targetId(),
+				message.version(),
+				message.sourceServerId(),
+				message.occurredAt()
+		)));
+	}
+
+	public Runnable registerTransferListener(Consumer<TransferChangeEvent> listener) {
+		return registerSyncListenerHandle(org.xiaoziyi.crossserver.teleport.CrossServerTeleportService.NAMESPACE, message -> listener.accept(new TransferChangeEvent(
+				parseUuid(message.targetId()),
+				message.version(),
+				message.sourceServerId(),
+				message.occurredAt()
+		)));
+	}
+
+	public Runnable registerAuthProfileListener(Consumer<AuthChangeEvent> listener) {
+		return registerSyncListenerHandle(AuthService.PROFILE_NAMESPACE, message -> listener.accept(new AuthChangeEvent(
+				parseUuid(message.targetId()),
+				AuthEventType.PROFILE_CHANGED,
+				message.version(),
+				message.sourceServerId(),
+				message.occurredAt()
+		)));
+	}
+
+	public Runnable registerAuthTicketListener(Consumer<AuthChangeEvent> listener) {
+		return registerSyncListenerHandle(AuthService.TICKET_NAMESPACE, message -> listener.accept(new AuthChangeEvent(
+				parseUuid(message.targetId()),
+				AuthEventType.TICKET_CHANGED,
+				message.version(),
+				message.sourceServerId(),
+				message.occurredAt()
+		)));
+	}
+
 	public AuthService.AuthAdminInspection inspectAuth(UUID playerId) throws Exception {
 		if (authService == null) {
 			throw new IllegalStateException("auth service not attached");
@@ -474,5 +531,36 @@ public final class CrossServerApi {
 
 	public interface TeleportControlFacade extends TeleportApiFacade {
 		void reconcileTransfer(UUID playerId, String playerName) throws Exception;
+	}
+
+	private UUID parseUuid(String text) {
+		if (text == null || text.isBlank()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(text);
+		} catch (IllegalArgumentException ignored) {
+			return null;
+		}
+	}
+
+	public enum AuthEventType {
+		PROFILE_CHANGED,
+		TICKET_CHANGED
+	}
+
+	public record HomesChangeEvent(UUID playerId, long version, String sourceServerId, Instant occurredAt) {
+	}
+
+	public record WarpsChangeEvent(String dataKey, long version, String sourceServerId, Instant occurredAt) {
+	}
+
+	public record TpaRequestsChangeEvent(String dataKey, long version, String sourceServerId, Instant occurredAt) {
+	}
+
+	public record TransferChangeEvent(UUID playerId, long version, String sourceServerId, Instant occurredAt) {
+	}
+
+	public record AuthChangeEvent(UUID playerId, AuthEventType type, long version, String sourceServerId, Instant occurredAt) {
 	}
 }
