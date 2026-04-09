@@ -620,6 +620,10 @@
         <div class="toolbar">
           <input id="tokenInput" type="password" placeholder="X-CrossServer-Token">
           <input id="actorInput" type="text" placeholder="X-CrossServer-Actor（可选，默认 web-panel）">
+          <select id="localeSelect">
+            <option value="zh-CN">中文</option>
+            <option value="en-US">English</option>
+          </select>
           <button id="saveAuthBtn">保存凭证</button>
         </div>
         <div id="authMessage" class="message"></div>
@@ -834,11 +838,46 @@
       { value: "true", label: "开启" },
       { value: "false", label: "关闭" }
     ];
+    const i18n = {
+      "zh-CN": {
+        brandEyebrow: "CrossServer / 运维中心",
+        brandTitle: "运维面板",
+        brandSubtitle: "多页面运维控制台 · 共享配置与转服诊断",
+        navDashboard: "仪表盘",
+        navModules: "模块",
+        navRoutes: "路由",
+        navDocuments: "配置文档",
+        navLogs: "日志中心",
+        navNodeConfigs: "节点配置",
+        navTransfers: "转服诊断",
+        saveAuth: "保存凭证",
+        confirmTitle: "操作确认",
+        confirmBody: "请确认本次运维操作的影响范围。",
+        confirmContinue: "确认继续"
+      },
+      "en-US": {
+        brandEyebrow: "CrossServer / Ops Center",
+        brandTitle: "Operations Panel",
+        brandSubtitle: "Multi-page operations console · shared config and transfer diagnostics",
+        navDashboard: "Dashboard",
+        navModules: "Modules",
+        navRoutes: "Routes",
+        navDocuments: "Documents",
+        navLogs: "Logs",
+        navNodeConfigs: "Node Configs",
+        navTransfers: "Transfers",
+        saveAuth: "Save Auth",
+        confirmTitle: "Confirm Action",
+        confirmBody: "Please confirm the impact of this operation.",
+        confirmContinue: "Continue"
+      }
+    };
     const state = {
       overview: null,
       selectedNodeConfigServerId: null,
       nodeConfigDetail: null,
       confirmResolve: null,
+      locale: "zh-CN",
       filters: {
         dashboardNodes: "",
         routes: "",
@@ -850,6 +889,7 @@
     };
     const tokenInput = document.getElementById("tokenInput");
     const actorInput = document.getElementById("actorInput");
+    const localeSelect = document.getElementById("localeSelect");
     const authMessage = document.getElementById("authMessage");
     const navButtons = Array.from(document.querySelectorAll(".nav button[data-tab]"));
     const confirmModal = document.getElementById("confirmModal");
@@ -946,6 +986,31 @@
       element.className = "message";
       element.textContent = "";
     }
+    function t(key) {
+      const bundle = i18n[state.locale] || i18n["zh-CN"];
+      return bundle[key] || key;
+    }
+    function applyLocale() {
+      document.querySelector('.eyebrow').textContent = t('brandEyebrow');
+      document.querySelector('.brand h1').textContent = t('brandTitle');
+      document.querySelector('.brand .small').textContent = t('brandSubtitle');
+      const nav = document.querySelectorAll('.nav button[data-tab]');
+      if (nav[0]) nav[0].textContent = t('navDashboard');
+      if (nav[1]) nav[1].textContent = t('navModules');
+      if (nav[2]) nav[2].textContent = t('navRoutes');
+      if (nav[3]) nav[3].textContent = t('navDocuments');
+      if (nav[4]) nav[4].textContent = t('navLogs');
+      if (nav[5]) nav[5].textContent = t('navNodeConfigs');
+      if (nav[6]) nav[6].textContent = t('navTransfers');
+      document.getElementById('saveAuthBtn').textContent = t('saveAuth');
+      confirmModalTitle.textContent = t('confirmTitle');
+      if (!confirmModalBody.textContent || confirmModalBody.textContent === i18n['zh-CN'].confirmBody || confirmModalBody.textContent === i18n['en-US'].confirmBody) {
+        confirmModalBody.textContent = t('confirmBody');
+      }
+      if (confirmAcceptBtn.textContent === i18n['zh-CN'].confirmContinue || confirmAcceptBtn.textContent === i18n['en-US'].confirmContinue) {
+        confirmAcceptBtn.textContent = t('confirmContinue');
+      }
+    }
     function diffText(fromValue, toValue) {
       const fromText = typeof fromValue === "string" ? fromValue : JSON.stringify(fromValue ?? null, null, 2);
       const toText = typeof toValue === "string" ? toValue : JSON.stringify(toValue ?? null, null, 2);
@@ -972,6 +1037,11 @@
     confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     confirmModal.addEventListener("click", event => {
       if (event.target === confirmModal) closeConfirm(false);
+    });
+    localeSelect?.addEventListener('change', event => {
+      state.locale = event.target.value || 'zh-CN';
+      localStorage.setItem('crossserver.locale', state.locale);
+      applyLocale();
     });
 
     async function api(path, options = {}) {
@@ -1872,6 +1942,11 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
     });
     document.getElementById("playerSearchBtn").addEventListener("click", searchPlayerTransfer);
 
+    state.locale = localStorage.getItem("crossserver.locale") || "zh-CN";
+    if (localeSelect) {
+      localeSelect.value = state.locale;
+    }
+    applyLocale();
     tokenInput.value = savedToken();
     actorInput.value = savedActor();
     if (tokenInput.value) {

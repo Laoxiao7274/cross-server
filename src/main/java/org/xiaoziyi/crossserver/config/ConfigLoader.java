@@ -33,8 +33,11 @@ public final class ConfigLoader {
 		String webPanelMasterServerId = requireText(config.getString("web-panel.master-server-id", serverId).trim(), "web-panel.master-server-id");
 		int webPanelLeaseSeconds = Math.max(10, config.getInt("web-panel.cluster-lease-seconds", 30));
 		int webPanelHeartbeatSeconds = Math.max(3, config.getInt("web-panel.cluster-heartbeat-seconds", 10));
+		String locale = requireText(config.getString("language.locale", "zh-CN").trim(), "language.locale");
+		String webDefaultLocale = requireText(config.getString("language.web-default-locale", locale).trim(), "language.web-default-locale");
 
 		return new PluginConfiguration(
+				new PluginConfiguration.LanguageSettings(locale, webDefaultLocale),
 				new PluginConfiguration.ServerSettings(serverId, cluster),
 				new PluginConfiguration.DatabaseSettings(
 						jdbcUrl,
@@ -84,7 +87,8 @@ public final class ConfigLoader {
 						webPanelToken,
 						webPanelMasterServerId,
 						webPanelLeaseSeconds,
-						webPanelHeartbeatSeconds
+						webPanelHeartbeatSeconds,
+						webDefaultLocale
 				)
 		);
 	}

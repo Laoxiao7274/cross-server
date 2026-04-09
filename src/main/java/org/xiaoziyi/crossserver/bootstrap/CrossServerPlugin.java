@@ -25,6 +25,7 @@ import org.xiaoziyi.crossserver.economy.EconomyServiceImpl;
 import org.xiaoziyi.crossserver.economy.VaultEconomyProvider;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
 import org.xiaoziyi.crossserver.inventory.PlayerInventorySyncService;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.listener.AuthListener;
 import org.xiaoziyi.crossserver.listener.PlayerSessionListener;
 import org.xiaoziyi.crossserver.listener.RouteChatInputListener;
@@ -112,14 +113,15 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private boolean webPanelStartupHintLogged;
 	private final AtomicBoolean reloading = new AtomicBoolean(false);
 	private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+	private Texts texts;
 
 	@Override
 	public void onEnable() {
 		try {
 			initializePlugin();
-			getLogger().info("CrossServer 已启动，节点: " + configuration.server().id() + " 集群: " + configuration.server().cluster());
+			getLogger().info(texts.tr("plugin.started", configuration.server().id(), configuration.server().cluster()));
 		} catch (Exception exception) {
-			getLogger().severe("CrossServer 启动失败: " + exception.getMessage());
+			getLogger().severe((texts != null ? texts.tr("plugin.start_failed", exception.getMessage()) : "CrossServer 启动失败: " + exception.getMessage()));
 			getServer().getPluginManager().disablePlugin(this);
 		}
 	}
@@ -176,11 +178,11 @@ public final class CrossServerPlugin extends JavaPlugin {
 		String origin = source == null || source.isBlank() ? "unknown" : source.trim();
 		Bukkit.getScheduler().runTask(this, () -> {
 			try {
-				getLogger().info("收到重载请求，来源: " + origin + " 操作者: " + actor);
+				getLogger().info(texts.tr("plugin.reload_requested", origin, actor));
 				performReloadCycle();
-				getLogger().info("CrossServer 重载完成，来源: " + origin + " 操作者: " + actor);
+				getLogger().info(texts.tr("plugin.reload_completed", origin, actor));
 			} catch (Exception exception) {
-				getLogger().severe("CrossServer 重载失败，来源: " + origin + " 操作者: " + actor + " 错误: " + exception.getMessage());
+				getLogger().severe(texts.tr("plugin.reload_failed", origin, actor, exception.getMessage()));
 			} finally {
 				reloading.set(false);
 			}
@@ -197,6 +199,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 
 	private void initializePlugin() throws Exception {
 		PluginConfiguration baseConfiguration = new ConfigLoader().load(this);
+		this.texts = new Texts(baseConfiguration.language());
 		this.localConfiguration = baseConfiguration;
 		this.configuration = baseConfiguration;
 		this.storageProvider = new SqlStorageProvider(getLogger(), baseConfiguration.database());

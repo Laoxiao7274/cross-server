@@ -3,6 +3,7 @@ package org.xiaoziyi.crossserver.config;
 import java.util.Map;
 
 public record PluginConfiguration(
+		LanguageSettings language,
 		ServerSettings server,
 		DatabaseSettings database,
 		MessagingSettings messaging,
@@ -14,6 +15,7 @@ public record PluginConfiguration(
 ) {
 	public PluginConfiguration withTeleportGatewayServerMap(Map<String, String> serverMap) {
 		return new PluginConfiguration(
+				language,
 				server,
 				database,
 				messaging,
@@ -37,6 +39,7 @@ public record PluginConfiguration(
 
 	public PluginConfiguration withModules(ModuleSettings modules) {
 		return new PluginConfiguration(
+				language,
 				server,
 				database,
 				messaging,
@@ -46,6 +49,12 @@ public record PluginConfiguration(
 				modules,
 				webPanel
 		);
+	}
+
+	public record LanguageSettings(
+			String locale,
+			String webDefaultLocale
+	) {
 	}
 
 	public record ServerSettings(
@@ -116,7 +125,8 @@ public record PluginConfiguration(
 			String token,
 			String masterServerId,
 			int clusterLeaseSeconds,
-			int clusterHeartbeatSeconds
+			int clusterHeartbeatSeconds,
+			String defaultLocale
 	) {
 		public boolean isMasterServer(String serverId) {
 			return masterServerId != null && !masterServerId.isBlank() && masterServerId.equalsIgnoreCase(serverId);

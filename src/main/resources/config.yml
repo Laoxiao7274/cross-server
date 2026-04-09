@@ -1,3 +1,7 @@
+language:
+  locale: "zh-CN"
+  web-default-locale: "zh-CN"
+
 server:
   id: "server-1"
   cluster: "qingchuan"
