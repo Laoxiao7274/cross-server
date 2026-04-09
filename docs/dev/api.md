@@ -2,6 +2,28 @@
 
 CrossServer 通过 Bukkit `ServicesManager` 暴露 `CrossServerApi`，其他插件可以注册命名空间、读写数据、监听同步事件，也可以接入新的配置中心文档能力。
 
+这份文档适合：
+
+- 想让自己的插件接入 CrossServer
+- 想做跨服共享配置
+- 想保存自定义玩家数据
+- 想复用 CrossServer 的跨服传送能力
+
+## 先理解这件事
+
+CrossServerApi 不是“只有几个工具方法”的辅助类，它本质上是对下面几类能力的统一封装：
+
+- 玩家数据快照
+- 全局数据快照
+- 配置中心文档
+- 同步监听
+- 会话锁
+- 跨服传送
+- 经济服务
+- 诊断与管理能力
+
+如果你是第三方插件开发者，通常优先通过 `CrossServerApi` 接入，而不是直接去碰内部 Service 类。
+
 ## 获取 API
 
 ```java
@@ -18,6 +40,27 @@ if (api == null) {
 
 建议在插件的 `onEnable()` 中获取并缓存实例。
 
+## 推荐接入流程
+
+一个第三方插件最常见的接入流程通常是：
+
+1. 在 `onEnable()` 中获取 `CrossServerApi`
+2. 注册你自己的命名空间或配置文档
+3. 在需要时读写玩家数据 / 全局数据
+4. 如果要跨服热更新，就注册监听器
+5. 如果要跨服传送，就调用 `requestTeleport(...)`
+
+## 什么时候用哪种能力
+
+| 需求 | 推荐能力 |
+|------|----------|
+| 给某个玩家保存一份跨服数据 | `savePlayerData / loadPlayerData` |
+| 给整个集群保存一份共享配置 | `saveConfigDocument / loadConfigDocument` |
+| 保存一个简单的全局状态值 | `saveGlobalData / loadGlobalData` |
+| 监听其他服务器写入了数据 | `registerSyncListener` |
+| 让玩家跨服传送 | `requestTeleport` |
+| 想看某个玩家为什么跨服卡住 | `inspectTransfer / inspectTransferDiagnostics` |
+
 ## 命名空间
 
 所有数据操作都通过命名空间隔离。建议格式：`插件名.数据类型`。
@@ -29,7 +72,28 @@ api.registerNamespace("my-plugin.config");
 
 命名空间只需注册一次（通常在 `onEnable()` 中）。同一命名空间重复注册不会报错。
 
+### 命名建议
+
+推荐使用“插件名 + 功能名”的形式，避免与其他插件冲突：
+
+- `my-plugin.player-data`
+- `my-plugin.progress`
+- `my-plugin.config`
+
+不建议直接使用过于泛化的名字，例如：
+
+- `data`
+- `config`
+- `player`
+
 ## 玩家数据
+
+适合存储“每个玩家一份”的内容，例如：
+
+- 自定义等级
+- 任务进度
+- 技能点
+- 自定义 GUI 状态
 
 ### 保存
 
@@ -58,9 +122,41 @@ if (snapshot.isPresent()) {
 | `version` | long | 版本号（每次写入递增） |
 | `updatedAt` | Instant | 最后更新时间 |
 
+### 常见模式：玩家加入时加载，变化时保存
+
+```java
+public void loadPlayerState(Player player) {
+    try {
+        Optional<PlayerSnapshot> snapshot = api.loadPlayerData(player.getUniqueId(), "my-plugin.player-data");
+        if (snapshot.isEmpty()) {
+            return;
+        }
+        String payload = snapshot.get().payload();
+        // 解析 payload 并应用到你的业务对象
+    } catch (Exception e) {
+        getLogger().warning("加载玩家跨服数据失败: " + e.getMessage());
+    }
+}
+
+public void savePlayerState(Player player, String payload) {
+    try {
+        api.savePlayerData(player.getUniqueId(), "my-plugin.player-data", payload);
+    } catch (Exception e) {
+        getLogger().warning("保存玩家跨服数据失败: " + e.getMessage());
+    }
+}
+```
+
 ## 全局数据
 
 适用于跨服共享的配置、状态等。
+
+适合：
+
+- 一个全服共享倒计时
+- 某个活动状态
+- 一个简单的公告开关
+- 不需要元信息的全局状态值
 
 ### 保存
 
@@ -82,6 +178,10 @@ Warp 与 TPA 当前都复用了这个能力：
 - `warps / teleport.warps` — 全局 Warp 列表
 - `teleport.requests / tpa.requests` — 跨服 TPA 请求
 
+### 什么时候不要直接用全局数据
+
+如果你的需求是“共享配置文档”，而不是“一个简单的全局状态值”，更推荐使用下一节的配置中心文档。
+
 ## 配置中心文档
 
 这是在全局数据之上的高层封装，适合第三方插件把“共享配置”接入 CrossServer 配置中心。
@@ -90,6 +190,13 @@ Warp 与 TPA 当前都复用了这个能力：
 
 - JSON
 - YAML
+
+相比直接使用 `saveGlobalData(...)`，配置中心文档更适合配置类场景，因为它带有：
+
+- 注册机制
+- 文档元信息
+- 格式识别
+- 变更监听
 
 ### 注册文档
 
@@ -112,6 +219,10 @@ ConfigDocument document = api.saveConfigDocument(
     )
 );
 ```
+
+### 更推荐的保存方式
+
+如果你想明确带上版本、来源和摘要，推荐始终用 `ConfigDocumentUpdate` 这个重载，而不是只传一个字符串 payload。
 
 写入后，CrossServer 会自动把以下元信息补进配置文档：
 
@@ -144,6 +255,27 @@ Runnable handle = api.registerConfigDocumentListener("my-plugin.config", "main",
 
 // 取消监听
 handle.run();
+```
+
+### 常见模式：配置热更新
+
+```java
+private Runnable configListenerHandle;
+
+public void setupSharedConfig() {
+    api.registerConfigDocument("my-plugin.config", "main");
+    configListenerHandle = api.registerConfigDocumentListener("my-plugin.config", "main", event -> {
+        getLogger().info("共享配置已更新，版本=" + event.version());
+        reloadMySharedConfig();
+    });
+}
+
+public void shutdownSharedConfig() {
+    if (configListenerHandle != null) {
+        configListenerHandle.run();
+        configListenerHandle = null;
+    }
+}
 ```
 
 ### 查询已注册文档
@@ -179,9 +311,17 @@ Runnable handle = api.registerSyncListenerHandle("my-plugin.player-data", listen
 handle.run();
 ```
 
+### 使用建议
+
+- 长生命周期监听器优先用 `registerSyncListenerHandle(...)`
+- 插件关闭时记得调用返回的 `Runnable` 解除监听
+- 监听器里不要做重 I/O，必要时自己切异步
+
 ## 会话管理
 
 手动控制玩家的会话锁。通常插件不需要手动调用，数据操作会自动管理会话。
+
+只有在你要做一组“必须保证原子性”的玩家跨服数据操作时，才建议手动管理会话。
 
 ```java
 boolean locked = api.openPlayerSession(playerId);
@@ -215,6 +355,18 @@ if (result.success()) {
 
 当前 `/home`、`/warp`、`/tpa`、`/tpahere` 最终都会复用这条主链路。
 
+### 推荐使用场景
+
+- 自定义副本入口
+- 跨服活动大厅
+- 匹配服 / 对战服传送
+- 你的插件自定义的跨服菜单入口
+
+### 使用建议
+
+- `causeRef` 尽量带上你的插件标识，便于诊断
+- 例如：`my-plugin:arena-join`、`my-plugin:dungeon-enter`
+
 ## 经济服务
 
 ```java
@@ -241,6 +393,8 @@ economy.withdraw(player, new BigDecimal("50.00")).thenAccept(result -> {
 });
 ```
 
+如果你的插件已经兼容 Vault，也可以直接依赖 Bukkit 的经济服务；但如果你明确想依赖 CrossServer 的内部经济同步语义，直接走 `api.getEconomyService()` 更直接。
+
 ## 传送管理
 
 ```java
@@ -250,6 +404,12 @@ List<TransferHistoryEntry> history = api.getTransferHistory(playerId, 10);
 List<TransferHistoryEntry> recent = api.getRecentTransferHistory(20);
 TransferAdminService.ClearResult result = api.clearTransfer(playerId, "admin");
 ```
+
+这组接口更适合：
+
+- 管理插件
+- 运维工具
+- 自定义诊断面板
 
 ## 认证管理
 
@@ -291,3 +451,69 @@ api.forceReauthenticate(playerId, "admin");
 - 仅白名单字段可修改（messaging / webPanel / modules）
 - 不暴露数据库、代理等敏感配置
 - 每次申请仅影响一个目标节点
+
+## 一个完整示例：做一个跨服共享配置插件
+
+下面是一个很典型的接入思路：
+
+```java
+public final class MyPlugin extends JavaPlugin {
+    private CrossServerApi api;
+    private Runnable configListenerHandle;
+
+    @Override
+    public void onEnable() {
+        api = Bukkit.getServicesManager().load(CrossServerApi.class);
+        if (api == null) {
+            getLogger().warning("CrossServer API 不可用，跳过共享配置接入");
+            return;
+        }
+
+        api.registerConfigDocument("my-plugin.config", "main");
+        configListenerHandle = api.registerConfigDocumentListener("my-plugin.config", "main", event -> {
+            getLogger().info("检测到共享配置更新，重新加载中...");
+            reloadSharedConfig();
+        });
+
+        reloadSharedConfig();
+    }
+
+    @Override
+    public void onDisable() {
+        if (configListenerHandle != null) {
+            configListenerHandle.run();
+            configListenerHandle = null;
+        }
+    }
+
+    private void reloadSharedConfig() {
+        try {
+            Optional<ConfigDocument> document = api.loadConfigDocument("my-plugin.config", "main");
+            if (document.isEmpty()) {
+                getLogger().info("共享配置尚未创建，继续使用本地默认值");
+                return;
+            }
+
+            String payload = document.get().payload();
+            // 解析 JSON / YAML payload
+            getLogger().info("已加载共享配置，版本=" + document.get().version());
+        } catch (Exception e) {
+            getLogger().warning("加载共享配置失败: " + e.getMessage());
+        }
+    }
+}
+```
+
+## 最后的建议
+
+### 1. 想存玩家状态，优先用玩家数据快照
+
+不要把玩家私有数据硬塞进全局快照。
+
+### 2. 想做共享配置，优先用配置中心文档
+
+不要自己重复造一套全局 JSON 存储协议。
+
+### 3. 想做跨服传送，优先复用 `requestTeleport(...)`
+
+不要自己在插件里重复实现 handoff / rollback / session transfer 逻辑。

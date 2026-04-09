@@ -1,5 +1,19 @@
 # 架构概览
 
+这份文档适合以下场景：
+
+- 想快速读懂 CrossServer 的整体结构
+- 想知道某个功能应该从哪个类开始看
+- 想在现有基础上扩展一个新功能
+- 想排查“某个行为到底是在哪一层完成的”
+
+如果你是第一次看这个项目，建议阅读顺序：
+
+1. 先看 `CrossServerPlugin`，理解启动装配顺序
+2. 再看 `SyncService` / `SessionService`，理解核心引擎
+3. 然后按功能看 `homes / warp / tpa / auth / web`
+4. 最后看 `ConfigCenterService` 和 `CrossServerApi`，理解对外扩展方式
+
 ## 整体架构
 
 CrossServer 采用分层架构设计：
@@ -40,6 +54,36 @@ CrossServer 采用分层架构设计：
 
 ## 核心组件
 
+### 先从哪里看代码
+
+如果你是第一次进入这个仓库，建议按下面顺序看：
+
+| 目标 | 建议先看 |
+|------|----------|
+| 想看插件如何启动 | `bootstrap/CrossServerPlugin.java` |
+| 想看跨服同步底层 | `sync/SyncService.java` |
+| 想看会话锁与 transfer token | `session/SessionService.java` |
+| 想看跨服传送主链路 | `teleport/CrossServerTeleportService.java` |
+| 想看玩家进出服时发生了什么 | `listener/PlayerSessionListener.java` |
+| 想看 Web 面板 | `web/WebPanelServer.java` + `web/WebPanelDataService.java` |
+| 想看配置中心能力 | `configcenter/ConfigCenterService.java` |
+| 想看对外 API | `api/CrossServerApi.java` |
+
+### 代码阅读地图
+
+CrossServer 的大部分功能都可以按“入口 -> 服务 -> 存储 / 同步”来理解：
+
+- 命令 / GUI / Web API 只是入口层
+- 具体业务逻辑通常在对应 Service 中完成
+- 最终状态会落到 `player_snapshot` / `global_snapshot` / `player_session` 等表中
+
+换句话说：
+
+- **要改行为**：优先找 Service
+- **要改展示**：找命令 / GUI / Web
+- **要改数据格式**：找 Snapshot / Codec / 命名空间
+- **要改跨服一致性行为**：找 `SyncService` / `SessionService` / `CrossServerTeleportService`
+
 ### SyncService — 同步引擎
 
 数据同步的核心，负责：
@@ -50,6 +94,12 @@ CrossServer 采用分层架构设计：
 - 追踪本地无效化状态（`scope|targetId|namespace|version`）
 - 分发到注册的 `SyncListener` 回调
 
+你可以把它理解成：
+
+- CrossServer 的“统一存取层”
+- 所有玩家数据 / 全局数据的主入口
+- 也是配置中心、Warp、TPA、权限快照等功能的共同基础
+
 ### SessionService — 分布式会话锁
 
 防止同一玩家在两个服务器上同时被写入：
@@ -58,6 +108,12 @@ CrossServer 采用分层架构设计：
 2. `prepareTransfer()` — 生成 transfer token，准备跨服移交
 3. `tryClaimTransferredSession()` — 目标服务器用 token 原子获取会话
 4. `refreshLocalSessions()` — 定时心跳延长锁 TTL
+
+它主要解决的问题是：
+
+- 玩家切服过程中，不能被两台服同时写数据
+- 目标服要能安全接管来源服已经准备好的 transfer
+- 异常断线 / 卡服时，状态还能有机会恢复或超时回收
 
 ### StorageProvider — 存储层
 
@@ -99,6 +155,39 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - `registerDocumentListener(namespace, dataKey, listener)` — 监听文档变更
 
 配置文档支持 JSON / YAML 双格式。配置中心会在保存时保留原格式，并自动补齐元信息字段。
+
+这层特别适合做二次开发，因为它比直接操作 `global_snapshot` 更稳：
+
+- 有注册机制
+- 有格式统一入口
+- 有文档元信息
+- 有变更监听
+
+对于第三方插件来说，优先考虑走 `ConfigCenterService / CrossServerApi`，而不是手写全局快照协议。
+
+## 启动装配顺序
+
+理解 `CrossServerPlugin.initializePlugin()` 很重要，因为它几乎决定了整个项目的运行结构。
+
+简化后的装配顺序如下：
+
+1. 读取本地 `config.yml`
+2. 启动 `SqlStorageProvider`
+3. 根据配置选择 `RedisMessagingProvider` 或 `NoopMessagingProvider`
+4. 注册全部命名空间
+5. 创建 `SyncService` 与 `SessionService`
+6. 创建 `EconomyService` 与 `CrossServerApi`
+7. 创建共享配置相关服务：`RouteTableService`、`SharedModuleConfigService`
+8. 合并共享路由 / 共享模块，得到最终运行时配置
+9. 创建玩家同步、认证、传送、Warp、Homes 等业务服务
+10. 创建 Web 面板、配置中心和节点配置同步相关服务
+11. 注册命令、GUI、监听器、Bukkit Service、定时任务
+
+理解这个顺序的意义：
+
+- 配置不是只来自本地文件，而是“本地默认 + 共享覆盖”
+- 很多服务在初始化时依赖前面已经准备好的存储、消息和同步层
+- Web 面板只是使用这些服务的一个上层入口，不是独立系统
 
 ## 数据表
 
@@ -182,6 +271,19 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 - 注册 listener、命令、GUI、自动保存和恢复任务
 - 启动 Web 面板心跳定时任务，周期性执行主控选举、日志发布、配置快照刷新
 
+### 关闭顺序
+
+插件关闭 / 重载时，核心目标不是“立刻全部关掉”，而是“尽可能安全地收口状态”：
+
+1. 停止定时任务
+2. 停止 Web 面板心跳与面板服务
+3. 注销 Web 面板成员记录
+4. 清理节点状态记录
+5. 保护正在进行中的 transfer
+6. 关闭消息层与存储层
+
+所以如果你在修复 reload / shutdown 相关问题，不要只盯着某一个 listener，优先从 `shutdownPlugin()` 和 `performReloadCycle()` 往下追。
+
 ### 安全重载
 
 `/crossserver reload`、路由菜单的"重载本节点"、Web 面板的"重载本节点"都走同一套安全排队逻辑：
@@ -225,6 +327,22 @@ Redis PubSub 实现跨服实时通信。消息格式为 JSON（Jackson 序列化
 5. 通过代理切服
 6. 目标服由 `TeleportArrivalListener` + `tryConsumeArrival()` 消费 handoff
 7. 落点成功后清理 rollback；失败时标记 handoff 并尝试回滚
+
+### 为什么很多功能最终都会走到这里
+
+在 CrossServer 中，以下入口虽然表面不同，但底层会收敛到同一条主链路：
+
+- `/home`
+- `/warp`
+- `/tpa`
+- `/tpahere`
+- 其他插件通过 API 发起的 `requestTeleport(...)`
+
+这意味着：
+
+- 如果家园、Warp、TPA 同时表现异常，优先怀疑公共传送主链路
+- 不要优先在命令类里各自打补丁
+- 先确认 `CrossServerTeleportService`、`TeleportArrivalListener`、rollback 与 handoff 状态是否正常
 
 ### 稳定性补强
 
@@ -281,6 +399,65 @@ API 提供的能力：
 - 传送诊断与管理
 
 详细接口说明见 [API 文档](api.md)。
+
+## 常见二次开发模式
+
+### 模式 1：给自己的插件增加跨服共享配置
+
+推荐：
+
+1. 注册一个配置文档命名空间
+2. 用 `saveConfigDocument(...)` 保存配置
+3. 用 `registerConfigDocumentListener(...)` 监听变化
+
+适合：
+
+- 群组服公告配置
+- 某个玩法插件的全局参数
+- 需要多个子服共用的开关 / 白名单 / 模板配置
+
+### 模式 2：给玩家增加一份跨服持久化数据
+
+推荐：
+
+1. 注册命名空间，例如 `my-plugin.player-data`
+2. 在玩家关键节点保存 `savePlayerData(...)`
+3. 在玩家进入时读取 `loadPlayerData(...)`
+
+适合：
+
+- 自定义数值
+- 成就进度
+- 任务状态
+- 自定义技能树
+
+### 模式 3：复用 CrossServer 的跨服传送能力
+
+推荐：
+
+1. 自己生成目标 `TeleportTarget`
+2. 调用 `requestTeleport(...)`
+3. 让公共 handoff 主链路负责实际跨服
+
+适合：
+
+- 副本传送
+- 跨服匹配传送
+- 特殊活动服入口
+
+## 修改代码时的经验建议
+
+### 1. 先确认这个功能是“本地逻辑”还是“共享逻辑”
+
+很多问题本质不是代码错，而是你修改了本地配置，却忘了共享覆盖仍在生效。
+
+### 2. 先确认这个功能是“入口层问题”还是“核心链路问题”
+
+命令 / GUI / Web API 经常只是入口层；真正的状态变化通常发生在 Service 与同步层。
+
+### 3. 先确认这个功能有没有复用公共链路
+
+家园、Warp、TPA、API 传送都共享跨服传送主链路；修复时优先看公共部分。
 
 ## 验证建议
 
