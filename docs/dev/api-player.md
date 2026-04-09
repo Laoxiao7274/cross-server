@@ -181,6 +181,12 @@ List<TeleportRequestService.PendingRequest> cancelled = api.cancelOutgoingTpaReq
 - `message()`：结果消息
 - `request()`：对应的请求对象
 
+注意：TPA / Home / Warp 这类主动操作底层会复用 CrossServer 的跨服传送主链路，所以当目标在其他服务器时，返回的消息会直接反映真实场景，例如：
+
+- 已传送至家园: 主城
+- 已传送至地标: spawn
+- 已传送至玩家附近: Steve
+
 ## 玩家位置 API
 
 ### 这组 API 是干什么的

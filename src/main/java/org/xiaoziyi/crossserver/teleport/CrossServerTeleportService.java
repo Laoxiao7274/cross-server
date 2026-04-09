@@ -348,20 +348,31 @@ public final class CrossServerTeleportService {
 
 	private String successSubtitle(TeleportHandoff handoff) {
 		return switch (handoff.cause()) {
-			case HOME -> "§7已到达家园所在节点 §f" + handoff.targetServerId();
-			case WARP -> "§7已到达地标所在节点 §f" + handoff.targetServerId();
-			case TPA -> "§7已到达目标玩家所在节点 §f" + handoff.targetServerId();
-			case TPA_HERE -> "§7已完成玩家传送邀请 §f" + handoff.targetServerId();
+			case HOME -> "§7已到达家园 §f" + readableTargetName(handoff) + " §7所在节点 §f" + handoff.targetServerId();
+			case WARP -> "§7已到达地标 §f" + readableTargetName(handoff) + " §7所在节点 §f" + handoff.targetServerId();
+			case TPA -> "§7已到达玩家 §f" + readableTargetName(handoff) + " §7所在节点 §f" + handoff.targetServerId();
+			case TPA_HERE -> "§7已完成玩家传送邀请：§f" + readableTargetName(handoff);
 		};
 	}
 
 	private String successActionBar(TeleportHandoff handoff) {
 		return switch (handoff.cause()) {
-			case HOME -> "已传送至目标家园";
-			case WARP -> "已传送至目标地标";
-			case TPA -> "已传送至目标玩家附近";
-			case TPA_HERE -> "已完成玩家传送邀请";
+			case HOME -> "已传送至家园: " + readableTargetName(handoff);
+			case WARP -> "已传送至地标: " + readableTargetName(handoff);
+			case TPA -> "已传送至玩家附近: " + readableTargetName(handoff);
+			case TPA_HERE -> "已完成玩家传送邀请: " + readableTargetName(handoff);
 		};
+	}
+
+	private String readableTargetName(TeleportHandoff handoff) {
+		if (handoff == null || handoff.causeRef() == null || handoff.causeRef().isBlank()) {
+			return handoff != null && handoff.targetServerId() != null ? handoff.targetServerId() : "目标";
+		}
+		String causeRef = handoff.causeRef().trim();
+		if ((handoff.cause() == TeleportCause.TPA || handoff.cause() == TeleportCause.TPA_HERE) && causeRef.contains(":")) {
+			return causeRef.substring(causeRef.indexOf(':') + 1);
+		}
+		return causeRef;
 	}
 
 	public void reconcilePendingTransfers() {

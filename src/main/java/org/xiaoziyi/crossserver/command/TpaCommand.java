@@ -194,7 +194,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 				receiver.getLocation().getPitch(),
 				true,
 				Instant.now()
-		)), "tpa:" + receiver.getUniqueId());
+		)), "tpa:" + receiver.getName());
 		if (senderPlayer != null) {
 			senderPlayer.sendMessage(result.message());
 			if (!result.success()) {
@@ -225,7 +225,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 			notifyFailure(receiver, "§c无法跨服", "§7请求发起者已不在线");
 			return;
 		}
-		TeleportInitiationResult result = api.requestTeleport(receiver.getUniqueId(), playerLocationService.toTeleportTarget(senderLocation.get()), "tpahere:" + consumed.senderId());
+		TeleportInitiationResult result = api.requestTeleport(receiver.getUniqueId(), playerLocationService.toTeleportTarget(senderLocation.get()), "tpahere:" + consumed.senderName());
 		receiver.sendMessage(result.message());
 		if (!result.success()) {
 			notifyFailure(receiver, "§c跨服失败", "§7无法发起跨服传送");

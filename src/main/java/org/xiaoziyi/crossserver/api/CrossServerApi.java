@@ -376,14 +376,14 @@ public final class CrossServerApi {
 					receiver.getLocation().getPitch(),
 					true,
 					Instant.now()
-			)), "tpa:" + receiver.getUniqueId());
+			)), "tpa:" + receiver.getName());
 			return new TpaActionResult(result.success(), result.message(), request);
 		}
 		Optional<PlayerLocationSnapshot> senderLocation = playerLocationService.getPlayerLocation(request.senderId());
 		if (senderLocation.isEmpty() || !playerLocationService.isFresh(senderLocation.get()) || !senderLocation.get().online()) {
 			return new TpaActionResult(false, "请求发起者当前不在线，无法跨服传送", request);
 		}
-		TeleportInitiationResult result = requestTeleport(receiver.getUniqueId(), playerLocationService.toTeleportTarget(senderLocation.get()), "tpahere:" + request.senderId());
+		TeleportInitiationResult result = requestTeleport(receiver.getUniqueId(), playerLocationService.toTeleportTarget(senderLocation.get()), "tpahere:" + request.senderName());
 		return new TpaActionResult(result.success(), result.message(), request);
 	}
 

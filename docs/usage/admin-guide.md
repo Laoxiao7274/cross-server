@@ -14,7 +14,7 @@
 |------|------|------|
 | `/crossserver help` | 查看帮助 | `crossserver.command` |
 | `/cs help [page]` | 分页查看帮助（每页 5 条） | `crossserver.command` |
-| `/cs menu` | 打开 GUI 总菜单入口 | `crossserver.command` |
+| `/cs menu` | 打开 GUI 总菜单入口（按权限与模块状态灰显） | `crossserver.command` |
 | `/crossserver status` | 查看当前节点状态 | `crossserver.status.view` |
 | `/crossserver nodes [page]` | 查看节点列表 | `crossserver.nodes.view` |
 | `/crossserver node <serverId>` | 查看单节点详情 | `crossserver.node.view` |
