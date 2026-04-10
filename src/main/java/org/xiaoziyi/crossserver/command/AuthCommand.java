@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.xiaoziyi.crossserver.auth.AuthService;
+import org.xiaoziyi.crossserver.i18n.Texts;
 
 import java.util.List;
 import java.util.Locale;
@@ -16,25 +17,27 @@ public final class AuthCommand implements org.bukkit.command.TabExecutor {
 	private static final String CHANGE_PASSWORD_PERMISSION = "crossserver.auth.changepassword";
 
 	private final AuthService authService;
+	private final Texts texts;
 
-	public AuthCommand(AuthService authService) {
+	public AuthCommand(AuthService authService, Texts texts) {
 		this.authService = authService;
+		this.texts = texts;
 	}
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
 		if (!(sender instanceof Player player)) {
-			sender.sendMessage("§c该命令只能由玩家执行。");
+			sender.sendMessage(texts.tr("player.only"));
 			return true;
 		}
 		String name = command.getName().toLowerCase(Locale.ROOT);
 		if ("login".equals(name) || "l".equals(name)) {
 			if (!sender.hasPermission(LOGIN_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			if (args.length < 1) {
-				sender.sendMessage("§e用法: /login <password>");
+				sender.sendMessage(texts.tr("auth.usage.login"));
 				return true;
 			}
 			sender.sendMessage(authService.login(player, args[0]));
@@ -42,11 +45,11 @@ public final class AuthCommand implements org.bukkit.command.TabExecutor {
 		}
 		if ("register".equals(name) || "reg".equals(name)) {
 			if (!sender.hasPermission(REGISTER_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			if (args.length < 2) {
-				sender.sendMessage("§e用法: /register <password> <confirm>");
+				sender.sendMessage(texts.tr("auth.usage.register"));
 				return true;
 			}
 			sender.sendMessage(authService.register(player, args[0], args[1]));
@@ -54,11 +57,11 @@ public final class AuthCommand implements org.bukkit.command.TabExecutor {
 		}
 		if ("changepassword".equals(name)) {
 			if (!sender.hasPermission(CHANGE_PASSWORD_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			if (args.length < 2) {
-				sender.sendMessage("§e用法: /changepassword <old> <new>");
+				sender.sendMessage(texts.tr("auth.usage.change"));
 				return true;
 			}
 			sender.sendMessage(authService.changePassword(player, args[0], args[1]));

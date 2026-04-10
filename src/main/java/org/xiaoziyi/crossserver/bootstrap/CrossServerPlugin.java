@@ -275,13 +275,13 @@ public final class CrossServerPlugin extends JavaPlugin {
 			api.attachTeleportRequestService(teleportRequestService);
 		}
 		if (configuration.modules().homes()) {
-			this.homesSyncService = new HomesSyncService(this, getLogger(), api, configuration.server().id(), teleportService);
+			this.homesSyncService = new HomesSyncService(this, getLogger(), api, configuration.server().id(), teleportService, texts);
 			teleportService.bindHomesSyncService(homesSyncService);
 			this.homesMenuService = new HomesMenuService(this, homesSyncService);
 			api.attachHomesSyncService(homesSyncService);
 		}
 		if (configuration.modules().warps()) {
-			this.warpService = new WarpService(this, getLogger(), api, configuration.server().id(), teleportService);
+			this.warpService = new WarpService(this, getLogger(), api, configuration.server().id(), teleportService, texts);
 			this.warpMenuService = new WarpMenuService(this, warpService);
 			api.attachWarpService(warpService);
 		}
@@ -499,7 +499,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			PluginCommand setHomeCommand = getCommand("sethome");
 			PluginCommand delHomeCommand = getCommand("delhome");
 			PluginCommand setDefaultHomeCommand = getCommand("setdefaulthome");
-			HomesCommand homesExecutor = new HomesCommand(homesSyncService, homesMenuService);
+			HomesCommand homesExecutor = new HomesCommand(homesSyncService, homesMenuService, texts);
 			if (homeCommand != null) {
 				homeCommand.setExecutor(homesExecutor);
 				homeCommand.setTabCompleter(homesExecutor);
@@ -522,7 +522,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			}
 		}
 		if (configuration.modules().auth() && authService != null) {
-			AuthCommand authExecutor = new AuthCommand(authService);
+			AuthCommand authExecutor = new AuthCommand(authService, texts);
 			registerSimpleCommand("login", authExecutor);
 			registerSimpleCommand("l", authExecutor);
 			registerSimpleCommand("register", authExecutor);
@@ -538,7 +538,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			registerSimpleCommand("tpcancel", tpaExecutor);
 		}
 		if (configuration.modules().warps() && warpService != null && warpMenuService != null) {
-			WarpCommand warpExecutor = new WarpCommand(warpService, warpMenuService);
+			WarpCommand warpExecutor = new WarpCommand(warpService, warpMenuService, texts);
 			registerSimpleCommand("warp", warpExecutor);
 			registerSimpleCommand("setwarp", warpExecutor);
 			registerSimpleCommand("delwarp", warpExecutor);

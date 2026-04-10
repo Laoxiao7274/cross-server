@@ -5,6 +5,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.xiaoziyi.crossserver.api.CrossServerApi;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
 import org.xiaoziyi.crossserver.teleport.CrossServerTeleportService;
 import org.xiaoziyi.crossserver.teleport.TeleportCause;
@@ -32,14 +33,16 @@ public final class HomesSyncService {
 	private final String serverId;
 	private final CrossServerTeleportService teleportService;
 	private final Map<UUID, HomesSnapshot> cache;
+	private final Texts texts;
 
-	public HomesSyncService(JavaPlugin plugin, Logger logger, CrossServerApi api, String serverId, CrossServerTeleportService teleportService) {
+	public HomesSyncService(JavaPlugin plugin, Logger logger, CrossServerApi api, String serverId, CrossServerTeleportService teleportService, Texts texts) {
 		this.plugin = plugin;
 		this.logger = logger;
 		this.api = api;
 		this.serverId = serverId;
 		this.teleportService = teleportService;
 		this.cache = new ConcurrentHashMap<>();
+		this.texts = texts;
 	}
 
 	public void loadPlayerHomes(Player player) {
@@ -86,16 +89,16 @@ public final class HomesSyncService {
 	public String setHome(Player player, String inputName) {
 		HomesSnapshot snapshot = cache.get(player.getUniqueId());
 		if (snapshot == null) {
-			return "§e家园数据加载中，请稍后重试。";
+			return texts.tr("homes.loading");
 		}
 		String name = normalizeHomeName(inputName);
 		if (name == null) {
-			return "§c家园名称只能包含字母、数字、下划线和短横线，且长度不能超过 16。";
+			return texts.tr("homes.name_invalid");
 		}
 		Location location = player.getLocation();
 		World world = location.getWorld();
 		if (world == null) {
-			return "§c无法读取当前位置世界。";
+			return texts.tr("homes.world_missing");
 		}
 		Map<String, HomeEntry> homes = new LinkedHashMap<>(snapshot.homes());
 		Instant now = Instant.now();
@@ -116,22 +119,22 @@ public final class HomesSyncService {
 		HomesSnapshot updated = new HomesSnapshot(defaultHome, homes);
 		cache.put(player.getUniqueId(), updated);
 		saveSnapshotAsync(player.getUniqueId(), updated);
-		return "§a已设置家园: §f" + name;
+		return texts.tr("homes.set", name);
 	}
 
 	public String deleteHome(UUID playerId, String inputName) {
 		HomesSnapshot snapshot = cache.get(playerId);
 		if (snapshot == null) {
-			return "§e家园数据加载中，请稍后重试。";
+			return texts.tr("homes.loading");
 		}
 		String name = normalizeHomeName(inputName);
 		if (name == null) {
-			return "§c无效的家园名称。";
+			return texts.tr("homes.not_found", inputName);
 		}
 		Map<String, HomeEntry> homes = new LinkedHashMap<>(snapshot.homes());
 		HomeEntry removed = homes.remove(name);
 		if (removed == null) {
-			return "§c未找到家园: " + inputName;
+			return texts.tr("homes.not_found", inputName);
 		}
 		String defaultHome = snapshot.defaultHome();
 		if (name.equals(defaultHome)) {
@@ -140,36 +143,36 @@ public final class HomesSyncService {
 		HomesSnapshot updated = new HomesSnapshot(defaultHome, homes);
 		cache.put(playerId, updated);
 		saveSnapshotAsync(playerId, updated);
-		return "§a已删除家园: §f" + name;
+		return texts.tr("homes.deleted", name);
 	}
 
 	public String setDefaultHome(UUID playerId, String inputName) {
 		HomesSnapshot snapshot = cache.get(playerId);
 		if (snapshot == null) {
-			return "§e家园数据加载中，请稍后重试。";
+			return texts.tr("homes.loading");
 		}
 		String name = normalizeHomeName(inputName);
 		if (name == null || !snapshot.homes().containsKey(name)) {
-			return "§c未找到家园: " + inputName;
+			return texts.tr("homes.not_found", inputName);
 		}
 		HomesSnapshot updated = new HomesSnapshot(name, snapshot.homes());
 		cache.put(playerId, updated);
 		saveSnapshotAsync(playerId, updated);
-		return "§a已设置默认家园: §f" + name;
+		return texts.tr("homes.default_set", name);
 	}
 
 	public String teleportHome(Player player, String inputName) {
 		HomesSnapshot snapshot = cache.get(player.getUniqueId());
 		if (snapshot == null) {
-			return "§e家园数据加载中，请稍后重试。";
+			return texts.tr("homes.loading");
 		}
 		String name = inputName == null || inputName.isBlank() ? snapshot.defaultHome() : normalizeHomeName(inputName);
 		if (name == null || name.isBlank()) {
-			return "§c你还没有设置默认家园。";
+			return texts.tr("homes.default_missing");
 		}
 		HomeEntry home = snapshot.homes().get(name);
 		if (home == null) {
-			return "§c未找到家园: " + name;
+			return texts.tr("homes.not_found", name);
 		}
 		if (!serverId.equalsIgnoreCase(home.serverId())) {
 			TeleportInitiationResult result = teleportService.requestTeleport(player, toTeleportTarget(home), TeleportCause.HOME, home.name());
@@ -177,10 +180,10 @@ public final class HomesSyncService {
 		}
 		World world = plugin.getServer().getWorld(home.world());
 		if (world == null) {
-			return "§c目标世界不存在: " + home.world();
+			return "§c" + home.world();
 		}
 		player.teleport(new Location(world, home.x(), home.y(), home.z(), home.yaw(), home.pitch()));
-		return "§a已传送到家园: §f" + home.name();
+		return texts.tr("homes.teleport_local", home.name());
 	}
 
 	private TeleportTarget toTeleportTarget(HomeEntry home) {

@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.xiaoziyi.crossserver.homes.HomeEntry;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.ui.HomesMenuService;
 
 import java.util.Comparator;
@@ -25,22 +26,24 @@ public final class HomesCommand implements CommandExecutor, TabCompleter {
 
 	private final HomesSyncService homesSyncService;
 	private final HomesMenuService homesMenuService;
+	private final Texts texts;
 
-	public HomesCommand(HomesSyncService homesSyncService, HomesMenuService homesMenuService) {
+	public HomesCommand(HomesSyncService homesSyncService, HomesMenuService homesMenuService, Texts texts) {
 		this.homesSyncService = homesSyncService;
 		this.homesMenuService = homesMenuService;
+		this.texts = texts;
 	}
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
 		if (!(sender instanceof Player player)) {
-			sender.sendMessage("§c该命令只能由玩家执行。");
+			sender.sendMessage(texts.tr("player.only"));
 			return true;
 		}
 		String name = command.getName().toLowerCase(Locale.ROOT);
 		if ("homes".equals(name)) {
 			if (!sender.hasPermission(LIST_PERMISSION) && !sender.hasPermission(MENU_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			homesMenuService.openMenu(player, 1);
@@ -48,11 +51,11 @@ public final class HomesCommand implements CommandExecutor, TabCompleter {
 		}
 		if ("sethome".equals(name)) {
 			if (!sender.hasPermission(SET_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			if (args.length < 1) {
-				sender.sendMessage("§e用法: /sethome <name>");
+				sender.sendMessage("§eUsage: /sethome <name>");
 				return true;
 			}
 			sender.sendMessage(homesSyncService.setHome(player, args[0]));
@@ -60,11 +63,11 @@ public final class HomesCommand implements CommandExecutor, TabCompleter {
 		}
 		if ("delhome".equals(name)) {
 			if (!sender.hasPermission(DELETE_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			if (args.length < 1) {
-				sender.sendMessage("§e用法: /delhome <name>");
+				sender.sendMessage("§eUsage: /delhome <name>");
 				return true;
 			}
 			sender.sendMessage(homesSyncService.deleteHome(player.getUniqueId(), args[0]));
@@ -72,18 +75,18 @@ public final class HomesCommand implements CommandExecutor, TabCompleter {
 		}
 		if ("setdefaulthome".equals(name)) {
 			if (!sender.hasPermission(DEFAULT_PERMISSION)) {
-				sender.sendMessage("§c你没有权限执行此命令。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
 			if (args.length < 1) {
-				sender.sendMessage("§e用法: /setdefaulthome <name>");
+				sender.sendMessage("§eUsage: /setdefaulthome <name>");
 				return true;
 			}
 			sender.sendMessage(homesSyncService.setDefaultHome(player.getUniqueId(), args[0]));
 			return true;
 		}
 		if (!sender.hasPermission(TELEPORT_PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return true;
 		}
 		sender.sendMessage(homesSyncService.teleportHome(player, args.length >= 1 ? args[0] : null));

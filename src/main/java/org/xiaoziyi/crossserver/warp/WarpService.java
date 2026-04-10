@@ -5,6 +5,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.xiaoziyi.crossserver.api.CrossServerApi;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.model.GlobalSnapshot;
 import org.xiaoziyi.crossserver.teleport.CrossServerTeleportService;
 import org.xiaoziyi.crossserver.teleport.TeleportCause;
@@ -32,13 +33,15 @@ public final class WarpService {
 	private final String serverId;
 	private final CrossServerTeleportService teleportService;
 	private final AtomicReference<WarpsSnapshot> cache = new AtomicReference<>(new WarpsSnapshot(Map.of()));
+	private final Texts texts;
 
-	public WarpService(JavaPlugin plugin, Logger logger, CrossServerApi api, String serverId, CrossServerTeleportService teleportService) {
+	public WarpService(JavaPlugin plugin, Logger logger, CrossServerApi api, String serverId, CrossServerTeleportService teleportService, Texts texts) {
 		this.plugin = plugin;
 		this.logger = logger;
 		this.api = api;
 		this.serverId = serverId;
 		this.teleportService = teleportService;
+		this.texts = texts;
 		api.registerSyncListener(NAMESPACE, message -> refreshAsync());
 		refreshAsync();
 	}
@@ -62,12 +65,12 @@ public final class WarpService {
 	public String setWarp(Player player, String inputName) {
 		String name = normalizeWarpName(inputName);
 		if (name == null) {
-			return "§cWarp 名称只能包含字母、数字、下划线和短横线，且长度不能超过 24。";
+			return texts.tr("warp.name_invalid");
 		}
 		Location location = player.getLocation();
 		World world = location.getWorld();
 		if (world == null) {
-			return "§c无法读取当前位置世界。";
+			return texts.tr("warp.world_missing");
 		}
 		try {
 			WarpsSnapshot snapshot = loadSnapshot();
@@ -90,31 +93,31 @@ public final class WarpService {
 				WarpsSnapshot updated = new WarpsSnapshot(Map.copyOf(warps));
 				saveSnapshot(updated);
 				cache.set(updated);
-				return "§a已设置 Warp: §f" + name;
+				return texts.tr("warp.set", name);
 			} catch (Exception exception) {
 				logger.warning("设置 Warp 失败: " + name + " -> " + exception.getMessage());
-				return "§c设置 Warp 失败，请稍后重试。";
+				return texts.tr("warp.set_failed");
 			}
 	}
 
 	public String deleteWarp(String inputName, String actorName) {
 		String name = normalizeWarpName(inputName);
 		if (name == null) {
-			return "§c无效的 Warp 名称。";
+			return texts.tr("warp.invalid_name");
 		}
 		try {
 			WarpsSnapshot snapshot = loadSnapshot();
 			Map<String, WarpEntry> warps = new LinkedHashMap<>(snapshot.warps());
 			if (warps.remove(name) == null) {
-				return "§c未找到 Warp: " + inputName;
+				return texts.tr("warp.not_found", inputName);
 			}
 			WarpsSnapshot updated = new WarpsSnapshot(Map.copyOf(warps));
 			saveSnapshot(updated);
 			cache.set(updated);
-			return "§a已删除 Warp: §f" + name;
+			return texts.tr("warp.deleted", name);
 		} catch (Exception exception) {
 			logger.warning("删除 Warp 失败: " + name + " by " + actorName + " -> " + exception.getMessage());
-			return "§c删除 Warp 失败，请稍后重试。";
+			return texts.tr("warp.delete_failed");
 		}
 	}
 
@@ -122,17 +125,17 @@ public final class WarpService {
 		if (inputName == null || inputName.isBlank()) {
 			List<WarpEntry> warps = listWarps();
 			if (warps.isEmpty()) {
-				return "§e当前还没有可用的 Warp。";
+				return texts.tr("warp.none");
 			}
-			return "§e可用 Warp: §f" + String.join("§7, §f", warps.stream().map(WarpEntry::name).toList());
+			return texts.tr("warp.list", String.join("§7, §f", warps.stream().map(WarpEntry::name).toList()));
 		}
 		String name = normalizeWarpName(inputName);
 		if (name == null) {
-			return "§c无效的 Warp 名称。";
+			return texts.tr("warp.invalid_name");
 		}
 		WarpEntry warp = cache.get().warps().get(name);
 		if (warp == null) {
-			return "§c未找到 Warp: " + inputName;
+			return texts.tr("warp.not_found", inputName);
 		}
 		if (!serverId.equalsIgnoreCase(warp.serverId())) {
 			TeleportInitiationResult result = teleportService.requestTeleport(player, toTeleportTarget(warp), TeleportCause.WARP, warp.name());
@@ -140,10 +143,10 @@ public final class WarpService {
 		}
 		World world = plugin.getServer().getWorld(warp.world());
 		if (world == null) {
-			return "§c目标世界不存在: " + warp.world();
+			return "§c" + warp.world();
 		}
 		player.teleport(new Location(world, warp.x(), warp.y(), warp.z(), warp.yaw(), warp.pitch()));
-		return "§a已传送到 Warp: §f" + warp.name();
+		return texts.tr("warp.teleport_local", warp.name());
 	}
 
 	private TeleportTarget toTeleportTarget(WarpEntry warp) {
