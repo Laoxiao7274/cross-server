@@ -268,7 +268,8 @@ public final class CrossServerPlugin extends JavaPlugin {
 				transferGateway,
 				configuration.server().id(),
 				Duration.ofSeconds(configuration.teleport().handoffSeconds()),
-				configuration.teleport().cooldownSeconds()
+				configuration.teleport().cooldownSeconds(),
+				texts
 		);
 		if (configuration.modules().tpa()) {
 			this.teleportRequestService = new TeleportRequestService(api, getLogger(), configuration.teleport().handoffSeconds());
@@ -530,7 +531,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			registerSimpleCommand("changepassword", authExecutor);
 		}
 		if (configuration.modules().tpa() && transferAdminService != null && teleportRequestService != null && playerLocationService != null) {
-			TpaCommand tpaExecutor = new TpaCommand(this, api, transferAdminService, teleportRequestService, playerLocationService);
+			TpaCommand tpaExecutor = new TpaCommand(this, api, transferAdminService, teleportRequestService, playerLocationService, texts);
 			registerSimpleCommand("tpa", tpaExecutor);
 			registerSimpleCommand("tpahere", tpaExecutor);
 			registerSimpleCommand("tpaccept", tpaExecutor);

@@ -10,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.xiaoziyi.crossserver.api.CrossServerApi;
 import org.xiaoziyi.crossserver.auth.AuthService;
 import org.xiaoziyi.crossserver.homes.HomesSyncService;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.inventory.PlayerInventorySyncService;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
 import org.xiaoziyi.crossserver.permission.PlayerPermissionSyncService;
@@ -46,6 +47,7 @@ public final class CrossServerTeleportService {
 	private final Duration handoffTtl;
 	private final int cooldownSeconds;
 	private final Map<UUID, Instant> lastTeleportTime = new ConcurrentHashMap<>();
+	private final Texts texts;
 
 	public CrossServerTeleportService(
 			JavaPlugin plugin,
@@ -60,7 +62,8 @@ public final class CrossServerTeleportService {
 			ServerTransferGateway transferGateway,
 			String serverId,
 			Duration handoffTtl,
-			int cooldownSeconds
+			int cooldownSeconds,
+			Texts texts
 	) {
 		this.plugin = plugin;
 		this.logger = logger;
@@ -75,6 +78,7 @@ public final class CrossServerTeleportService {
 		this.serverId = serverId;
 		this.handoffTtl = handoffTtl;
 		this.cooldownSeconds = cooldownSeconds;
+		this.texts = texts;
 	}
 
 	public void bindHomesSyncService(HomesSyncService homesSyncService) {
@@ -83,20 +87,20 @@ public final class CrossServerTeleportService {
 
 	public TeleportInitiationResult requestTeleport(Player player, TeleportTarget target, TeleportCause cause, String causeRef) {
 		if (!player.isOnline()) {
-			return new TeleportInitiationResult(false, false, "§c玩家当前不在线，无法准备跨服传送。", null);
+			return new TeleportInitiationResult(false, false, texts.tr("transfer.player_offline"), null);
 		}
 		if (target == null) {
-			return new TeleportInitiationResult(false, false, "§c无效的跨服目标。", null);
+			return new TeleportInitiationResult(false, false, texts.tr("transfer.invalid_target"), null);
 		}
 		if (serverId.equalsIgnoreCase(target.serverId())) {
-			return new TeleportInitiationResult(false, false, "§c目标仍在当前服务器，无需走跨服 handoff。", null);
+			return new TeleportInitiationResult(false, false, texts.tr("transfer.same_server"), null);
 		}
 		if (cooldownSeconds > 0) {
 			Instant lastTime = lastTeleportTime.get(player.getUniqueId());
 			if (lastTime != null) {
 				long elapsedSeconds = Duration.between(lastTime, Instant.now()).getSeconds();
 				if (elapsedSeconds < cooldownSeconds) {
-					return new TeleportInitiationResult(false, false, "§e跨服传送冷却中，请等待 " + (cooldownSeconds - elapsedSeconds) + " 秒。", null);
+					return new TeleportInitiationResult(false, false, texts.tr("transfer.cooldown", (cooldownSeconds - elapsedSeconds)), null);
 				}
 			}
 		}
@@ -143,15 +147,15 @@ public final class CrossServerTeleportService {
 			if (authService != null) {
 				authService.issueCrossServerTicket(player.getUniqueId());
 			}
-			player.sendTitle("§b正在跨服传送", "§7目标服务器: §f" + target.serverId(), 5, 40, 10);
-			player.sendActionBar(Component.text("跨服传送请求已创建: " + requestId));
+			player.sendTitle(texts.tr("transfer.preparing_title"), texts.tr("transfer.preparing_subtitle", target.serverId()), 5, 40, 10);
+			player.sendActionBar(Component.text(texts.tr("transfer.preparing_actionbar", requestId)));
 			player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.7F, 1.2F);
 			saveHandoffSync(player.getUniqueId(), playerName, pending, "created", "handoff prepared and pending before gateway send");
 			TeleportInitiationResult result = transferGateway.transfer(player, pending);
 			if (!result.success()) {
 				api.sessionService().clearPreparedTransfer(player.getUniqueId());
 				markFailed(player.getUniqueId(), playerName, pending, "gateway send failed: " + result.message(), true, "gateway_failed");
-				player.sendTitle("§c跨服传送失败", "§7网关发送失败", 5, 50, 10);
+				player.sendTitle(texts.tr("transfer.failed_title"), texts.tr("transfer.failed_gateway"), 5, 50, 10);
 				player.sendActionBar(Component.text(result.message()));
 				player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
 				logger.warning("跨服传送网关发送失败: requestId=" + requestId + " player=" + player.getUniqueId() + " -> " + result.message());
@@ -196,8 +200,8 @@ public final class CrossServerTeleportService {
 		} catch (Exception exception) {
 			logger.warning("准备跨服传送 handoff 失败: requestId=" + requestId + " player=" + player.getUniqueId() + " -> " + exception.getMessage());
 			api.sessionService().clearPreparedTransfer(player.getUniqueId());
-			player.sendTitle("§c跨服传送失败", "§7准备阶段出错", 5, 50, 10);
-			player.sendActionBar(Component.text("跨服传送准备失败，请稍后重试。"));
+			player.sendTitle(texts.tr("transfer.failed_title"), texts.tr("transfer.failed_prepare"), 5, 50, 10);
+			player.sendActionBar(Component.text(texts.tr("transfer.failed_prepare_actionbar")));
 			player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
 			Instant failedAt = Instant.now();
 			TeleportHandoff failed = new TeleportHandoff(
@@ -236,7 +240,7 @@ public final class CrossServerTeleportService {
 			} catch (Exception historyException) {
 				logger.warning("记录跨服传送准备失败历史失败: requestId=" + requestId + " player=" + player.getUniqueId() + " -> " + historyException.getMessage());
 			}
-			return new TeleportInitiationResult(false, false, "§c跨服传送准备失败，请稍后重试。", requestId);
+			return new TeleportInitiationResult(false, false, texts.tr("transfer.failed_prepare_actionbar"), requestId);
 		}
 	}
 

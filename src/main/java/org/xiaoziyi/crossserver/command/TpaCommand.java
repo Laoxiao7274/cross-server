@@ -10,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.xiaoziyi.crossserver.api.CrossServerApi;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.player.PlayerLocationService;
 import org.xiaoziyi.crossserver.player.PlayerLocationSnapshot;
 import org.xiaoziyi.crossserver.teleport.TeleportInitiationResult;
@@ -31,19 +32,21 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 	private final TransferAdminService transferAdminService;
 	private final TeleportRequestService requestService;
 	private final PlayerLocationService playerLocationService;
+	private final Texts texts;
 
-	public TpaCommand(JavaPlugin plugin, CrossServerApi api, TransferAdminService transferAdminService, TeleportRequestService requestService, PlayerLocationService playerLocationService) {
+	public TpaCommand(JavaPlugin plugin, CrossServerApi api, TransferAdminService transferAdminService, TeleportRequestService requestService, PlayerLocationService playerLocationService, Texts texts) {
 		this.plugin = plugin;
 		this.api = api;
 		this.transferAdminService = transferAdminService;
 		this.requestService = requestService;
 		this.playerLocationService = playerLocationService;
+		this.texts = texts;
 	}
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
 		if (!(sender instanceof Player player)) {
-			sender.sendMessage("§c该命令只能由玩家执行。");
+			sender.sendMessage(texts.tr("player.only"));
 			return true;
 		}
 		String name = command.getName().toLowerCase(Locale.ROOT);
@@ -59,26 +62,26 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 
 	private void handleTpa(CommandSender sender, Player player, String[] args) {
 		if (!sender.hasPermission(PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return;
 		}
 		if (args.length < 1) {
-			sender.sendMessage("§e用法: /tpa <player>");
+			sender.sendMessage(texts.tr("tpa.usage.tpa"));
 			return;
 		}
 		ResolvedTarget target = resolveTarget(args[0]);
 		if (target == null) {
-			sender.sendMessage("§c未找到在线玩家: " + args[0]);
+			sender.sendMessage(texts.tr("tpa.target_not_found", args[0]));
 			notifyFailure(player, "§c目标不可用", "§7未找到该在线玩家");
 			return;
 		}
 		if (target.playerId().equals(player.getUniqueId())) {
-			sender.sendMessage("§c你不能对自己使用此命令。");
+			sender.sendMessage(texts.tr("tpa.self"));
 			notifyFailure(player, "§c无法发送", "§7你不能请求自己");
 			return;
 		}
 		if (!requestService.submitRequest(player.getUniqueId(), player.getName(), target.playerId(), target.playerName(), player.getServer().getName(), TeleportRequestService.TpaType.TPA)) {
-			sender.sendMessage("§c发送传送请求失败，请稍后重试。");
+			sender.sendMessage(texts.tr("tpa.request_save_failed"));
 			notifyFailure(player, "§c发送失败", "§7传送请求未能保存");
 			return;
 		}
@@ -91,26 +94,26 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 
 	private void handleTpaHere(CommandSender sender, Player player, String[] args) {
 		if (!sender.hasPermission(HERE_PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return;
 		}
 		if (args.length < 1) {
-			sender.sendMessage("§e用法: /tpahere <player>");
+			sender.sendMessage(texts.tr("tpa.usage.tpahere"));
 			return;
 		}
 		ResolvedTarget target = resolveTarget(args[0]);
 		if (target == null) {
-			sender.sendMessage("§c未找到在线玩家: " + args[0]);
+			sender.sendMessage(texts.tr("tpa.target_not_found", args[0]));
 			notifyFailure(player, "§c目标不可用", "§7未找到该在线玩家");
 			return;
 		}
 		if (target.playerId().equals(player.getUniqueId())) {
-			sender.sendMessage("§c你不能对自己使用此命令。");
+			sender.sendMessage(texts.tr("tpa.self"));
 			notifyFailure(player, "§c无法发送", "§7你不能邀请自己");
 			return;
 		}
 		if (!requestService.submitRequest(player.getUniqueId(), player.getName(), target.playerId(), target.playerName(), player.getServer().getName(), TeleportRequestService.TpaType.TPA_HERE)) {
-			sender.sendMessage("§c发送传送请求失败，请稍后重试。");
+			sender.sendMessage(texts.tr("tpa.request_save_failed"));
 			notifyFailure(player, "§c发送失败", "§7传送邀请未能保存");
 			return;
 		}
@@ -123,7 +126,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 
 	private void handleTpAccept(CommandSender sender, Player player, String[] args) {
 		if (!sender.hasPermission(PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return;
 		}
 		TeleportRequestService.PendingRequest consumed;
@@ -142,7 +145,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 		} else {
 			var latest = requestService.findLatestRequest(player.getUniqueId());
 			if (latest.isEmpty()) {
-				sender.sendMessage("§c你没有待处理的传送请求。");
+				sender.sendMessage(texts.tr("tpa.no_pending"));
 				notifyFailure(player, "§c没有请求", "§7当前没有待处理的 TPA");
 				return;
 			}
@@ -221,7 +224,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 		}
 		Optional<PlayerLocationSnapshot> senderLocation = playerLocationService.getPlayerLocation(consumed.senderId());
 		if (senderLocation.isEmpty() || !senderLocation.get().online() || !playerLocationService.isFresh(senderLocation.get())) {
-			receiver.sendMessage("§c请求发起者当前不在线，无法跨服传送。");
+			receiver.sendMessage(texts.tr("tpa.requester_offline"));
 			notifyFailure(receiver, "§c无法跨服", "§7请求发起者已不在线");
 			return;
 		}
@@ -261,7 +264,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 
 	private void handleTpDeny(CommandSender sender, Player player, String[] args) {
 		if (!sender.hasPermission(PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return;
 		}
 		TeleportRequestService.PendingRequest consumed;
@@ -280,7 +283,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 		} else {
 			var latest = requestService.findLatestRequest(player.getUniqueId());
 			if (latest.isEmpty()) {
-				sender.sendMessage("§c你没有待处理的传送请求。");
+				sender.sendMessage(texts.tr("tpa.no_pending"));
 				notifyFailure(player, "§c没有请求", "§7当前没有待处理的 TPA");
 				return;
 			}
@@ -304,13 +307,13 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 
 	private void handleTpCancel(CommandSender sender, Player player) {
 		if (!sender.hasPermission(PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return;
 		}
 		List<TeleportRequestService.PendingRequest> removed = requestService.removeRequestsBySender(player.getUniqueId());
 		if (removed.isEmpty()) {
-			player.sendMessage("§e你当前没有待处理的传送请求。");
-			player.sendActionBar(Component.text("当前没有可取消的 TPA 请求"));
+			player.sendMessage(texts.tr("tpa.no_pending_cancel"));
+			player.sendActionBar(Component.text(texts.tr("tpa.no_pending_actionbar")));
 			player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.7F, 0.9F);
 			return;
 		}
@@ -329,7 +332,7 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 			notifyRequestExpired(player, playerName);
 			return;
 		}
-		player.sendMessage("§c没有来自 " + playerName + " 的待处理请求。");
+		player.sendMessage(texts.tr("tpa.missing_specific", playerName));
 		notifyFailure(player, "§c没有请求", "§7指定玩家没有待处理请求");
 	}
 
