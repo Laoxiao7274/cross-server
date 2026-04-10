@@ -109,10 +109,10 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		}
 		if ("status".equalsIgnoreCase(args[0])) {
 			if (!sender.hasPermission(STATUS_PERMISSION)) {
-				sender.sendMessage("§c你没有权限查看状态。");
+				sender.sendMessage(texts.tr("command.no_permission"));
 				return true;
 			}
-			sender.sendMessage("§aCrossServer 状态");
+			sender.sendMessage(texts.tr("command.status.title"));
 			sender.sendMessage("§7节点: §f" + configuration.server().id());
 			sender.sendMessage("§7集群: §f" + configuration.server().cluster());
 			sender.sendMessage("§7命名空间数量: §f" + namespaceRegistry.getNamespaces().size());
@@ -673,9 +673,9 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 
 	private void openMainMenu(CommandSender sender, String label) {
 		if (!(sender instanceof Player player)) {
-			sender.sendMessage("§aCrossServer 总菜单");
-			sender.sendMessage("§7玩家功能: /homes, /warp, /tpa");
-			sender.sendMessage("§7管理功能: /" + label + " route menu, /" + label + " transfer recent");
+			sender.sendMessage(texts.tr("command.menu.console_title"));
+			sender.sendMessage(texts.tr("command.menu.console_player"));
+			sender.sendMessage(texts.tr("command.menu.console_admin", label, label));
 			return;
 		}
 		if (plugin.getCrossServerMainMenuService() != null) {

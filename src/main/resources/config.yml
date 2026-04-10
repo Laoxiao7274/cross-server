@@ -20,7 +20,7 @@ messaging:
 session:
   lock-seconds: 30
   heartbeat-seconds: 10
-  kick-message: "你的跨服会话正在同步中，请稍后重试"
+  kick-message: "Your cross-server session is still synchronizing. Please try again shortly."
 
 node:
   heartbeat-seconds: 15

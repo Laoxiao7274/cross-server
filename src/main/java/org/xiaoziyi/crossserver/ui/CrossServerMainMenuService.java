@@ -35,11 +35,11 @@ public final class CrossServerMainMenuService {
 		Inventory inventory = Bukkit.createInventory(holder, 27, texts.tr("menu.title"));
 		holder.bind(inventory);
 		fill(inventory);
-		inventory.setItem(10, createEntry(player, homesMenuService != null && player.hasPermission("crossserver.homes.list"), Material.OAK_DOOR, "§a家园菜单", List.of("§7打开 /homes 菜单", "§8适合玩家快速回家")));
-		inventory.setItem(12, createEntry(player, warpMenuService != null && player.hasPermission("crossserver.warps.list"), Material.COMPASS, "§bWarp 菜单", List.of("§7打开 /warp 菜单", "§8查看并传送到全局地标")));
-		inventory.setItem(14, createEntry(player, routeConfigMenuService != null && player.hasPermission("crossserver.route.view"), Material.MAP, "§e路由管理", List.of("§7打开共享路由管理菜单", "§8适合管理员调整跨服路由")));
-		inventory.setItem(16, createEntry(player, transferAdminMenuService != null && player.hasPermission("crossserver.transfer.menu"), Material.ENDER_EYE, "§dTransfer 管理", List.of("§7打开 recent transfer 菜单", "§8适合排查跨服问题")));
-		inventory.setItem(22, createItem(Material.BOOK, "§f帮助分页", List.of("§7使用 /cs help [page] 查看更多命令", "§7别名: /cs")));
+		inventory.setItem(10, createEntry(player, homesMenuService != null && player.hasPermission("crossserver.homes.list"), Material.OAK_DOOR, texts.tr("menu.home.title"), List.of(texts.tr("menu.home.lore1"), texts.tr("menu.home.lore2"))));
+		inventory.setItem(12, createEntry(player, warpMenuService != null && player.hasPermission("crossserver.warps.list"), Material.COMPASS, texts.tr("menu.warp.title"), List.of(texts.tr("menu.warp.lore1"), texts.tr("menu.warp.lore2"))));
+		inventory.setItem(14, createEntry(player, routeConfigMenuService != null && player.hasPermission("crossserver.route.view"), Material.MAP, texts.tr("menu.route.title"), List.of(texts.tr("menu.route.lore1"), texts.tr("menu.route.lore2"))));
+		inventory.setItem(16, createEntry(player, transferAdminMenuService != null && player.hasPermission("crossserver.transfer.menu"), Material.ENDER_EYE, texts.tr("menu.transfer.title"), List.of(texts.tr("menu.transfer.lore1"), texts.tr("menu.transfer.lore2"))));
+		inventory.setItem(22, createItem(Material.BOOK, texts.tr("menu.help.title"), List.of(texts.tr("menu.help.lore1"), texts.tr("menu.help.lore2"))));
 		player.openInventory(inventory);
 		player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6F, 1.05F);
 	}
@@ -97,7 +97,7 @@ public final class CrossServerMainMenuService {
 		}
 		java.util.List<String> disabledLore = new java.util.ArrayList<>(lore);
 		disabledLore.add("");
-		disabledLore.add("§8当前不可用（模块关闭或无权限）");
+		disabledLore.add(texts.tr("menu.disabled"));
 		return createItem(Material.GRAY_DYE, "§8" + name.replace("§a", "").replace("§b", "").replace("§d", "").replace("§e", ""), disabledLore);
 	}
 }
