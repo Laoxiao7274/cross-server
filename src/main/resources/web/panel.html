@@ -853,7 +853,50 @@
         saveAuth: "保存凭证",
         confirmTitle: "操作确认",
         confirmBody: "请确认本次运维操作的影响范围。",
-        confirmContinue: "确认继续"
+        confirmContinue: "确认继续",
+        dashboardTitle: "集群状态",
+        dashboardDesc: "节点心跳、会话统计、主控节点与面板成员信息",
+        modulesTitle: "共享模块开关",
+        modulesDesc: "展示 本地 / 共享 / 生效 三层状态，并支持保存或清除共享覆盖",
+        routesTitle: "共享路由",
+        routesDesc: "来源语义与游戏内路由菜单一致：仅本地 / 仅共享 / 本地 + 共享覆盖",
+        documentsTitle: "配置文档",
+        documentsDesc: "查看文档用途，在线编辑 JSON / YAML payload，并保存到配置中心",
+        logsTitle: "日志中心",
+        logsDesc: "按节点查看最近同步到配置中心的 CrossServer 插件日志",
+        nodeConfigsTitle: "节点配置列表",
+        nodeConfigsDesc: "查看各节点是否已上报可编辑配置快照，以及最近一次应用结果",
+        nodeConfigDetailTitle: "节点配置详情",
+        nodeConfigDetailDesc: "主控节点发起申请，目标节点本地写回 config.yml 并排队重载",
+        transfersTitle: "转服诊断",
+        transfersDesc: "最近 20 条转服记录，并支持按玩家名查看详细诊断",
+        placeholderNodes: "搜索节点 ID / 集群 / 状态",
+        placeholderRoutes: "搜索服务器 ID / 路由目标 / 来源",
+        placeholderDocs: "搜索 namespace / dataKey / 标题 / 摘要",
+        placeholderLogsServer: "筛选节点 serverId",
+        placeholderLogsKeyword: "筛选日志关键字 / 级别",
+        placeholderNodeConfigs: "搜索节点 ID / 状态 / 申请结果",
+        placeholderTransferPlayer: "输入玩家名查询转服诊断",
+        placeholderServerId: "服务器 ID",
+        placeholderProxyTarget: "代理目标",
+        placeholderRoutesJson: '{"routes":{"spawn":"lobby"}}',
+        saveRoute: "保存路由",
+        replaceRoutes: "整体覆盖",
+        loadCurrentRoutes: "填入当前共享路由",
+        refresh: "刷新概览",
+        reloadNode: "重载当前节点",
+        reloadData: "重新读取",
+        searchPlayer: "查询玩家",
+        authSavedOk: "凭证已保存，概览加载成功。",
+        overviewReloaded: "概览已刷新。",
+        logsReloaded: "日志中心已刷新。",
+        modulesReloaded: "模块数据已刷新。",
+        routesReloaded: "路由数据已刷新。",
+        nodeConfigsReloaded: "节点配置数据已刷新。",
+        routeSaved: "已保存共享路由：%s → %s",
+        routesReplaced: "已整体覆盖共享路由表。",
+        authNeedToken: "请输入 Web 面板 token 后再加载数据。",
+        authLoadedFromSaved: "已使用本地保存的凭证加载面板。"
       },
       "en-US": {
         brandEyebrow: "CrossServer / Ops Center",
@@ -869,7 +912,50 @@
         saveAuth: "Save Auth",
         confirmTitle: "Confirm Action",
         confirmBody: "Please confirm the impact of this operation.",
-        confirmContinue: "Continue"
+        confirmContinue: "Continue",
+        dashboardTitle: "Cluster Status",
+        dashboardDesc: "Node heartbeats, session stats, leader node, and panel member information",
+        modulesTitle: "Shared Module Toggles",
+        modulesDesc: "Show local / shared / effective layers and manage shared overrides",
+        routesTitle: "Shared Routes",
+        routesDesc: "Route source semantics match the in-game route menu: local only / shared only / local overridden by shared",
+        documentsTitle: "Config Documents",
+        documentsDesc: "View document purpose, edit JSON / YAML payloads, and save them to the config center",
+        logsTitle: "Log Center",
+        logsDesc: "View recent CrossServer plugin logs synchronized by node",
+        nodeConfigsTitle: "Node Config List",
+        nodeConfigsDesc: "See whether nodes uploaded editable snapshots and inspect the latest apply result",
+        nodeConfigDetailTitle: "Node Config Detail",
+        nodeConfigDetailDesc: "The leader submits an apply request, then the target node writes to config.yml and reloads",
+        transfersTitle: "Transfer Diagnostics",
+        transfersDesc: "Recent transfer records and detailed diagnostics by player name",
+        placeholderNodes: "Search node ID / cluster / status",
+        placeholderRoutes: "Search server ID / route target / source",
+        placeholderDocs: "Search namespace / dataKey / title / summary",
+        placeholderLogsServer: "Filter by serverId",
+        placeholderLogsKeyword: "Filter by keyword / level",
+        placeholderNodeConfigs: "Search node ID / status / apply result",
+        placeholderTransferPlayer: "Enter a player name to inspect transfer diagnostics",
+        placeholderServerId: "Server ID",
+        placeholderProxyTarget: "Proxy target",
+        placeholderRoutesJson: '{"routes":{"spawn":"lobby"}}',
+        saveRoute: "Save Route",
+        replaceRoutes: "Replace All",
+        loadCurrentRoutes: "Load Current Shared Routes",
+        refresh: "Refresh Overview",
+        reloadNode: "Reload This Node",
+        reloadData: "Reload Data",
+        searchPlayer: "Search Player",
+        authSavedOk: "Credentials saved. Overview loaded successfully.",
+        overviewReloaded: "Overview refreshed.",
+        logsReloaded: "Log center refreshed.",
+        modulesReloaded: "Module data refreshed.",
+        routesReloaded: "Route data refreshed.",
+        nodeConfigsReloaded: "Node config data refreshed.",
+        routeSaved: "Saved shared route: %s → %s",
+        routesReplaced: "Replaced the shared route table.",
+        authNeedToken: "Enter the Web panel token before loading data.",
+        authLoadedFromSaved: "Loaded the panel with locally saved credentials."
       }
     };
     const state = {
@@ -1003,6 +1089,44 @@
       if (nav[5]) nav[5].textContent = t('navNodeConfigs');
       if (nav[6]) nav[6].textContent = t('navTransfers');
       document.getElementById('saveAuthBtn').textContent = t('saveAuth');
+      document.getElementById('refreshBtn').textContent = t('refresh');
+      document.getElementById('reloadBtn').textContent = t('reloadNode');
+      document.getElementById('reloadModulesBtn').textContent = t('reloadData');
+      document.getElementById('reloadRoutesBtn').textContent = t('reloadData');
+      document.getElementById('reloadLogsBtn').textContent = t('reloadData');
+      document.getElementById('reloadNodeConfigsBtn').textContent = t('reloadData');
+      document.getElementById('saveRouteBtn').textContent = t('saveRoute');
+      document.getElementById('replaceRoutesBtn').textContent = t('replaceRoutes');
+      document.getElementById('loadRoutesJsonBtn').textContent = t('loadCurrentRoutes');
+      document.getElementById('playerSearchBtn').textContent = t('searchPlayer');
+      document.getElementById('dashboardNodesSearch').placeholder = t('placeholderNodes');
+      document.getElementById('routesSearchInput').placeholder = t('placeholderRoutes');
+      document.getElementById('documentsSearchInput').placeholder = t('placeholderDocs');
+      document.getElementById('logsServerSearch').placeholder = t('placeholderLogsServer');
+      document.getElementById('logsKeywordSearch').placeholder = t('placeholderLogsKeyword');
+      document.getElementById('nodeConfigsSearchInput').placeholder = t('placeholderNodeConfigs');
+      document.getElementById('playerSearchInput').placeholder = t('placeholderTransferPlayer');
+      document.getElementById('routeServerIdInput').placeholder = t('placeholderServerId');
+      document.getElementById('routeProxyTargetInput').placeholder = t('placeholderProxyTarget');
+      document.getElementById('routesBulkInput').placeholder = t('placeholderRoutesJson');
+      const headings = document.querySelectorAll('.tab-page .panel-header h3');
+      if (headings[0]) headings[0].textContent = t('dashboardTitle');
+      if (headings[1]) headings[1].textContent = t('modulesTitle');
+      if (headings[2]) headings[2].textContent = t('routesTitle');
+      if (headings[3]) headings[3].textContent = t('documentsTitle');
+      if (headings[4]) headings[4].textContent = t('logsTitle');
+      if (headings[5]) headings[5].textContent = t('nodeConfigsTitle');
+      if (headings[6]) headings[6].textContent = t('nodeConfigDetailTitle');
+      if (headings[7]) headings[7].textContent = t('transfersTitle');
+      const smalls = document.querySelectorAll('.tab-page .panel-header .small');
+      if (smalls[0]) smalls[0].textContent = t('dashboardDesc');
+      if (smalls[1]) smalls[1].textContent = t('modulesDesc');
+      if (smalls[2]) smalls[2].textContent = t('routesDesc');
+      if (smalls[3]) smalls[3].textContent = t('documentsDesc');
+      if (smalls[4]) smalls[4].textContent = t('logsDesc');
+      if (smalls[5]) smalls[5].textContent = t('nodeConfigsDesc');
+      if (smalls[6]) smalls[6].textContent = t('nodeConfigDetailDesc');
+      if (smalls[7]) smalls[7].textContent = t('transfersDesc');
       confirmModalTitle.textContent = t('confirmTitle');
       if (!confirmModalBody.textContent || confirmModalBody.textContent === i18n['zh-CN'].confirmBody || confirmModalBody.textContent === i18n['en-US'].confirmBody) {
         confirmModalBody.textContent = t('confirmBody');
