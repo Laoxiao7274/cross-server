@@ -297,7 +297,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			this.routeEditSessionService = new RouteEditSessionService(this, routeTableService, configuration);
 			this.routeConfigMenuService = new RouteConfigMenuService(this, routeTableService, configuration, routeEditSessionService);
 		}
-		this.crossServerMainMenuService = new CrossServerMainMenuService(this, homesMenuService, warpMenuService, routeConfigMenuService, transferAdminMenuService);
+		this.crossServerMainMenuService = new CrossServerMainMenuService(this, homesMenuService, warpMenuService, routeConfigMenuService, transferAdminMenuService, texts);
 		this.nodeConfigSyncService = new NodeConfigSyncService(this, api, configuration.server(), new NodeLocalConfigService(this));
 		api.attachNodeConfigSyncService(nodeConfigSyncService);
 		this.nodeConfigSyncService.publishLocalSnapshot(configuration);
@@ -484,7 +484,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 	private void registerCommand() {
 		PluginCommand crossServerCommand = getCommand("crossserver");
 		if (crossServerCommand != null) {
-			CrossServerCommand executor = new CrossServerCommand(this, configuration, namespaceRegistry, sessionService, syncService, nodeStatusService, storageProvider, transferAdminService, transferAdminMenuService, routeConfigMenuService);
+			CrossServerCommand executor = new CrossServerCommand(this, configuration, namespaceRegistry, sessionService, syncService, nodeStatusService, storageProvider, transferAdminService, transferAdminMenuService, routeConfigMenuService, texts);
 			crossServerCommand.setExecutor(executor);
 			crossServerCommand.setTabCompleter(executor);
 		}

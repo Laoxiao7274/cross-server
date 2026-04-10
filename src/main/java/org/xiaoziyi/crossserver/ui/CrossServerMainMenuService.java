@@ -9,6 +9,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.xiaoziyi.crossserver.i18n.Texts;
 
 import java.util.List;
 
@@ -18,18 +19,20 @@ public final class CrossServerMainMenuService {
 	private final WarpMenuService warpMenuService;
 	private final RouteConfigMenuService routeConfigMenuService;
 	private final TransferAdminMenuService transferAdminMenuService;
+	private final Texts texts;
 
-	public CrossServerMainMenuService(JavaPlugin plugin, HomesMenuService homesMenuService, WarpMenuService warpMenuService, RouteConfigMenuService routeConfigMenuService, TransferAdminMenuService transferAdminMenuService) {
+	public CrossServerMainMenuService(JavaPlugin plugin, HomesMenuService homesMenuService, WarpMenuService warpMenuService, RouteConfigMenuService routeConfigMenuService, TransferAdminMenuService transferAdminMenuService, Texts texts) {
 		this.plugin = plugin;
 		this.homesMenuService = homesMenuService;
 		this.warpMenuService = warpMenuService;
 		this.routeConfigMenuService = routeConfigMenuService;
 		this.transferAdminMenuService = transferAdminMenuService;
+		this.texts = texts;
 	}
 
 	public void openMenu(Player player) {
 		CrossServerMainMenuHolder holder = new CrossServerMainMenuHolder();
-		Inventory inventory = Bukkit.createInventory(holder, 27, "✦ CrossServer 总菜单 ✦");
+		Inventory inventory = Bukkit.createInventory(holder, 27, texts.tr("menu.title"));
 		holder.bind(inventory);
 		fill(inventory);
 		inventory.setItem(10, createEntry(player, homesMenuService != null && player.hasPermission("crossserver.homes.list"), Material.OAK_DOOR, "§a家园菜单", List.of("§7打开 /homes 菜单", "§8适合玩家快速回家")));

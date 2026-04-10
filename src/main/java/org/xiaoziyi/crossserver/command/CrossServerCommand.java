@@ -15,6 +15,7 @@ import org.xiaoziyi.crossserver.config.PluginConfiguration;
 import org.xiaoziyi.crossserver.config.RouteTableService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigService;
 import org.xiaoziyi.crossserver.config.SharedModuleConfigSnapshot;
+import org.xiaoziyi.crossserver.i18n.Texts;
 import org.xiaoziyi.crossserver.model.NodeStatusRecord;
 import org.xiaoziyi.crossserver.node.NodeStatusService;
 import org.xiaoziyi.crossserver.session.SessionService;
@@ -64,6 +65,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 	private final TransferAdminService transferAdminService;
 	private final TransferAdminMenuService transferAdminMenuService;
 	private final RouteConfigMenuService routeConfigMenuService;
+	private final Texts texts;
 
 	public CrossServerCommand(
 			CrossServerPlugin plugin,
@@ -75,7 +77,8 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 			StorageProvider storageProvider,
 			TransferAdminService transferAdminService,
 			TransferAdminMenuService transferAdminMenuService,
-			RouteConfigMenuService routeConfigMenuService
+			RouteConfigMenuService routeConfigMenuService,
+			Texts texts
 	) {
 		this.plugin = plugin;
 		this.configuration = configuration;
@@ -87,12 +90,13 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		this.transferAdminService = transferAdminService;
 		this.transferAdminMenuService = transferAdminMenuService;
 		this.routeConfigMenuService = routeConfigMenuService;
+		this.texts = texts;
 	}
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
 		if (!sender.hasPermission(COMMAND_PERMISSION)) {
-			sender.sendMessage("§c你没有权限执行此命令。");
+			sender.sendMessage(texts.tr("command.no_permission"));
 			return true;
 		}
 		if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
@@ -657,8 +661,8 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		}
 		int fromIndex = (page - 1) * HELP_PAGE_SIZE;
 		int toIndex = Math.min(lines.size(), fromIndex + HELP_PAGE_SIZE);
-		sender.sendMessage("§aCrossServer 命令帮助 §8(第 " + page + "/" + totalPages + " 页)");
-		sender.sendMessage("§7别名: §f/" + label + " §7或 §f/cs");
+		sender.sendMessage(texts.tr("command.help.title", page, totalPages));
+		sender.sendMessage(texts.tr("command.help.alias", label));
 		for (String line : lines.subList(fromIndex, toIndex)) {
 			sender.sendMessage(line);
 		}

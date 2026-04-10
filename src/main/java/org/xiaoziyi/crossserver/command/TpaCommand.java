@@ -338,69 +338,69 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 
 	private void notifySenderRequestSent(Player player, String targetName, boolean here) {
 		String chat = here
-				? "§a已邀请 " + targetName + " 传送到你这里。§7(" + requestService.getExpirySeconds() + "秒有效)"
-				: "§a已向 " + targetName + " 发送传送请求。§7(" + requestService.getExpirySeconds() + "秒有效)";
-		String title = here ? "§a传送邀请已发送" : "§a传送请求已发送";
+				? texts.tr("tpa.sent_here", targetName, requestService.getExpirySeconds())
+				: texts.tr("tpa.sent", targetName, requestService.getExpirySeconds());
+		String title = here ? texts.tr("tpa.sent_here_title") : texts.tr("tpa.sent_title");
 		player.sendMessage(chat);
-		player.sendTitle(title, "§7目标: §f" + targetName, 5, 40, 10);
-		player.sendActionBar(Component.text("请求有效期 " + requestService.getExpirySeconds() + " 秒"));
+		player.sendTitle(title, texts.tr("tpa.target_subtitle", targetName), 5, 40, 10);
+		player.sendActionBar(Component.text(texts.tr("tpa.expiry_actionbar", requestService.getExpirySeconds())));
 		player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7F, 1.2F);
 	}
 
 	private void notifyReceiverRequest(Player player, String senderName, int expirySeconds, boolean here) {
 		String firstLine = here
-				? "§e" + senderName + " 邀请你传送到他那里。§7(" + expirySeconds + "秒有效)"
-				: "§e" + senderName + " 请求传送到你这里。§7(" + expirySeconds + "秒有效)";
-		String title = here ? "§6收到 tpahere 邀请" : "§6收到 TPA 请求";
+				? texts.tr("tpa.received_here", senderName, expirySeconds)
+				: texts.tr("tpa.received", senderName, expirySeconds);
+		String title = here ? texts.tr("tpa.received_here_title") : texts.tr("tpa.received_title");
 		player.sendMessage(firstLine);
-		player.sendMessage("§7输入 §a/tpaccept " + senderName + " §7接受，或 §c/tpdeny " + senderName + " §7拒绝。");
-		player.sendTitle(title, "§f来自 " + senderName, 5, 50, 10);
-		player.sendActionBar(Component.text("/tpaccept " + senderName + " 或 /tpdeny " + senderName));
+		player.sendMessage(texts.tr("tpa.accept_hint", senderName, senderName));
+		player.sendTitle(title, texts.tr("tpa.from_subtitle", senderName), 5, 50, 10);
+		player.sendActionBar(Component.text(texts.tr("tpa.accept_actionbar", senderName, senderName)));
 		player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.9F, 1.15F);
 	}
 
 	private void notifyAccepted(Player player, String otherName, boolean requesterSide) {
-		String message = requesterSide ? "§a" + otherName + " 已接受你的请求。" : "§a已接受 " + otherName + " 的请求。";
+		String message = requesterSide ? texts.tr("tpa.accepted_by_other", otherName) : texts.tr("tpa.accepted", otherName);
 		player.sendMessage(message);
-		player.sendTitle("§a请求已接受", "§f" + otherName, 5, 35, 10);
-		player.sendActionBar(Component.text("传送即将开始"));
+		player.sendTitle(texts.tr("tpa.accepted_title"), otherName, 5, 35, 10);
+		player.sendActionBar(Component.text(texts.tr("tpa.accepted_actionbar")));
 		player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7F, 1.2F);
 	}
 
 	private void notifyDenied(Player player, String otherName, boolean requesterSide) {
-		String message = requesterSide ? "§c" + otherName + " 拒绝了你的请求。" : "§e已拒绝 " + otherName + " 的请求。";
+		String message = requesterSide ? texts.tr("tpa.denied_by_other", otherName) : texts.tr("tpa.denied", otherName);
 		player.sendMessage(message);
-		player.sendTitle("§c请求被拒绝", "§f" + otherName, 5, 35, 10);
-		player.sendActionBar(Component.text("TPA 请求已结束"));
+		player.sendTitle(texts.tr("tpa.denied_title"), otherName, 5, 35, 10);
+		player.sendActionBar(Component.text(texts.tr("tpa.denied_actionbar")));
 		player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8F, 1.0F);
 	}
 
 	private void notifyCancelled(Player player, String actorName, int count, boolean receiverSide) {
 		String message = receiverSide
-				? "§e" + actorName + " 已取消之前发给你的传送请求。"
-				: "§a已取消 " + count + " 个待处理的传送请求。";
-		String subtitle = receiverSide ? "§7来自 §f" + actorName : "§7待处理请求已清空";
+				? texts.tr("tpa.cancelled_by_other", actorName)
+				: texts.tr("tpa.cancelled", count);
+		String subtitle = receiverSide ? texts.tr("tpa.cancelled_by_other_subtitle", actorName) : texts.tr("tpa.cancelled_subtitle");
 		player.sendMessage(message);
-		player.sendTitle("§e请求已取消", subtitle, 5, 35, 10);
-		player.sendActionBar(Component.text(receiverSide ? "对方已取消 TPA 请求" : "已取消所有待处理请求"));
+		player.sendTitle(texts.tr("tpa.cancelled_title"), subtitle, 5, 35, 10);
+		player.sendActionBar(Component.text(receiverSide ? texts.tr("tpa.cancelled_by_other_actionbar") : texts.tr("tpa.cancelled_actionbar")));
 		player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.7F, 0.95F);
 	}
 
 	private void notifyRequestExpired(Player player, String otherName) {
-		player.sendMessage("§e来自/发往 " + otherName + " 的 TPA 请求已过期。");
-		player.sendTitle("§e请求已过期", "§f" + otherName, 5, 35, 10);
-		player.sendActionBar(Component.text("请重新发送请求"));
+		player.sendMessage(texts.tr("tpa.expired", otherName));
+		player.sendTitle(texts.tr("tpa.expired_title"), otherName, 5, 35, 10);
+		player.sendActionBar(Component.text(texts.tr("tpa.expired_actionbar")));
 		player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.7F, 0.9F);
 	}
 
 	private void notifyWaitingCounterpart(Player player, String otherName, boolean tpahere, boolean crossServerSuccess) {
 		String message;
 		if (!crossServerSuccess) {
-			message = "§c跨服传送发起失败。";
+			message = texts.tr("tpa.cross_failed");
 		} else if (tpahere) {
-			message = "§a对方正在跨服传送到你这里。";
+			message = texts.tr("tpa.waiting_other_coming");
 		} else {
-			message = "§a正在等待对方跨服传送过来。";
+			message = texts.tr("tpa.waiting_other_arrive");
 		}
 		player.sendMessage(message);
 		player.sendActionBar(Component.text(message.replace("§a", "").replace("§c", "").replace("§e", "")));
@@ -408,9 +408,9 @@ public final class TpaCommand implements org.bukkit.command.TabExecutor {
 	}
 
 	private void notifyLocalTeleportSuccess(Player player, String otherName) {
-		player.sendMessage("§a已传送到 " + otherName + "。");
-		player.sendTitle("§a传送成功", "§f" + otherName, 5, 30, 10);
-		player.sendActionBar(Component.text("本服传送完成"));
+		player.sendMessage(texts.tr("tpa.local_success", otherName));
+		player.sendTitle(texts.tr("tpa.local_success_title"), otherName, 5, 30, 10);
+		player.sendActionBar(Component.text(texts.tr("tpa.local_success_actionbar")));
 		player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8F, 1.15F);
 	}
 
