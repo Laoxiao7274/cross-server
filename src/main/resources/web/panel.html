@@ -896,7 +896,62 @@
         routeSaved: "已保存共享路由：%s → %s",
         routesReplaced: "已整体覆盖共享路由表。",
         authNeedToken: "请输入 Web 面板 token 后再加载数据。",
-        authLoadedFromSaved: "已使用本地保存的凭证加载面板。"
+        authLoadedFromSaved: "已使用本地保存的凭证加载面板。",
+        thNode: "节点",
+        thStatus: "状态",
+        thLastHeartbeat: "最后心跳",
+        thLatency: "耗时",
+        thModule: "模块",
+        thModuleSummary: "状态概览",
+        thModuleControl: "共享覆盖控制",
+        thServerId: "服务器 ID",
+        thLocalTarget: "本地目标",
+        thSharedTarget: "共享目标",
+        thEffective: "最终生效",
+        thSource: "来源",
+        thAction: "操作",
+        thOnlineStatus: "在线状态",
+        thSnapshot: "配置快照",
+        thLatestApply: "最近申请",
+        thTime: "时间",
+        thPlayer: "玩家",
+        thTarget: "目标",
+        thEvent: "事件",
+        thLevel: "级别",
+        thContent: "内容",
+        emptyPanelMembers: "暂无已登记的运维面板成员",
+        emptyNodes: "暂无节点心跳记录",
+        emptyRoutes: "暂无路由数据",
+        emptyDocuments: "暂无已注册配置文档。只有插件主动注册了配置文档后，这里才会显示对应的共享配置入口。",
+        emptyTransferHistory: "暂无最近 transfer 历史",
+        emptyLogs: "暂无已同步日志",
+        emptyLogEntries: "暂无同步日志",
+        emptyNodeConfigs: "暂无节点配置数据",
+        emptyModuleHistory: "暂无模块变更历史。",
+        emptyRouteHistory: "暂无路由变更历史。",
+        emptyDocHistory: "暂无历史记录。保存一次后，这里会显示最近 20 次变更。",
+        historyModules: "查看最近模块变更 (%s)",
+        historyRoutes: "查看最近路由变更 (%s)",
+        historyDocuments: "查看最近历史记录 (%s)",
+        historyNodeApply: "查看最近申请历史 (%s)",
+        viewDetails: "查看详情",
+        rollback: "回滚",
+        collapse: "收起内容",
+        expand: "展开内容",
+        currentNode: "当前节点",
+        clusterNode: "集群节点",
+        localOnly: "本地：",
+        sharedOnly: "共享：",
+        effectiveState: "生效：",
+        forceEnable: "强制开启",
+        forceDisable: "强制关闭",
+        followLocal: "跟随本地",
+        noDescription: "暂无说明",
+        noSummary: "暂无摘要",
+        noApplyRecord: "暂无申请记录",
+        nodeSelectIntro: "请选择一个节点查看详情并编辑白名单字段。",
+        transferNeedPlayer: "请输入玩家名",
+        requestFailed: "请求失败%s：%s"
       },
       "en-US": {
         brandEyebrow: "CrossServer / Ops Center",
@@ -955,7 +1010,62 @@
         routeSaved: "Saved shared route: %s → %s",
         routesReplaced: "Replaced the shared route table.",
         authNeedToken: "Enter the Web panel token before loading data.",
-        authLoadedFromSaved: "Loaded the panel with locally saved credentials."
+        authLoadedFromSaved: "Loaded the panel with locally saved credentials.",
+        thNode: "Node",
+        thStatus: "Status",
+        thLastHeartbeat: "Last heartbeat",
+        thLatency: "Latency",
+        thModule: "Module",
+        thModuleSummary: "Status summary",
+        thModuleControl: "Shared override control",
+        thServerId: "Server ID",
+        thLocalTarget: "Local target",
+        thSharedTarget: "Shared target",
+        thEffective: "Effective",
+        thSource: "Source",
+        thAction: "Action",
+        thOnlineStatus: "Online status",
+        thSnapshot: "Snapshot",
+        thLatestApply: "Latest apply",
+        thTime: "Time",
+        thPlayer: "Player",
+        thTarget: "Target",
+        thEvent: "Event",
+        thLevel: "Level",
+        thContent: "Content",
+        emptyPanelMembers: "No registered operations panel members yet.",
+        emptyNodes: "No node heartbeat records yet.",
+        emptyRoutes: "No route data available.",
+        emptyDocuments: "No registered config documents yet. A shared config entry will appear here after a plugin registers one.",
+        emptyTransferHistory: "No recent transfer history.",
+        emptyLogs: "No synchronized logs yet.",
+        emptyLogEntries: "No synchronized log entries.",
+        emptyNodeConfigs: "No node config data available.",
+        emptyModuleHistory: "No module change history yet.",
+        emptyRouteHistory: "No route change history yet.",
+        emptyDocHistory: "No history yet. Once you save the document, the latest 20 changes will appear here.",
+        historyModules: "Recent module changes (%s)",
+        historyRoutes: "Recent route changes (%s)",
+        historyDocuments: "Recent history (%s)",
+        historyNodeApply: "Recent apply history (%s)",
+        viewDetails: "View Details",
+        rollback: "Rollback",
+        collapse: "Collapse",
+        expand: "Expand",
+        currentNode: "Current node",
+        clusterNode: "Cluster node",
+        localOnly: "Local: ",
+        sharedOnly: "Shared: ",
+        effectiveState: "Effective: ",
+        forceEnable: "Force Enable",
+        forceDisable: "Force Disable",
+        followLocal: "Follow Local",
+        noDescription: "No description",
+        noSummary: "No summary",
+        noApplyRecord: "No apply records yet",
+        nodeSelectIntro: "Select a node to inspect its details and edit whitelist fields.",
+        transferNeedPlayer: "Enter a player name",
+        requestFailed: "Request failed%s: %s"
       }
     };
     const state = {
@@ -1262,7 +1372,7 @@
         const roleBadge = member.leader ? `<span class="chip good">主控节点</span>` : `<span class="chip">受管节点</span>`;
         const localBadge = isLocal ? `<span class="chip">当前访问节点</span>` : "";
         return `<div class="info-card${member.leader ? " highlight" : ""}"><div class="panel-header" style="margin-bottom:8px"><div><strong>${escapeHtml(member.serverId || "-")}</strong><div class="small">${isLocal ? "当前访问节点" : "集群成员节点"}</div></div><div class="chips">${roleBadge}${localBadge}</div></div><div class="kv"><span class="small">面板角色</span><span>${escapeHtml(roleText)}</span></div><div class="kv"><span class="small">监听地址</span><span>${escapeHtml(member.host || "-")}:${escapeHtml(member.port ?? "-")}</span></div><div class="kv"><span class="small">最近上报</span><span>${escapeHtml(formatTime(member.advertisedAt))}</span></div></div>`;
-      }).join("") || `<div class="info-card muted">暂无已登记的运维面板成员</div>`;
+      }).join("") || `<div class="info-card muted">${escapeHtml(t('emptyPanelMembers'))}</div>`;
       const nodes = (Array.isArray(status.nodes) ? status.nodes : []).filter(node => {
         const keyword = state.filters.dashboardNodes;
         return includesFilter(node.serverId, keyword) || includesFilter(node.cluster, keyword) || includesFilter(node.status, keyword);
@@ -1270,7 +1380,7 @@
       document.getElementById("nodesBody").innerHTML = nodes.map(node => {
         const cls = node.status === "online" ? "good" : "bad";
         return `<tr><td><strong>${escapeHtml(node.serverId)}</strong><div class="small">${escapeHtml(node.cluster || "-")}</div></td><td class="${cls}">${escapeHtml(node.status || "-")}</td><td>${escapeHtml(formatTime(node.lastSeen || node.updatedAt))}</td><td>${escapeHtml(node.latencyMillis ?? "-")} ms</td></tr>`;
-      }).join("") || `<tr><td colspan="4" class="muted">暂无节点心跳记录</td></tr>`;
+      }).join("") || `<tr><td colspan="4" class="muted">${escapeHtml(t('emptyNodes'))}</td></tr>`;
     }
 
     function renderModules(modules) {
@@ -1284,16 +1394,16 @@
             <td><strong>${escapeHtml(moduleName(key))}</strong><div class="small">${escapeHtml(key)}</div></td>
             <td>
               <div class="module-badges">
-                <span class="chip">本地：${escapeHtml(boolText(local))}</span>
-                <span class="chip">共享：${escapeHtml(boolText(shared))}</span>
-                <span class="chip ${effective ? "good" : "bad"}">生效：${escapeHtml(boolText(effective))}</span>
+                <span class="chip">${escapeHtml(t('localOnly'))}${escapeHtml(boolText(local))}</span>
+                <span class="chip">${escapeHtml(t('sharedOnly'))}${escapeHtml(boolText(shared))}</span>
+                <span class="chip ${effective ? "good" : "bad"}">${escapeHtml(t('effectiveState'))}${escapeHtml(boolText(effective))}</span>
               </div>
             </td>
             <td>
               <div class="module-control">
-                <button class="${moduleChoiceClass("true", shared === true)}" data-module-key="${escapeHtml(key)}" data-module-mode="true">强制开启</button>
-                <button class="${moduleChoiceClass("false", shared === false)}" data-module-key="${escapeHtml(key)}" data-module-mode="false">强制关闭</button>
-                <button class="${moduleChoiceClass("clear", shared === null || shared === undefined)}" data-module-key="${escapeHtml(key)}" data-module-mode="clear">跟随本地</button>
+                <button class="${moduleChoiceClass("true", shared === true)}" data-module-key="${escapeHtml(key)}" data-module-mode="true">${escapeHtml(t('forceEnable'))}</button>
+                <button class="${moduleChoiceClass("false", shared === false)}" data-module-key="${escapeHtml(key)}" data-module-mode="false">${escapeHtml(t('forceDisable'))}</button>
+                <button class="${moduleChoiceClass("clear", shared === null || shared === undefined)}" data-module-key="${escapeHtml(key)}" data-module-mode="clear">${escapeHtml(t('followLocal'))}</button>
               </div>
             </td>
           </tr>`;
@@ -1321,7 +1431,7 @@
           : "";
         const editButton = `<button class="secondary" data-route-edit="${safeServerId}" data-route-target="${escapeHtml(entry.sharedTarget || entry.effectiveTarget || "")}">编辑</button>`;
         return `<tr><td><strong>${safeServerId}</strong></td><td>${safeLocalTarget}</td><td>${safeSharedTarget}</td><td>${safeEffectiveTarget}</td><td>${safeSource}</td><td><div class="actions">${editButton}${actions}</div></td></tr>`;
-      }).join("") || `<tr><td colspan="6" class="muted">暂无路由数据</td></tr>`;
+      }).join("") || `<tr><td colspan="6" class="muted">${escapeHtml(t('emptyRoutes'))}</td></tr>`;
       document.getElementById("routesBulkInput").value = JSON.stringify({ routes: routes.shared || {} }, null, 2);
       const history = Array.isArray(routes.history) ? routes.history : [];
       const historyBox = document.getElementById("routesHistory");
@@ -1389,11 +1499,11 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
             </details>
           </div>
         </div>`;
-      }).join("") || `<div class="empty-state">暂无已注册配置文档。只有插件主动注册了配置文档后，这里才会显示对应的共享配置入口。</div>`;
+      }).join("") || `<div class="empty-state">${escapeHtml(t('emptyDocuments'))}</div>`;
     }
 
     function renderRecentTransfers(entries) {
-      document.getElementById("recentTransfersBody").innerHTML = (entries || []).map(entry => `<tr><td>${escapeHtml(formatTime(entry.createdAt))}</td><td><strong>${escapeHtml(entry.playerName || "-")}</strong></td><td>${escapeHtml(entry.sourceServerId || "-")}</td><td>${escapeHtml(entry.targetServerId || "-")}</td><td>${escapeHtml(entry.eventType || "-")}</td><td>${escapeHtml(entry.status || "-")}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">暂无最近转服记录</td></tr>`;
+      document.getElementById("recentTransfersBody").innerHTML = (entries || []).map(entry => `<tr><td>${escapeHtml(formatTime(entry.createdAt))}</td><td><strong>${escapeHtml(entry.playerName || "-")}</strong></td><td>${escapeHtml(entry.sourceServerId || "-")}</td><td>${escapeHtml(entry.targetServerId || "-")}</td><td>${escapeHtml(entry.eventType || "-")}</td><td>${escapeHtml(entry.status || "-")}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">${escapeHtml(t('emptyTransferHistory'))}</td></tr>`;
     }
 
     function renderLogs(logs) {
@@ -1642,7 +1752,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       const box = document.getElementById("globalMessage");
       if (!box) return;
       const status = error && error.status ? ` (HTTP ${error.status})` : "";
-      setMessage(box, "error", `请求失败${status}：${error.message || "未知错误"}`);
+      setMessage(box, "error", t('requestFailed').replace('%s', status).replace('%s', error.message || 'unknown error'));
     }
     async function reloadModules() {
       const data = await api("/api/modules");
@@ -1933,7 +2043,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       localStorage.setItem("crossserver.web.actor", (actorInput.value || "web-panel").trim() || "web-panel");
       try {
         await loadOverview();
-        setMessage(authMessage, "success", "凭证已保存，概览加载成功。");
+        setMessage(authMessage, "success", t('authSavedOk'));
       } catch (error) {
         setMessage(authMessage, "error", error.message);
         reportGlobalError(error);
@@ -1942,7 +2052,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
     document.getElementById("refreshBtn").addEventListener("click", async () => {
       try {
         await loadOverview();
-        setMessage(authMessage, "success", "概览已刷新。");
+        setMessage(authMessage, "success", t('overviewReloaded'));
       } catch (error) {
         setMessage(authMessage, "error", error.message);
         reportGlobalError(error);
@@ -1974,7 +2084,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       const box = document.getElementById("modulesMessage");
       try {
         await reloadModules();
-        setMessage(box, "success", "模块数据已刷新。");
+        setMessage(box, "success", t('modulesReloaded'));
       } catch (error) {
         setMessage(box, "error", error.message);
         reportGlobalError(error);
@@ -1984,7 +2094,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       const box = document.getElementById("routesMessage");
       try {
         await reloadRoutes();
-        setMessage(box, "success", "路由数据已刷新。");
+        setMessage(box, "success", t('routesReloaded'));
       } catch (error) {
         setMessage(box, "error", error.message);
         reportGlobalError(error);
@@ -1993,7 +2103,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
     document.getElementById("reloadLogsBtn").addEventListener("click", async () => {
       try {
         await reloadLogs();
-        setMessage(authMessage, "success", "日志中心已刷新。");
+        setMessage(authMessage, "success", t('logsReloaded'));
       } catch (error) {
         setMessage(authMessage, "error", error.message);
         reportGlobalError(error);
@@ -2003,7 +2113,7 @@ enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
       const box = document.getElementById("nodeConfigsMessage");
       try {
         await reloadNodeConfigs(true);
-        setMessage(box, "success", "节点配置数据已刷新。");
+        setMessage(box, "success", t('nodeConfigsReloaded'));
       } catch (error) {
         setMessage(box, "error", error.message);
         reportGlobalError(error);
