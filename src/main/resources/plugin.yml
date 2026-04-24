@@ -5,7 +5,7 @@ api-version: '1.21'
 commands:
   crossserver:
     description: cross-server administration and diagnostics command
-    aliases: [cs]
+    aliases: [cs, cr]
     usage: /crossserver <help|status|nodes [page]|node <serverId>|modules <list|set|clear>|route <list|menu|set|remove>|routes <list|menu|set|remove>|transfer <player>|transfer help|transfer info <player>|transfer clear <player>|transfer menu <player>|transfer history <player>|transfer recent [page]|transfer reconcile <player>|auth <inspect|invalidate|forcereauth> <player>|reload>
   economy:
     description: economy administration command

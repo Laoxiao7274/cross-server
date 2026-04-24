@@ -46,8 +46,14 @@ public final class Texts {
 		en.put("command.no_permission", "§cYou do not have permission to use this command.");
 		zh.put("command.help.title", "§aCrossServer 命令帮助 §8(第 %s/%s 页)");
 		en.put("command.help.title", "§aCrossServer command help §8(page %s/%s)");
-		zh.put("command.help.alias", "§7别名: §f/%s §7或 §f/cs");
-		en.put("command.help.alias", "§7Aliases: §f/%s §7or §f/cs");
+		zh.put("command.help.alias", "§7别名: §f/%s §7, §f/cs §7, §f/cr");
+		en.put("command.help.alias", "§7Aliases: §f/%s §7, §f/cs §7, §f/cr");
+		zh.put("command.help.basic", "§6基础命令");
+		en.put("command.help.basic", "§6Basic Commands");
+		zh.put("command.help.admin", "§6管理命令");
+		en.put("command.help.admin", "§6Admin Commands");
+		zh.put("command.help.no_admin", "§7你没有可用的管理命令。");
+		en.put("command.help.no_admin", "§7You have no available admin commands.");
 		zh.put("menu.title", "✦ CrossServer 总菜单 ✦");
 		en.put("menu.title", "✦ CrossServer Main Menu ✦");
 		zh.put("teleport.home.success", "已传送至家园: %s");
@@ -260,8 +266,8 @@ public final class Texts {
 		en.put("menu.help.title", "§fPaged Help");
 		zh.put("menu.help.lore1", "§7使用 /cs help [page] 查看更多命令");
 		en.put("menu.help.lore1", "§7Use /cs help [page] to see more commands");
-		zh.put("menu.help.lore2", "§7别名: /cs");
-		en.put("menu.help.lore2", "§7Alias: /cs");
+		zh.put("menu.help.lore2", "§7别名: /cs, /cr");
+		en.put("menu.help.lore2", "§7Aliases: /cs, /cr");
 		zh.put("menu.disabled", "§8当前不可用（模块关闭或无权限）");
 		en.put("menu.disabled", "§8Currently unavailable (module disabled or no permission)");
 	}

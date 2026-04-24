@@ -602,72 +602,84 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 	}
 
 	private void sendHelp(CommandSender sender, String label, String pageArgument) {
-		List<String> lines = new ArrayList<>();
-		lines.add("§e/" + label + " help [page] §8- §7显示帮助（每页 5 条）");
-		lines.add("§e/" + label + " menu §8- §7显示总菜单入口说明");
+		List<String> basicLines = new ArrayList<>();
+		basicLines.add("§e/" + label + " help [page] §8- §7显示帮助（每页 5 条）");
+		basicLines.add("§e/" + label + " menu §8- §7显示总菜单入口说明");
+
+		List<String> adminLines = new ArrayList<>();
 		if (sender.hasPermission(STATUS_PERMISSION)) {
-			lines.add("§e/" + label + " status §8- §7查看当前节点与同步状态");
+			adminLines.add("§e/" + label + " status §8- §7查看当前节点与同步状态");
 		}
 		if (sender.hasPermission(NODES_PERMISSION)) {
-			lines.add("§e/" + label + " nodes [page] §8- §7分页查看节点列表");
+			adminLines.add("§e/" + label + " nodes [page] §8- §7分页查看节点列表");
 		}
 		if (sender.hasPermission(NODE_PERMISSION)) {
-			lines.add("§e/" + label + " node <serverId> §8- §7查看单个节点详情");
+			adminLines.add("§e/" + label + " node <serverId> §8- §7查看单个节点详情");
 		}
 		if (canUseTransferCommands(sender)) {
 			if (sender.hasPermission(TRANSFER_VIEW_PERMISSION)) {
-				lines.add("§e/" + label + " transfer <player> §8- §7按玩家名快速查看 transfer 诊断");
-				lines.add("§e/" + label + " transfer info <player> §8- §7查看 transfer 诊断详情");
-				lines.add("§e/" + label + " transfer history <player> §8- §7查看最近 transfer 历史");
+				adminLines.add("§e/" + label + " transfer <player> §8- §7按玩家名快速查看 transfer 诊断");
+				adminLines.add("§e/" + label + " transfer info <player> §8- §7查看 transfer 诊断详情");
+				adminLines.add("§e/" + label + " transfer history <player> §8- §7查看最近 transfer 历史");
 			}
 			if (sender.hasPermission(TRANSFER_MENU_PERMISSION)) {
-				lines.add("§e/" + label + " transfer menu <player> §8- §7打开指定玩家的 transfer 菜单");
-				lines.add("§e/" + label + " transfer recent [page] §8- §7打开 recent transfer 管理菜单");
+				adminLines.add("§e/" + label + " transfer menu <player> §8- §7打开指定玩家的 transfer 菜单");
+				adminLines.add("§e/" + label + " transfer recent [page] §8- §7打开 recent transfer 管理菜单");
 			}
 			if (sender.hasPermission(TRANSFER_RECONCILE_PERMISSION)) {
-				lines.add("§e/" + label + " transfer reconcile <player> §8- §7触发一次保守 reconcile 修补");
+				adminLines.add("§e/" + label + " transfer reconcile <player> §8- §7触发一次保守 reconcile 修补");
 			}
 			if (sender.hasPermission(TRANSFER_CLEAR_PERMISSION)) {
-				lines.add("§e/" + label + " transfer clear <player> §8- §7清理 handoff 与 prepared transfer 状态");
+				adminLines.add("§e/" + label + " transfer clear <player> §8- §7清理 handoff 与 prepared transfer 状态");
 			}
 		}
 		if (sender.hasPermission(AUTH_ADMIN_PERMISSION)) {
-			lines.add("§e/" + label + " auth inspect <player> §8- §7查看 auth 运行时与快照状态");
-			lines.add("§e/" + label + " auth invalidate <player> §8- §7使玩家跨服 ticket 失效");
-			lines.add("§e/" + label + " auth forcereauth <player> §8- §7强制玩家重新认证");
+			adminLines.add("§e/" + label + " auth inspect <player> §8- §7查看 auth 运行时与快照状态");
+			adminLines.add("§e/" + label + " auth invalidate <player> §8- §7使玩家跨服 ticket 失效");
+			adminLines.add("§e/" + label + " auth forcereauth <player> §8- §7强制玩家重新认证");
 		}
 		if (sender.hasPermission(ROUTE_VIEW_PERMISSION)) {
-			lines.add("§e/" + label + " route list §8- §7查看共享路由与本地合并结果");
-			lines.add("§e/" + label + " route menu §8- §7打开路由管理菜单");
+			adminLines.add("§e/" + label + " route list §8- §7查看共享路由与本地合并结果");
+			adminLines.add("§e/" + label + " route menu §8- §7打开路由管理菜单");
 		}
 		if (sender.hasPermission(ROUTE_EDIT_PERMISSION)) {
-			lines.add("§e/" + label + " route set <serverId> <proxyServer> §8- §7设置共享路由覆盖");
-			lines.add("§e/" + label + " route remove <serverId> §8- §7移除共享路由覆盖");
+			adminLines.add("§e/" + label + " route set <serverId> <proxyServer> §8- §7设置共享路由覆盖");
+			adminLines.add("§e/" + label + " route remove <serverId> §8- §7移除共享路由覆盖");
 		}
 		if (sender.hasPermission(MODULE_VIEW_PERMISSION)) {
-			lines.add("§e/" + label + " modules list §8- §7查看模块本地默认、共享覆盖与最终有效值");
+			adminLines.add("§e/" + label + " modules list §8- §7查看模块本地默认、共享覆盖与最终有效值");
 		}
 		if (sender.hasPermission(MODULE_EDIT_PERMISSION)) {
-			lines.add("§e/" + label + " modules set <module> <true|false> §8- §7设置共享模块开关覆盖");
-			lines.add("§e/" + label + " modules clear <module> §8- §7移除共享模块开关覆盖");
+			adminLines.add("§e/" + label + " modules set <module> <true|false> §8- §7设置共享模块开关覆盖");
+			adminLines.add("§e/" + label + " modules clear <module> §8- §7移除共享模块开关覆盖");
 		}
 		if (sender.hasPermission(RELOAD_PERMISSION)) {
-			lines.add("§e/" + label + " reload §8- §7热重载配置与内部服务");
+			adminLines.add("§e/" + label + " reload §8- §7热重载配置与内部服务");
 		}
+
+		List<String> allLines = new ArrayList<>();
+		allLines.add(texts.tr("command.help.basic"));
+		allLines.addAll(basicLines);
+		if (!adminLines.isEmpty()) {
+			allLines.add("");
+			allLines.add(texts.tr("command.help.admin"));
+			allLines.addAll(adminLines);
+		}
+
 		int page = parsePage(pageArgument);
-		int totalPages = Math.max(1, (lines.size() + HELP_PAGE_SIZE - 1) / HELP_PAGE_SIZE);
+		int totalPages = Math.max(1, (allLines.size() + HELP_PAGE_SIZE - 1) / HELP_PAGE_SIZE);
 		if (page > totalPages) {
 			page = totalPages;
 		}
 		int fromIndex = (page - 1) * HELP_PAGE_SIZE;
-		int toIndex = Math.min(lines.size(), fromIndex + HELP_PAGE_SIZE);
+		int toIndex = Math.min(allLines.size(), fromIndex + HELP_PAGE_SIZE);
 		sender.sendMessage(texts.tr("command.help.title", page, totalPages));
 		sender.sendMessage(texts.tr("command.help.alias", label));
-		for (String line : lines.subList(fromIndex, toIndex)) {
+		for (String line : allLines.subList(fromIndex, toIndex)) {
 			sender.sendMessage(line);
 		}
 		if (totalPages > 1) {
-			sender.sendMessage("§8使用 /" + label + " help <页码> 查看更多，每页 5 条。玩家命令可用 /homes、/warp、/tpa 等。");
+			sender.sendMessage("§8使用 /" + label + " help <页码> 查看更多。玩家命令可用 /homes、/warp、/tpa 等。");
 		}
 	}
 
