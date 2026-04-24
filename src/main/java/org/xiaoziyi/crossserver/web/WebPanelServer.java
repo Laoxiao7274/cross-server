@@ -62,7 +62,9 @@ public final class WebPanelServer implements AutoCloseable {
 		server = HttpServer.create(new InetSocketAddress(settings.host(), settings.port()), 0);
 		executorService = Executors.newCachedThreadPool();
 		server.setExecutor(executorService);
-		server.createContext("/", new RootHandler());
+		server.createContext("/", new StaticResourceHandler("/web/panel.html", "text/html; charset=utf-8"));
+		server.createContext("/panel.css", new StaticResourceHandler("/web/panel.css", "text/css; charset=utf-8"));
+		server.createContext("/panel.js", new StaticResourceHandler("/web/panel.js", "application/javascript; charset=utf-8"));
 		server.createContext("/api/status", exchange -> handleJson(exchange, "GET", () -> dataService.loadStatus()));
 		server.createContext("/api/modules", new ModulesHandler());
 		server.createContext("/api/routes", new RoutesHandler());
@@ -196,16 +198,6 @@ public final class WebPanelServer implements AutoCloseable {
 		return response;
 	}
 
-	private String buildRootPage() {
-		try (var in = getClass().getResourceAsStream("/web/panel.html")) {
-			if (in == null) return "<html><body>panel.html resource missing</body></html>";
-			return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-		} catch (Exception e) {
-			logger.warning("加载 web/panel.html 失败: " + e.getMessage());
-			return "<html><body>panel.html load error</body></html>";
-		}
-	}
-
 	@Override
 	public void close() {
 		if (server != null) {
@@ -218,19 +210,39 @@ public final class WebPanelServer implements AutoCloseable {
 		}
 	}
 
-	private final class RootHandler implements HttpHandler {
+	private final class StaticResourceHandler implements HttpHandler {
+		private final String resourcePath;
+		private final String contentType;
+
+		StaticResourceHandler(String resourcePath, String contentType) {
+			this.resourcePath = resourcePath;
+			this.contentType = contentType;
+		}
+
 		@Override
 		public void handle(HttpExchange exchange) throws IOException {
-			String configuredToken = settings.token();
-			if (configuredToken == null || configuredToken.isBlank()) {
-				sendJson(exchange, 503, Map.of("error", "web_panel_token_missing"));
-				return;
-			}
+			logRequest(exchange);
 			if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
 				sendJson(exchange, 405, Map.of("error", "method_not_allowed"));
 				return;
 			}
-			sendHtml(exchange, buildRootPage());
+			try (InputStream in = getClass().getResourceAsStream(resourcePath)) {
+				if (in == null) {
+					sendJson(exchange, 404, Map.of("error", "resource_not_found", "path", resourcePath));
+					return;
+				}
+				byte[] bytes = in.readAllBytes();
+				Headers headers = exchange.getResponseHeaders();
+				headers.set("Content-Type", contentType);
+				headers.set("Cache-Control", "no-store");
+				exchange.sendResponseHeaders(200, bytes.length);
+				try (OutputStream out = exchange.getResponseBody()) {
+					out.write(bytes);
+				}
+			} catch (Exception e) {
+				logger.warning("Web 面板静态资源加载失败: " + resourcePath + " -> " + e.getMessage());
+				sendJson(exchange, 500, Map.of("error", "resource_load_failed", "message", e.getMessage()));
+			}
 		}
 	}
 

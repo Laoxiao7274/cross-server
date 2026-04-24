@@ -4,2195 +4,275 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CrossServer 运维面板</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #050910;
-      --bg-soft: #0b1320;
-      --surface: rgba(13, 21, 36, 0.88);
-      --surface-2: rgba(18, 28, 46, 0.9);
-      --surface-3: rgba(10, 17, 30, 0.86);
-      --border: rgba(126, 154, 205, 0.25);
-      --border-strong: rgba(126, 154, 205, 0.44);
-      --text: #edf4ff;
-      --muted: #9eb2d7;
-      --accent: #54bdff;
-      --accent-strong: #2f7dff;
-      --good: #40d7a6;
-      --bad: #ff7a90;
-      --warn: #ffc46b;
-      --shadow-lg: 0 20px 44px rgba(3, 8, 17, 0.48);
-      --shadow-md: 0 12px 28px rgba(3, 8, 17, 0.34);
-      --radius: 16px;
-    }
-    * { box-sizing: border-box; }
-    html, body { min-height: 100%; }
-    body {
-      margin: 0;
-      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at 14% -18%, rgba(84, 189, 255, 0.2), transparent 40%),
-        radial-gradient(circle at 88% -24%, rgba(63, 118, 255, 0.2), transparent 44%),
-        linear-gradient(165deg, #04070e 0%, var(--bg) 58%, #080f1c 100%);
-      color: var(--text);
-      letter-spacing: 0.01em;
-    }
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background:
-        linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px) 0 0 / 42px 42px,
-        linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px) 0 0 / 42px 42px;
-      mask-image: radial-gradient(circle at center, black 24%, transparent 100%);
-    }
-    .shell {
-      max-width: 1420px;
-      margin: 0 auto;
-      padding: 26px;
-      display: grid;
-      grid-template-columns: 250px minmax(0, 1fr);
-      gap: 18px;
-      position: relative;
-      z-index: 1;
-    }
-    .sidebar {
-      background: linear-gradient(165deg, rgba(13, 21, 36, 0.95), rgba(10, 17, 30, 0.92));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
-      padding: 18px;
-      position: sticky;
-      top: 18px;
-      align-self: start;
-    }
-    .brand {
-      margin-bottom: 18px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid rgba(126, 154, 205, 0.22);
-    }
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #a8dcff;
-      background: rgba(84, 189, 255, 0.12);
-      border: 1px solid rgba(84, 189, 255, 0.35);
-    }
-    .brand h1 {
-      margin: 10px 0 6px;
-      font-size: 24px;
-      letter-spacing: -0.02em;
-    }
-    .muted { color: var(--muted); }
-    .small { font-size: 12px; color: var(--muted); }
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .nav button {
-      width: 100%;
-      text-align: left;
-      border: 1px solid transparent;
-      border-radius: 11px;
-      padding: 10px 12px;
-      font-size: 13px;
-      font-weight: 620;
-      color: #d6e5ff;
-      background: transparent;
-      box-shadow: none;
-      cursor: pointer;
-      transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
-    }
-    .nav button:hover {
-      border-color: rgba(84, 189, 255, 0.4);
-      background: rgba(84, 189, 255, 0.12);
-      color: #f3f8ff;
-    }
-    .nav button.active {
-      border-color: rgba(84, 189, 255, 0.5);
-      background: linear-gradient(180deg, rgba(84, 189, 255, 0.28), rgba(47, 125, 255, 0.26));
-      color: #ffffff;
-    }
-    .sidebar-footer {
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(126, 154, 205, 0.22);
-      font-size: 12px;
-      line-height: 1.6;
-      color: #9db2d7;
-    }
-    .main {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .hero,
-    .panel {
-      background: linear-gradient(165deg, var(--surface-2), var(--surface));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
-      backdrop-filter: blur(9px);
-    }
-    .hero {
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
-    }
-    .hero::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(112deg, rgba(84, 189, 255, 0.12), transparent 45%, rgba(63, 118, 255, 0.09));
-      pointer-events: none;
-    }
-    .hero > * { position: relative; z-index: 1; }
-    .hero-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
-    .hero h2 {
-      margin: 0;
-      font-size: 30px;
-      letter-spacing: -0.028em;
-    }
-    .hero-subtitle {
-      margin-top: 8px;
-      max-width: 760px;
-      line-height: 1.68;
-      color: #c6d6f2;
-    }
-    .hero-actions,
-    .toolbar,
-    .actions,
-    .chips,
-    .search-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-    .hero-actions { justify-content: flex-end; }
-    .toolbar {
-      margin-top: 16px;
-      padding: 12px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: linear-gradient(145deg, rgba(10, 17, 30, 0.88), rgba(7, 13, 24, 0.84));
-    }
-    .toolbar input { min-width: 170px; flex: 1; }
-    .hero-grid,
-    .grid-two,
-    .layout {
-      display: grid;
-      gap: 12px;
-    }
-    .hero-grid {
-      margin-top: 16px;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    }
-    .layout {
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 18px;
-    }
-    .panel {
-      padding: 20px;
-      box-shadow: var(--shadow-md);
-    }
-    .panel.full { grid-column: 1 / -1; }
-    .panel-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .panel h3 {
-      margin: 0 0 4px;
-      font-size: 20px;
-      letter-spacing: -0.02em;
-    }
-    .stat-card {
-      padding: 14px;
-      border-radius: 13px;
-      border: 1px solid rgba(126, 154, 205, 0.28);
-      background: linear-gradient(150deg, rgba(21, 35, 59, 0.82), rgba(11, 20, 35, 0.8));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    }
-    .stat-card strong {
-      display: block;
-      margin-top: 8px;
-      font-size: 23px;
-      letter-spacing: -0.02em;
-    }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      border: 1px solid rgba(126, 154, 205, 0.32);
-      border-radius: 999px;
-      padding: 5px 10px;
-      background: rgba(13, 21, 36, 0.7);
-      color: #bdd0ef;
-      font-size: 12px;
-      font-weight: 520;
-    }
-    .cluster-grid,
-    .diagnostic-grid,
-    .grid-two {
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-    .cluster-grid,
-    .diagnostic-grid { margin-top: 12px; }
-    .stack {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .list {
-      margin: 0;
-      padding-left: 18px;
-      line-height: 1.7;
-    }
-    .info-card {
-      padding: 13px;
-      border: 1px solid var(--border);
-      border-radius: 13px;
-      background: linear-gradient(145deg, rgba(16, 28, 48, 0.84), rgba(10, 18, 33, 0.82));
-    }
-    .info-card.highlight {
-      border-color: rgba(84, 189, 255, 0.46);
-      background: linear-gradient(150deg, rgba(24, 40, 67, 0.9), rgba(12, 21, 37, 0.86));
-    }
-    .kv {
-      display: grid;
-      grid-template-columns: 94px 1fr;
-      gap: 8px;
-      align-items: start;
-      padding-top: 7px;
-    }
-    .good { color: var(--good); }
-    .bad { color: var(--bad); }
-    button {
-      border: 1px solid transparent;
-      border-radius: 11px;
-      padding: 9px 13px;
-      cursor: pointer;
-      color: #eef7ff;
-      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
-      box-shadow: 0 10px 22px rgba(31, 108, 255, 0.28);
-      font-size: 13px;
-      font-weight: 650;
-      transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
-    }
-    button:hover {
-      transform: translateY(-1px);
-      filter: brightness(1.07);
-      box-shadow: 0 13px 26px rgba(31, 108, 255, 0.34);
-    }
-    button:active { transform: translateY(0); }
-    button.secondary {
-      background: linear-gradient(180deg, rgba(35, 52, 82, 0.92), rgba(24, 36, 58, 0.9));
-      border-color: var(--border-strong);
-      color: #d9e7ff;
-      box-shadow: none;
-    }
-    button.secondary:hover { box-shadow: 0 8px 18px rgba(4, 8, 17, 0.4); }
-    button.danger {
-      background: linear-gradient(180deg, #ff6d8b 0%, #da4f70 100%);
-      box-shadow: 0 10px 22px rgba(218, 79, 112, 0.34);
-    }
-    button.warn {
-      background: linear-gradient(180deg, #ffbf63 0%, #f09b31 100%);
-      color: #271402;
-      box-shadow: 0 10px 22px rgba(240, 155, 49, 0.28);
-    }
-    input,
-    textarea,
-    select {
-      width: 100%;
-      background: rgba(7, 13, 24, 0.82);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font: inherit;
-      transition: border-color 0.14s ease, box-shadow 0.14s ease;
-    }
-    input::placeholder,
-    textarea::placeholder { color: #6f85ac; }
-    input:focus,
-    textarea:focus,
-    select:focus {
-      outline: none;
-      border-color: rgba(84, 189, 255, 0.72);
-      box-shadow: 0 0 0 3px rgba(84, 189, 255, 0.16);
-    }
-    textarea {
-      min-height: 124px;
-      resize: vertical;
-      line-height: 1.56;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-      background: linear-gradient(180deg, rgba(11, 19, 34, 0.84), rgba(8, 14, 26, 0.78));
-    }
-    th,
-    td {
-      text-align: left;
-      padding: 10px 8px;
-      border-bottom: 1px solid rgba(126, 154, 205, 0.2);
-      vertical-align: top;
-    }
-    tbody tr:hover td { background: rgba(84, 189, 255, 0.08); }
-    th {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-      color: #aac0e3;
-      font-weight: 700;
-      background: rgba(84, 189, 255, 0.06);
-    }
-    code,
-    pre { font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace; }
-    pre {
-      margin: 8px 0 0;
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(126, 154, 205, 0.25);
-      background: rgba(5, 9, 18, 0.9);
-      overflow: auto;
-      max-height: 260px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .banner {
-      margin-top: 10px;
-      padding: 13px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 196, 107, 0.36);
-      background: linear-gradient(160deg, rgba(92, 58, 14, 0.35), rgba(49, 32, 10, 0.24));
-      color: #f7dcaa;
-      line-height: 1.66;
-    }
-    details {
-      margin-top: 12px;
-      padding: 12px 14px;
-      border-radius: 13px;
-      border: 1px solid var(--border);
-      background: linear-gradient(145deg, rgba(12, 21, 37, 0.84), rgba(8, 14, 26, 0.8));
-    }
-    details summary {
-      cursor: pointer;
-      color: #d8e7ff;
-      font-weight: 620;
-    }
-    .module-control {
-      display: inline-flex;
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid rgba(126, 154, 205, 0.3);
-      background: rgba(8, 14, 26, 0.86);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-    .module-choice {
-      border: none;
-      background: transparent;
-      color: #a0b4d7;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      border-radius: 0;
-      box-shadow: none;
-    }
-    .module-choice.active {
-      color: #fff;
-      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
-    }
-    .module-choice.false.active { background: linear-gradient(180deg, #1fc29f 0%, #129677 100%); }
-    .module-choice.clear.active { background: linear-gradient(180deg, #5e7297 0%, #445a7a 100%); }
-    .module-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .document-card {
-      margin-top: 12px;
-      padding: 16px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: linear-gradient(145deg, rgba(13, 23, 40, 0.88), rgba(8, 14, 26, 0.82));
-    }
-    .empty-state {
-      padding: 16px;
-      border: 1px dashed rgba(126, 154, 205, 0.36);
-      border-radius: 14px;
-      background: rgba(9, 16, 29, 0.62);
-      color: var(--muted);
-      line-height: 1.7;
-    }
-    .risk-banner {
-      margin-top: 12px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 122, 144, 0.38);
-      background: linear-gradient(160deg, rgba(92, 25, 40, 0.34), rgba(53, 14, 23, 0.24));
-      color: #ffc9d4;
-      line-height: 1.65;
-    }
-    .document-meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .document-purpose {
-      margin-top: 10px;
-      line-height: 1.7;
-      color: #dbe8ff;
-    }
-    .payload-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      margin-top: 12px;
-    }
-    .payload-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: #cbdcf8;
-      font-size: 12px;
-    }
-    .payload-block {
-      display: none;
-      margin-top: 12px;
-    }
-    .payload-block.show { display: block; }
-    .payload-block pre {
-      margin-top: 0;
-      max-height: 420px;
-      white-space: pre;
-      line-height: 1.62;
-      tab-size: 2;
-    }
-    .message {
-      display: none;
-      margin-top: 12px;
-      padding: 11px 13px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.58;
-      border: 1px solid transparent;
-    }
-    .message.show { display: block; }
-    .message.success {
-      background: rgba(10, 80, 62, 0.4);
-      border-color: rgba(64, 215, 166, 0.45);
-      color: #adf0d8;
-    }
-    .message.error {
-      background: rgba(108, 27, 43, 0.4);
-      border-color: rgba(255, 122, 144, 0.45);
-      color: #ffd1da;
-    }
-    .modal-root {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(2, 6, 12, 0.72);
-      z-index: 20;
-      padding: 18px;
-    }
-    .modal-root.show { display: flex; }
-    .modal-card {
-      width: min(560px, 100%);
-      border-radius: 18px;
-      border: 1px solid var(--border-strong);
-      background: linear-gradient(165deg, rgba(13, 21, 36, 0.98), rgba(8, 14, 26, 0.96));
-      box-shadow: var(--shadow-lg);
-      padding: 20px;
-    }
-    .modal-body {
-      white-space: pre-wrap;
-      line-height: 1.7;
-      color: #d6e3fb;
-      margin-top: 8px;
-    }
-    .field-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-    }
-    .field-card {
-      padding: 14px;
-      border-radius: 13px;
-      border: 1px solid var(--border);
-      background: linear-gradient(145deg, rgba(16, 28, 48, 0.84), rgba(10, 18, 33, 0.82));
-    }
-    .field-card label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 12px;
-      color: #cbdcf8;
-      font-weight: 620;
-    }
-    .field-card .small {
-      margin-top: 8px;
-      line-height: 1.6;
-    }
-    .tab-page { display: none; }
-    .tab-page.active { display: block; }
-    @media (max-width: 1100px) {
-      .shell {
-        grid-template-columns: 1fr;
-        padding: 16px;
-      }
-      .sidebar { position: static; }
-      .nav { flex-direction: row; flex-wrap: wrap; }
-      .nav button { width: auto; }
-    }
-    @media (max-width: 700px) {
-      .hero h2 { font-size: 24px; }
-      .layout { grid-template-columns: 1fr; }
-      .toolbar,
-      .hero-actions,
-      .search-row,
-      .actions { width: 100%; }
-    }
-  </style>
+  <link rel="stylesheet" href="panel.css">
 </head>
 <body>
-  <div class="shell">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <button id="menuToggle" class="menu-toggle" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="brand-dot"></span>
+      <span class="brand-text">CrossServer</span>
+      <small>运维面板</small>
+    </div>
+    <div class="header-actions">
+      <input id="tokenInput" type="password" placeholder="Token">
+      <input id="actorInput" type="text" placeholder="Actor" style="min-width:100px">
+      <select id="localeSelect">
+        <option value="zh-CN">中文</option>
+        <option value="en-US">English</option>
+      </select>
+      <button id="saveAuthBtn" class="btn-primary">保存凭证</button>
+      <button id="refreshBtn" class="btn-secondary">刷新概览</button>
+      <button id="reloadBtn" class="btn-danger">重载节点</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Sidebar -->
     <aside class="sidebar">
-      <div class="brand">
-        <div class="eyebrow">CrossServer / 运维中心</div>
-        <h1>运维面板</h1>
-        <div class="small">多页面运维控制台 · 共享配置与转服诊断</div>
-      </div>
       <nav class="nav">
-        <button class="active" data-tab="dashboard">仪表盘</button>
-        <button data-tab="modules">模块</button>
-        <button data-tab="routes">路由</button>
-        <button data-tab="documents">配置文档</button>
-        <button data-tab="logs">日志中心</button>
-        <button data-tab="node-configs">节点配置</button>
-        <button data-tab="transfers">转服诊断</button>
+        <button class="nav-item active" data-tab="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <span>仪表盘</span>
+        </button>
+        <button class="nav-item" data-tab="modules">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <span>模块</span>
+        </button>
+        <button class="nav-item" data-tab="routes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>路由</span>
+        </button>
+        <button class="nav-item" data-tab="documents">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>配置文档</span>
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>日志中心</span>
+        </button>
+        <button class="nav-item" data-tab="node-configs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <span>节点配置</span>
+        </button>
+        <button class="nav-item" data-tab="transfers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>转服诊断</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
         API 保持不变。操作日志会输出到服务端控制台，便于快速排障。
       </div>
     </aside>
 
+    <!-- Main content -->
     <main class="main">
-      <section class="hero">
-        <div class="hero-header">
-          <div>
-            <h2>CrossServer 集群总览</h2>
-            <div class="hero-subtitle">统一查看集群健康、共享模块、共享路由、配置文档与转服状态。所有页面共享同一套 token 会话。</div>
-          </div>
-          <div class="hero-actions">
-            <button id="refreshBtn">刷新概览</button>
-            <button id="reloadBtn" class="danger">重载本节点</button>
-          </div>
-        </div>
-        <div class="toolbar">
-          <input id="tokenInput" type="password" placeholder="X-CrossServer-Token">
-          <input id="actorInput" type="text" placeholder="X-CrossServer-Actor（可选，默认 web-panel）">
-          <select id="localeSelect">
-            <option value="zh-CN">中文</option>
-            <option value="en-US">English</option>
-          </select>
-          <button id="saveAuthBtn">保存凭证</button>
-        </div>
-        <div id="authMessage" class="message"></div>
-        <div class="banner">首次进入页面可先输入 token 再加载数据。后续请求会自动附带 <code>X-CrossServer-Token</code> 与 <code>X-CrossServer-Actor</code>。</div>
-        <div id="heroStats" class="hero-grid"></div>
-      </section>
-
+      <div id="authMessage" class="message"></div>
       <div id="globalMessage" class="message"></div>
 
+      <!-- Dashboard -->
       <section id="tab-dashboard" class="tab-page active">
-        <div class="layout">
-          <section class="panel">
-            <div class="panel-header">
-              <div>
-                <h3>集群状态</h3>
-                <div class="small">节点心跳、会话统计、主控节点与面板成员信息</div>
-              </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>仪表盘</h2>
+              <div class="subtitle">集群状态、节点心跳、会话统计与面板成员</div>
             </div>
-            <div id="statusSummary" class="grid-two"></div>
-            <div id="clusterSummary" class="chips" style="margin-top:12px"></div>
-            <div class="search-row" style="margin-top:12px">
-              <input id="dashboardNodesSearch" type="text" placeholder="搜索节点 ID / 集群 / 状态">
-            </div>
-            <div id="clusterMembers" class="cluster-grid"></div>
-            <table>
-              <thead><tr><th>节点</th><th>状态</th><th>最后心跳</th><th>耗时</th></tr></thead>
-              <tbody id="nodesBody"></tbody>
-            </table>
-          </section>
+          </div>
+          <div id="heroStats" class="grid-6 mb-md"></div>
+          <div id="statusSummary" class="grid-2 mb-md"></div>
+          <div id="clusterSummary" class="chips-row mb-sm"></div>
+          <div class="toolbar">
+            <input id="dashboardNodesSearch" type="text" placeholder="搜索节点 ID / 集群 / 状态">
+          </div>
+          <div id="clusterMembers" class="grid-auto mb-sm"></div>
+          <table>
+            <thead><tr><th>节点</th><th>状态</th><th>最后心跳</th><th>耗时</th></tr></thead>
+            <tbody id="nodesBody"></tbody>
+          </table>
         </div>
       </section>
 
+      <!-- Modules -->
       <section id="tab-modules" class="tab-page">
-        <div class="layout">
-          <section class="panel full">
-            <div class="panel-header">
-              <div>
-                <h3>共享模块开关</h3>
-                <div class="small">展示 本地 / 共享 / 生效 三层状态，并支持保存或清除共享覆盖</div>
-              </div>
-              <button class="secondary" id="reloadModulesBtn">重新读取</button>
+        <div class="panel full">
+          <div class="panel-header">
+            <div>
+              <h2>共享模块</h2>
+              <div class="subtitle">查看本地 / 共享 / 生效三层状态，管理共享覆盖</div>
             </div>
-            <table>
-              <thead><tr><th>模块</th><th>状态概览</th><th>共享覆盖控制</th></tr></thead>
-              <tbody id="modulesBody"></tbody>
-            </table>
-            <div id="modulesHistory" style="margin-top:12px"></div>
-            <div id="modulesMessage" class="message"></div>
-          </section>
+            <button id="reloadModulesBtn" class="btn-secondary">重新读取</button>
+          </div>
+          <table>
+            <thead><tr><th>模块</th><th>状态概览</th><th>共享覆盖</th></tr></thead>
+            <tbody id="modulesBody"></tbody>
+          </table>
+          <div id="modulesHistory" class="mt-sm"></div>
+          <div id="modulesMessage" class="message"></div>
         </div>
       </section>
 
+      <!-- Routes -->
       <section id="tab-routes" class="tab-page">
-        <div class="layout">
-          <section class="panel full">
-            <div class="panel-header">
-              <div>
-                <h3>共享路由</h3>
-                <div class="small">来源语义与游戏内路由菜单一致：仅本地 / 仅共享 / 本地 + 共享覆盖</div>
-              </div>
-              <button class="secondary" id="reloadRoutesBtn">重新读取</button>
+        <div class="panel full">
+          <div class="panel-header">
+            <div>
+              <h2>共享路由</h2>
+              <div class="subtitle">管理跨服路由映射表</div>
             </div>
-            <details>
-              <summary>路由编辑与整体覆盖</summary>
-              <div class="grid-two" style="margin-top:12px">
+            <button id="reloadRoutesBtn" class="btn-secondary">重新读取</button>
+          </div>
+          <details>
+            <summary>路由编辑与整体覆盖</summary>
+            <div class="details-body">
+              <div class="grid-2">
                 <div>
-                  <div class="small" style="margin-bottom:8px">新增或更新单条共享路由</div>
-                  <div class="search-row">
+                  <div class="subtitle mb-sm">新增或更新单条共享路由</div>
+                  <div class="input-group">
                     <input id="routeServerIdInput" type="text" placeholder="服务器 ID">
                     <input id="routeProxyTargetInput" type="text" placeholder="代理目标">
-                    <button id="saveRouteBtn">保存路由</button>
+                    <button id="saveRouteBtn" class="btn-primary">保存路由</button>
                   </div>
                 </div>
                 <div>
-                  <div class="small" style="margin-bottom:8px">整体覆盖共享路由表（JSON）</div>
+                  <div class="subtitle mb-sm">整体覆盖共享路由表（JSON）</div>
                   <textarea id="routesBulkInput" placeholder='{"routes":{"spawn":"lobby"}}'></textarea>
-                  <div class="actions" style="margin-top:8px">
-                    <button class="secondary" id="loadRoutesJsonBtn">填入当前共享路由</button>
-                    <button id="replaceRoutesBtn">整体覆盖</button>
+                  <div class="input-group mt-sm">
+                    <button id="loadRoutesJsonBtn" class="btn-secondary">填入当前共享路由</button>
+                    <button id="replaceRoutesBtn" class="btn-warning">整体覆盖</button>
                   </div>
                 </div>
               </div>
-            </details>
-            <div class="search-row" style="margin:12px 0 10px">
-              <input id="routesSearchInput" type="text" placeholder="搜索服务器 ID / 路由目标 / 来源">
             </div>
-            <table>
-              <thead><tr><th>服务器 ID</th><th>本地目标</th><th>共享目标</th><th>最终生效</th><th>来源</th><th>操作</th></tr></thead>
-              <tbody id="routesBody"></tbody>
-            </table>
-            <div id="routesHistory" style="margin-top:12px"></div>
-            <div id="routesMessage" class="message"></div>
-          </section>
+          </details>
+          <div class="toolbar mt-sm">
+            <input id="routesSearchInput" type="text" placeholder="搜索服务器 ID / 路由目标 / 来源">
+          </div>
+          <table>
+            <thead><tr><th>服务器 ID</th><th>本地目标</th><th>共享目标</th><th>生效值</th><th>来源</th><th>操作</th></tr></thead>
+            <tbody id="routesBody"></tbody>
+          </table>
+          <div id="routesHistory" class="mt-sm"></div>
+          <div id="routesMessage" class="message"></div>
         </div>
       </section>
 
+      <!-- Documents -->
       <section id="tab-documents" class="tab-page">
-        <div class="layout">
-          <section class="panel full">
-            <div class="panel-header">
-              <div>
-                <h3>配置文档</h3>
-                <div class="small">这里会解释每份配置文档是做什么的，并支持在线编辑 JSON / YAML payload 后直接保存到配置中心</div>
-              </div>
+        <div class="panel full">
+          <div class="panel-header">
+            <div>
+              <h2>配置文档</h2>
+              <div class="subtitle">查看并编辑 JSON / YAML 配置文档</div>
             </div>
-            <div class="search-row" style="margin-bottom:12px">
-              <input id="documentsSearchInput" type="text" placeholder="搜索 namespace / dataKey / 标题 / 摘要">
-            </div>
-            <div id="documentsList"></div>
-            <div id="documentsMessage" class="message"></div>
-          </section>
+          </div>
+          <div class="toolbar">
+            <input id="documentsSearchInput" type="text" placeholder="搜索 namespace / dataKey / 标题">
+          </div>
+          <div id="documentsList"></div>
+          <div id="documentsMessage" class="message"></div>
         </div>
       </section>
 
+      <!-- Logs -->
       <section id="tab-logs" class="tab-page">
-        <div class="layout">
-          <section class="panel full">
-            <div class="panel-header">
-              <div>
-                <h3>日志中心</h3>
-                <div class="small">按节点查看最近同步到配置中心的 CrossServer 插件日志</div>
-              </div>
-              <button class="secondary" id="reloadLogsBtn">重新读取</button>
+        <div class="panel full">
+          <div class="panel-header">
+            <div>
+              <h2>日志中心</h2>
+              <div class="subtitle">按节点查看最近同步的插件日志</div>
             </div>
-            <div id="logsSummary" class="chips"></div>
-            <div class="search-row" style="margin-top:12px">
-              <input id="logsServerSearch" type="text" placeholder="筛选节点 serverId">
-              <input id="logsKeywordSearch" type="text" placeholder="筛选日志关键字 / 级别">
-            </div>
-            <div id="logsList" class="stack" style="margin-top:12px"></div>
-          </section>
+            <button id="reloadLogsBtn" class="btn-secondary">重新读取</button>
+          </div>
+          <div id="logsSummary" class="chips-row mb-sm"></div>
+          <div class="toolbar">
+            <input id="logsServerSearch" type="text" placeholder="筛选节点 serverId">
+            <input id="logsKeywordSearch" type="text" placeholder="筛选日志关键字 / 级别">
+          </div>
+          <div id="logsList" class="stack mt-sm"></div>
         </div>
       </section>
 
+      <!-- Node Configs -->
       <section id="tab-node-configs" class="tab-page">
-        <div class="layout">
-          <section class="panel">
+        <div class="grid-2">
+          <div class="panel">
             <div class="panel-header">
               <div>
-                <h3>节点配置列表</h3>
-                <div class="small">查看各节点是否已上报可编辑配置快照，以及最近一次应用结果</div>
+                <h2>节点配置列表</h2>
+                <div class="subtitle">查看节点配置快照与应用结果</div>
               </div>
-              <button class="secondary" id="reloadNodeConfigsBtn">重新读取</button>
+              <button id="reloadNodeConfigsBtn" class="btn-secondary">重新读取</button>
             </div>
-            <div id="nodeConfigsSummary" class="chips"></div>
-            <div class="search-row" style="margin:12px 0 10px">
-              <input id="nodeConfigsSearchInput" type="text" placeholder="搜索节点 ID / 状态 / 申请结果">
+            <div id="nodeConfigsSummary" class="chips-row mb-sm"></div>
+            <div class="toolbar">
+              <input id="nodeConfigsSearchInput" type="text" placeholder="搜索节点 ID / 状态 / 应用结果">
             </div>
             <table>
-              <thead><tr><th>节点</th><th>在线状态</th><th>配置快照</th><th>最近申请</th><th>操作</th></tr></thead>
+              <thead><tr><th>节点</th><th>在线状态</th><th>配置快照</th><th>最近应用</th><th>操作</th></tr></thead>
               <tbody id="nodeConfigsBody"></tbody>
             </table>
-          </section>
-          <section class="panel">
+          </div>
+          <div class="panel">
             <div class="panel-header">
               <div>
-                <h3>节点配置详情</h3>
-                <div class="small">主控节点发起申请，目标节点本地写回 config.yml 并排队重载</div>
+                <h2>节点详情</h2>
+                <div class="subtitle">编辑白名单字段并提交到目标节点</div>
               </div>
             </div>
-            <div id="nodeConfigDetailIntro" class="banner">请选择一个节点查看详情并编辑白名单字段。</div>
-            <div id="nodeConfigDetailMeta" class="chips" style="margin-top:12px"></div>
-            <div id="nodeConfigDetailStatus" class="stack" style="margin-top:12px"></div>
-            <div id="nodeConfigDetailForm" style="margin-top:12px"></div>
-            <div id="nodeConfigDetailRaw" style="margin-top:12px"></div>
+            <div id="nodeConfigDetailIntro" class="banner mb-sm"></div>
+            <div id="nodeConfigDetailMeta" class="chips-row mb-sm"></div>
+            <div id="nodeConfigDetailStatus" class="stack mb-sm"></div>
+            <div id="nodeConfigDetailForm"></div>
+            <div id="nodeConfigDetailRaw" class="mt-sm"></div>
             <div id="nodeConfigsMessage" class="message"></div>
-          </section>
+          </div>
         </div>
       </section>
 
+      <!-- Transfers -->
       <section id="tab-transfers" class="tab-page">
-        <div class="layout">
-          <section class="panel full">
-            <div class="panel-header">
-              <div>
-                <h3>转服诊断</h3>
-                <div class="small">最近 20 条转服记录，并支持按玩家名查看详细诊断</div>
-              </div>
+        <div class="panel full">
+          <div class="panel-header">
+            <div>
+              <h2>转服诊断</h2>
+              <div class="subtitle">查看近期转服记录并按玩家名诊断</div>
             </div>
-            <div class="search-row">
-              <input id="playerSearchInput" type="text" placeholder="输入玩家名查询转服诊断">
-              <button id="playerSearchBtn">查询玩家</button>
-            </div>
-            <div id="playerTransferResult" style="margin-top:12px"></div>
-            <table>
-              <thead><tr><th>时间</th><th>玩家</th><th>来源</th><th>目标</th><th>事件</th><th>状态</th></tr></thead>
-              <tbody id="recentTransfersBody"></tbody>
-            </table>
-          </section>
+          </div>
+          <div class="toolbar">
+            <input id="playerSearchInput" type="text" placeholder="输入玩家名查询转服诊断">
+            <button id="playerSearchBtn" class="btn-primary">查询玩家</button>
+          </div>
+          <div id="playerTransferResult"></div>
+          <table class="mt-md">
+            <thead><tr><th>时间</th><th>玩家</th><th>来源</th><th>目标</th><th>事件</th><th>状态</th></tr></thead>
+            <tbody id="recentTransfersBody"></tbody>
+          </table>
         </div>
       </section>
     </main>
   </div>
+
+  <!-- Modal -->
   <div id="confirmModal" class="modal-root" aria-hidden="true">
     <div class="modal-card">
       <div class="panel-header" style="margin-bottom:0">
         <div>
           <h3 id="confirmModalTitle">操作确认</h3>
-          <div class="small">请确认本次运维操作的影响范围。</div>
+          <div class="subtitle">请确认本次运维操作的影响范围。</div>
         </div>
       </div>
       <div id="confirmModalBody" class="modal-body"></div>
-      <div class="actions" style="margin-top:16px;justify-content:flex-end;">
-        <button type="button" class="secondary" id="confirmCancelBtn">取消</button>
-        <button type="button" class="warn" id="confirmAcceptBtn">确认继续</button>
+      <div class="modal-actions">
+        <button type="button" id="confirmCancelBtn" class="btn-secondary">取消</button>
+        <button type="button" id="confirmAcceptBtn" class="btn-warning">确认继续</button>
       </div>
     </div>
   </div>
-  <script>
-    const moduleKeys = ["auth", "homes", "warps", "tpa", "routeConfig", "transferAdmin", "economyBridge", "permissions"];
-    const booleanOptions = [
-      { value: "true", label: "开启" },
-      { value: "false", label: "关闭" }
-    ];
-    const i18n = {
-      "zh-CN": {
-        brandEyebrow: "CrossServer / 运维中心",
-        brandTitle: "运维面板",
-        brandSubtitle: "多页面运维控制台 · 共享配置与转服诊断",
-        navDashboard: "仪表盘",
-        navModules: "模块",
-        navRoutes: "路由",
-        navDocuments: "配置文档",
-        navLogs: "日志中心",
-        navNodeConfigs: "节点配置",
-        navTransfers: "转服诊断",
-        saveAuth: "保存凭证",
-        confirmTitle: "操作确认",
-        confirmBody: "请确认本次运维操作的影响范围。",
-        confirmContinue: "确认继续",
-        dashboardTitle: "集群状态",
-        dashboardDesc: "节点心跳、会话统计、主控节点与面板成员信息",
-        modulesTitle: "共享模块开关",
-        modulesDesc: "展示 本地 / 共享 / 生效 三层状态，并支持保存或清除共享覆盖",
-        routesTitle: "共享路由",
-        routesDesc: "来源语义与游戏内路由菜单一致：仅本地 / 仅共享 / 本地 + 共享覆盖",
-        documentsTitle: "配置文档",
-        documentsDesc: "查看文档用途，在线编辑 JSON / YAML payload，并保存到配置中心",
-        logsTitle: "日志中心",
-        logsDesc: "按节点查看最近同步到配置中心的 CrossServer 插件日志",
-        nodeConfigsTitle: "节点配置列表",
-        nodeConfigsDesc: "查看各节点是否已上报可编辑配置快照，以及最近一次应用结果",
-        nodeConfigDetailTitle: "节点配置详情",
-        nodeConfigDetailDesc: "主控节点发起申请，目标节点本地写回 config.yml 并排队重载",
-        transfersTitle: "转服诊断",
-        transfersDesc: "最近 20 条转服记录，并支持按玩家名查看详细诊断",
-        placeholderNodes: "搜索节点 ID / 集群 / 状态",
-        placeholderRoutes: "搜索服务器 ID / 路由目标 / 来源",
-        placeholderDocs: "搜索 namespace / dataKey / 标题 / 摘要",
-        placeholderLogsServer: "筛选节点 serverId",
-        placeholderLogsKeyword: "筛选日志关键字 / 级别",
-        placeholderNodeConfigs: "搜索节点 ID / 状态 / 申请结果",
-        placeholderTransferPlayer: "输入玩家名查询转服诊断",
-        placeholderServerId: "服务器 ID",
-        placeholderProxyTarget: "代理目标",
-        placeholderRoutesJson: '{"routes":{"spawn":"lobby"}}',
-        saveRoute: "保存路由",
-        replaceRoutes: "整体覆盖",
-        loadCurrentRoutes: "填入当前共享路由",
-        refresh: "刷新概览",
-        reloadNode: "重载当前节点",
-        reloadData: "重新读取",
-        searchPlayer: "查询玩家",
-        authSavedOk: "凭证已保存，概览加载成功。",
-        overviewReloaded: "概览已刷新。",
-        logsReloaded: "日志中心已刷新。",
-        modulesReloaded: "模块数据已刷新。",
-        routesReloaded: "路由数据已刷新。",
-        nodeConfigsReloaded: "节点配置数据已刷新。",
-        routeSaved: "已保存共享路由：%s → %s",
-        routesReplaced: "已整体覆盖共享路由表。",
-        authNeedToken: "请输入 Web 面板 token 后再加载数据。",
-        authLoadedFromSaved: "已使用本地保存的凭证加载面板。",
-        thNode: "节点",
-        thStatus: "状态",
-        thLastHeartbeat: "最后心跳",
-        thLatency: "耗时",
-        thModule: "模块",
-        thModuleSummary: "状态概览",
-        thModuleControl: "共享覆盖控制",
-        thServerId: "服务器 ID",
-        thLocalTarget: "本地目标",
-        thSharedTarget: "共享目标",
-        thEffective: "最终生效",
-        thSource: "来源",
-        thAction: "操作",
-        thOnlineStatus: "在线状态",
-        thSnapshot: "配置快照",
-        thLatestApply: "最近申请",
-        thTime: "时间",
-        thPlayer: "玩家",
-        thTarget: "目标",
-        thEvent: "事件",
-        thLevel: "级别",
-        thContent: "内容",
-        emptyPanelMembers: "暂无已登记的运维面板成员",
-        emptyNodes: "暂无节点心跳记录",
-        emptyRoutes: "暂无路由数据",
-        emptyDocuments: "暂无已注册配置文档。只有插件主动注册了配置文档后，这里才会显示对应的共享配置入口。",
-        emptyTransferHistory: "暂无最近 transfer 历史",
-        emptyLogs: "暂无已同步日志",
-        emptyLogEntries: "暂无同步日志",
-        emptyNodeConfigs: "暂无节点配置数据",
-        emptyModuleHistory: "暂无模块变更历史。",
-        emptyRouteHistory: "暂无路由变更历史。",
-        emptyDocHistory: "暂无历史记录。保存一次后，这里会显示最近 20 次变更。",
-        historyModules: "查看最近模块变更 (%s)",
-        historyRoutes: "查看最近路由变更 (%s)",
-        historyDocuments: "查看最近历史记录 (%s)",
-        historyNodeApply: "查看最近申请历史 (%s)",
-        viewDetails: "查看详情",
-        rollback: "回滚",
-        collapse: "收起内容",
-        expand: "展开内容",
-        currentNode: "当前节点",
-        clusterNode: "集群节点",
-        localOnly: "本地：",
-        sharedOnly: "共享：",
-        effectiveState: "生效：",
-        forceEnable: "强制开启",
-        forceDisable: "强制关闭",
-        followLocal: "跟随本地",
-        noDescription: "暂无说明",
-        noSummary: "暂无摘要",
-        noApplyRecord: "暂无申请记录",
-        nodeSelectIntro: "请选择一个节点查看详情并编辑白名单字段。",
-        transferNeedPlayer: "请输入玩家名",
-        requestFailed: "请求失败%s：%s"
-      },
-      "en-US": {
-        brandEyebrow: "CrossServer / Ops Center",
-        brandTitle: "Operations Panel",
-        brandSubtitle: "Multi-page operations console · shared config and transfer diagnostics",
-        navDashboard: "Dashboard",
-        navModules: "Modules",
-        navRoutes: "Routes",
-        navDocuments: "Documents",
-        navLogs: "Logs",
-        navNodeConfigs: "Node Configs",
-        navTransfers: "Transfers",
-        saveAuth: "Save Auth",
-        confirmTitle: "Confirm Action",
-        confirmBody: "Please confirm the impact of this operation.",
-        confirmContinue: "Continue",
-        dashboardTitle: "Cluster Status",
-        dashboardDesc: "Node heartbeats, session stats, leader node, and panel member information",
-        modulesTitle: "Shared Module Toggles",
-        modulesDesc: "Show local / shared / effective layers and manage shared overrides",
-        routesTitle: "Shared Routes",
-        routesDesc: "Route source semantics match the in-game route menu: local only / shared only / local overridden by shared",
-        documentsTitle: "Config Documents",
-        documentsDesc: "View document purpose, edit JSON / YAML payloads, and save them to the config center",
-        logsTitle: "Log Center",
-        logsDesc: "View recent CrossServer plugin logs synchronized by node",
-        nodeConfigsTitle: "Node Config List",
-        nodeConfigsDesc: "See whether nodes uploaded editable snapshots and inspect the latest apply result",
-        nodeConfigDetailTitle: "Node Config Detail",
-        nodeConfigDetailDesc: "The leader submits an apply request, then the target node writes to config.yml and reloads",
-        transfersTitle: "Transfer Diagnostics",
-        transfersDesc: "Recent transfer records and detailed diagnostics by player name",
-        placeholderNodes: "Search node ID / cluster / status",
-        placeholderRoutes: "Search server ID / route target / source",
-        placeholderDocs: "Search namespace / dataKey / title / summary",
-        placeholderLogsServer: "Filter by serverId",
-        placeholderLogsKeyword: "Filter by keyword / level",
-        placeholderNodeConfigs: "Search node ID / status / apply result",
-        placeholderTransferPlayer: "Enter a player name to inspect transfer diagnostics",
-        placeholderServerId: "Server ID",
-        placeholderProxyTarget: "Proxy target",
-        placeholderRoutesJson: '{"routes":{"spawn":"lobby"}}',
-        saveRoute: "Save Route",
-        replaceRoutes: "Replace All",
-        loadCurrentRoutes: "Load Current Shared Routes",
-        refresh: "Refresh Overview",
-        reloadNode: "Reload This Node",
-        reloadData: "Reload Data",
-        searchPlayer: "Search Player",
-        authSavedOk: "Credentials saved. Overview loaded successfully.",
-        overviewReloaded: "Overview refreshed.",
-        logsReloaded: "Log center refreshed.",
-        modulesReloaded: "Module data refreshed.",
-        routesReloaded: "Route data refreshed.",
-        nodeConfigsReloaded: "Node config data refreshed.",
-        routeSaved: "Saved shared route: %s → %s",
-        routesReplaced: "Replaced the shared route table.",
-        authNeedToken: "Enter the Web panel token before loading data.",
-        authLoadedFromSaved: "Loaded the panel with locally saved credentials.",
-        thNode: "Node",
-        thStatus: "Status",
-        thLastHeartbeat: "Last heartbeat",
-        thLatency: "Latency",
-        thModule: "Module",
-        thModuleSummary: "Status summary",
-        thModuleControl: "Shared override control",
-        thServerId: "Server ID",
-        thLocalTarget: "Local target",
-        thSharedTarget: "Shared target",
-        thEffective: "Effective",
-        thSource: "Source",
-        thAction: "Action",
-        thOnlineStatus: "Online status",
-        thSnapshot: "Snapshot",
-        thLatestApply: "Latest apply",
-        thTime: "Time",
-        thPlayer: "Player",
-        thTarget: "Target",
-        thEvent: "Event",
-        thLevel: "Level",
-        thContent: "Content",
-        emptyPanelMembers: "No registered operations panel members yet.",
-        emptyNodes: "No node heartbeat records yet.",
-        emptyRoutes: "No route data available.",
-        emptyDocuments: "No registered config documents yet. A shared config entry will appear here after a plugin registers one.",
-        emptyTransferHistory: "No recent transfer history.",
-        emptyLogs: "No synchronized logs yet.",
-        emptyLogEntries: "No synchronized log entries.",
-        emptyNodeConfigs: "No node config data available.",
-        emptyModuleHistory: "No module change history yet.",
-        emptyRouteHistory: "No route change history yet.",
-        emptyDocHistory: "No history yet. Once you save the document, the latest 20 changes will appear here.",
-        historyModules: "Recent module changes (%s)",
-        historyRoutes: "Recent route changes (%s)",
-        historyDocuments: "Recent history (%s)",
-        historyNodeApply: "Recent apply history (%s)",
-        viewDetails: "View Details",
-        rollback: "Rollback",
-        collapse: "Collapse",
-        expand: "Expand",
-        currentNode: "Current node",
-        clusterNode: "Cluster node",
-        localOnly: "Local: ",
-        sharedOnly: "Shared: ",
-        effectiveState: "Effective: ",
-        forceEnable: "Force Enable",
-        forceDisable: "Force Disable",
-        followLocal: "Follow Local",
-        noDescription: "No description",
-        noSummary: "No summary",
-        noApplyRecord: "No apply records yet",
-        nodeSelectIntro: "Select a node to inspect its details and edit whitelist fields.",
-        transferNeedPlayer: "Enter a player name",
-        requestFailed: "Request failed%s: %s"
-      }
-    };
-    const state = {
-      overview: null,
-      selectedNodeConfigServerId: null,
-      nodeConfigDetail: null,
-      confirmResolve: null,
-      locale: "zh-CN",
-      filters: {
-        dashboardNodes: "",
-        routes: "",
-        documents: "",
-        logsServer: "",
-        logsKeyword: "",
-        nodeConfigs: ""
-      }
-    };
-    const tokenInput = document.getElementById("tokenInput");
-    const actorInput = document.getElementById("actorInput");
-    const localeSelect = document.getElementById("localeSelect");
-    const authMessage = document.getElementById("authMessage");
-    const navButtons = Array.from(document.querySelectorAll(".nav button[data-tab]"));
-    const confirmModal = document.getElementById("confirmModal");
-    const confirmModalTitle = document.getElementById("confirmModalTitle");
-    const confirmModalBody = document.getElementById("confirmModalBody");
-    const confirmCancelBtn = document.getElementById("confirmCancelBtn");
-    const confirmAcceptBtn = document.getElementById("confirmAcceptBtn");
 
-    function savedToken() { return localStorage.getItem("crossserver.web.token") || ""; }
-    function savedActor() { return localStorage.getItem("crossserver.web.actor") || "web-panel"; }
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-    function boolText(value) {
-      if (value === null || value === undefined) return "未设置";
-      return value ? "开启" : "关闭";
-    }
-    function moduleName(key) {
-      const labels = {
-        auth: "登录认证",
-        homes: "家园",
-        warps: "地标传送",
-        tpa: "玩家传送请求",
-        routeConfig: "路由配置",
-        transferAdmin: "转服诊断",
-        economyBridge: "经济桥接",
-        permissions: "权限同步"
-      };
-      return labels[key] || key;
-    }
-    function formatPayloadType(type) {
-      const labels = {
-        "json-object": "JSON 对象",
-        "json-array": "JSON 数组",
-        "json-value": "JSON 值",
-        "yaml-object": "YAML 对象",
-        "yaml-array": "YAML 数组",
-        "yaml-value": "YAML 值",
-        text: "纯文本",
-        empty: "空内容"
-      };
-      return labels[type] || "未知格式";
-    }
-    function formatTime(value) {
-      if (!value) return "-";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return String(value);
-      return date.toLocaleString("zh-CN", { hour12: false });
-    }
-    function includesFilter(value, keyword) {
-      const source = String(value ?? "").toLowerCase();
-      const search = String(keyword ?? "").trim().toLowerCase();
-      return !search || source.includes(search);
-    }
-    function renderKeyValues(items, highlight = false) {
-      return `<div class="info-card${highlight ? " highlight" : ""}">` + items.map(([label, value]) => `<div class="kv"><span class="small">${escapeHtml(label)}</span><span>${escapeHtml(value ?? "-")}</span></div>`).join("") + `</div>`;
-    }
-    function moduleChoiceClass(kind, selected) {
-      return `module-choice ${kind}${selected ? " active" : ""}`;
-    }
-    function setMessage(element, type, text) {
-      element.className = `message show ${type}`;
-      element.textContent = text;
-    }
-    const tabIds = ["dashboard", "modules", "routes", "documents", "logs", "node-configs", "transfers"];
-    function resolveTab(tab) {
-      return tabIds.includes(tab) ? tab : "dashboard";
-    }
-    function switchTab(tab, syncHash = true) {
-      const resolved = resolveTab(tab);
-      navButtons.forEach(button => {
-        const active = button.dataset.tab === resolved;
-        button.classList.toggle("active", active);
-      });
-      document.querySelectorAll(".tab-page").forEach(page => {
-        page.classList.toggle("active", page.id === `tab-${resolved}`);
-      });
-      if (syncHash && window.location.hash !== `#${resolved}`) {
-        window.location.hash = resolved;
-      }
-    }
-    navButtons.forEach(button => {
-      button.addEventListener("click", () => switchTab(button.dataset.tab));
-    });
-    window.addEventListener("hashchange", () => {
-      switchTab(window.location.hash.replace("#", ""), false);
-    });
-    function clearMessage(element) {
-      element.className = "message";
-      element.textContent = "";
-    }
-    function t(key) {
-      const bundle = i18n[state.locale] || i18n["zh-CN"];
-      return bundle[key] || key;
-    }
-    function applyLocale() {
-      document.querySelector('.eyebrow').textContent = t('brandEyebrow');
-      document.querySelector('.brand h1').textContent = t('brandTitle');
-      document.querySelector('.brand .small').textContent = t('brandSubtitle');
-      const nav = document.querySelectorAll('.nav button[data-tab]');
-      if (nav[0]) nav[0].textContent = t('navDashboard');
-      if (nav[1]) nav[1].textContent = t('navModules');
-      if (nav[2]) nav[2].textContent = t('navRoutes');
-      if (nav[3]) nav[3].textContent = t('navDocuments');
-      if (nav[4]) nav[4].textContent = t('navLogs');
-      if (nav[5]) nav[5].textContent = t('navNodeConfigs');
-      if (nav[6]) nav[6].textContent = t('navTransfers');
-      document.getElementById('saveAuthBtn').textContent = t('saveAuth');
-      document.getElementById('refreshBtn').textContent = t('refresh');
-      document.getElementById('reloadBtn').textContent = t('reloadNode');
-      document.getElementById('reloadModulesBtn').textContent = t('reloadData');
-      document.getElementById('reloadRoutesBtn').textContent = t('reloadData');
-      document.getElementById('reloadLogsBtn').textContent = t('reloadData');
-      document.getElementById('reloadNodeConfigsBtn').textContent = t('reloadData');
-      document.getElementById('saveRouteBtn').textContent = t('saveRoute');
-      document.getElementById('replaceRoutesBtn').textContent = t('replaceRoutes');
-      document.getElementById('loadRoutesJsonBtn').textContent = t('loadCurrentRoutes');
-      document.getElementById('playerSearchBtn').textContent = t('searchPlayer');
-      document.getElementById('dashboardNodesSearch').placeholder = t('placeholderNodes');
-      document.getElementById('routesSearchInput').placeholder = t('placeholderRoutes');
-      document.getElementById('documentsSearchInput').placeholder = t('placeholderDocs');
-      document.getElementById('logsServerSearch').placeholder = t('placeholderLogsServer');
-      document.getElementById('logsKeywordSearch').placeholder = t('placeholderLogsKeyword');
-      document.getElementById('nodeConfigsSearchInput').placeholder = t('placeholderNodeConfigs');
-      document.getElementById('playerSearchInput').placeholder = t('placeholderTransferPlayer');
-      document.getElementById('routeServerIdInput').placeholder = t('placeholderServerId');
-      document.getElementById('routeProxyTargetInput').placeholder = t('placeholderProxyTarget');
-      document.getElementById('routesBulkInput').placeholder = t('placeholderRoutesJson');
-      const headings = document.querySelectorAll('.tab-page .panel-header h3');
-      if (headings[0]) headings[0].textContent = t('dashboardTitle');
-      if (headings[1]) headings[1].textContent = t('modulesTitle');
-      if (headings[2]) headings[2].textContent = t('routesTitle');
-      if (headings[3]) headings[3].textContent = t('documentsTitle');
-      if (headings[4]) headings[4].textContent = t('logsTitle');
-      if (headings[5]) headings[5].textContent = t('nodeConfigsTitle');
-      if (headings[6]) headings[6].textContent = t('nodeConfigDetailTitle');
-      if (headings[7]) headings[7].textContent = t('transfersTitle');
-      const smalls = document.querySelectorAll('.tab-page .panel-header .small');
-      if (smalls[0]) smalls[0].textContent = t('dashboardDesc');
-      if (smalls[1]) smalls[1].textContent = t('modulesDesc');
-      if (smalls[2]) smalls[2].textContent = t('routesDesc');
-      if (smalls[3]) smalls[3].textContent = t('documentsDesc');
-      if (smalls[4]) smalls[4].textContent = t('logsDesc');
-      if (smalls[5]) smalls[5].textContent = t('nodeConfigsDesc');
-      if (smalls[6]) smalls[6].textContent = t('nodeConfigDetailDesc');
-      if (smalls[7]) smalls[7].textContent = t('transfersDesc');
-      confirmModalTitle.textContent = t('confirmTitle');
-      if (!confirmModalBody.textContent || confirmModalBody.textContent === i18n['zh-CN'].confirmBody || confirmModalBody.textContent === i18n['en-US'].confirmBody) {
-        confirmModalBody.textContent = t('confirmBody');
-      }
-      if (confirmAcceptBtn.textContent === i18n['zh-CN'].confirmContinue || confirmAcceptBtn.textContent === i18n['en-US'].confirmContinue) {
-        confirmAcceptBtn.textContent = t('confirmContinue');
-      }
-    }
-    function diffText(fromValue, toValue) {
-      const fromText = typeof fromValue === "string" ? fromValue : JSON.stringify(fromValue ?? null, null, 2);
-      const toText = typeof toValue === "string" ? toValue : JSON.stringify(toValue ?? null, null, 2);
-      return `旧值：\n${fromText || "-"}\n\n新值：\n${toText || "-"}`;
-    }
-    function askConfirm(title, body, confirmLabel = "确认继续") {
-      return new Promise(resolve => {
-        state.confirmResolve = resolve;
-        confirmModalTitle.textContent = title || "操作确认";
-        confirmModalBody.textContent = body || "确认继续执行此操作吗？";
-        confirmAcceptBtn.textContent = confirmLabel;
-        confirmModal.classList.add("show");
-        confirmModal.setAttribute("aria-hidden", "false");
-      });
-    }
-    function closeConfirm(result) {
-      confirmModal.classList.remove("show");
-      confirmModal.setAttribute("aria-hidden", "true");
-      const resolver = state.confirmResolve;
-      state.confirmResolve = null;
-      if (resolver) resolver(!!result);
-    }
-    confirmCancelBtn.addEventListener("click", () => closeConfirm(false));
-    confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
-    confirmModal.addEventListener("click", event => {
-      if (event.target === confirmModal) closeConfirm(false);
-    });
-    localeSelect?.addEventListener('change', event => {
-      state.locale = event.target.value || 'zh-CN';
-      localStorage.setItem('crossserver.locale', state.locale);
-      applyLocale();
-    });
-
-    async function api(path, options = {}) {
-      const token = tokenInput.value.trim();
-      if (!token) throw new Error("请先输入访问令牌 X-CrossServer-Token");
-      clearMessage(document.getElementById("globalMessage"));
-      const headers = new Headers(options.headers || {});
-      headers.set("X-CrossServer-Token", token);
-      headers.set("X-CrossServer-Actor", (actorInput.value || "web-panel").trim() || "web-panel");
-      if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-      const response = await fetch(path, { ...options, headers });
-      const text = await response.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch (_) {
-        data = text;
-      }
-      if (!response.ok) {
-        const message = data && typeof data === "object" && data.message ? data.message : (data && data.error ? data.error : response.statusText);
-        const error = new Error(message || `HTTP ${response.status}`);
-        error.code = data && typeof data === "object" ? data.error : undefined;
-        error.status = response.status;
-        throw error;
-      }
-      return data;
-    }
-
-    async function waitForPanelRecovery() {
-      const startedAt = Date.now();
-      while (Date.now() - startedAt < 60000) {
-        try {
-          await loadOverview();
-          setMessage(authMessage, "success", "CrossServer 已重新上线，面板数据已恢复。");
-          return;
-        } catch (error) {
-          await new Promise(resolve => setTimeout(resolve, 2500));
-        }
-      }
-      setMessage(authMessage, "error", "等待重载恢复超时，请稍后手动刷新。")
-    }
-
-    function renderHero(status) {
-      const stats = [
-        ["当前节点", status.serverId || "-"],
-        ["集群", status.cluster || "-"],
-        ["本地会话", status.localSessionCount ?? 0],
-        ["预备传送数", status.preparedTransferCount ?? 0],
-        ["待处理失效", status.pendingInvalidationCount ?? 0],
-        ["Redis", status.redisEnabled ? "已启用" : "未启用"]
-      ];
-      document.getElementById("heroStats").innerHTML = stats.map(([label, value]) => `<div class="stat-card"><div class="small">${escapeHtml(label)}</div><strong>${escapeHtml(value)}</strong></div>`).join("");
-    }
-
-    function renderStatus(status) {
-      renderHero(status);
-      const summary = [
-        ["命名空间数量", status.namespaceCount],
-        ["远端会话感知", status.remoteSessionCount],
-        ["传送网关类型", status.teleportGatewayType],
-        ["Handoff 有效秒数", status.handoffSeconds]
-      ];
-      document.getElementById("statusSummary").innerHTML = summary.map(([label, value]) => `<div class="stat-card"><div class="small">${escapeHtml(label)}</div><strong>${escapeHtml(value ?? "-")}</strong></div>`).join("");
-      const cluster = status.webPanelCluster || {};
-      const localServerId = cluster.localServerId || status.serverId || "-";
-      const members = Array.isArray(cluster.members) ? [...cluster.members] : [];
-      const localRole = !cluster.enabled ? "未加入运维面板" : cluster.localIsMaster ? "主控节点" : "受管节点";
-      const localRegistered = members.some(member => String(member.serverId || "").toLowerCase() === String(localServerId || "").toLowerCase());
-      members.sort((left, right) => {
-        if (!!left.leader !== !!right.leader) {
-          return left.leader ? -1 : 1;
-        }
-        const leftLocal = String(left.serverId || "").toLowerCase() === String(localServerId || "").toLowerCase();
-        const rightLocal = String(right.serverId || "").toLowerCase() === String(localServerId || "").toLowerCase();
-        if (leftLocal !== rightLocal) {
-          return leftLocal ? -1 : 1;
-        }
-        return String(left.serverId || "").localeCompare(String(right.serverId || ""), "zh-CN");
-      });
-      document.getElementById("clusterSummary").innerHTML = [
-        `<span class="chip">运维面板：${cluster.enabled ? "已启用" : "未启用"}</span>`,
-        `<span class="chip">配置主控节点：${escapeHtml(cluster.leaderServerId || "-")}</span>`,
-        `<span class="chip">当前访问节点：${escapeHtml(localServerId)}</span>`,
-        `<span class="chip">当前节点角色：${escapeHtml(localRole)}</span>`,
-        `<span class="chip">心跳间隔：${escapeHtml(cluster.heartbeatSeconds ?? "-")} 秒</span>`,
-        `<span class="chip">租约时间：${escapeHtml(cluster.leaseSeconds ?? "-")} 秒</span>`,
-        `<span class="chip">当前节点已登记：${localRegistered ? "是" : "否"}</span>`,
-        `<span class="chip">成员数：${members.length}</span>`,
-        `<span class="chip">集群更新时间：${escapeHtml(formatTime(cluster.updatedAt))}</span>`
-      ].join("");
-      document.getElementById("clusterMembers").innerHTML = members.map(member => {
-        const isLocal = String(member.serverId || "").toLowerCase() === String(localServerId || "").toLowerCase();
-        const roleText = member.leader ? "主控节点" : "受管节点";
-        const roleBadge = member.leader ? `<span class="chip good">主控节点</span>` : `<span class="chip">受管节点</span>`;
-        const localBadge = isLocal ? `<span class="chip">当前访问节点</span>` : "";
-        return `<div class="info-card${member.leader ? " highlight" : ""}"><div class="panel-header" style="margin-bottom:8px"><div><strong>${escapeHtml(member.serverId || "-")}</strong><div class="small">${isLocal ? "当前访问节点" : "集群成员节点"}</div></div><div class="chips">${roleBadge}${localBadge}</div></div><div class="kv"><span class="small">面板角色</span><span>${escapeHtml(roleText)}</span></div><div class="kv"><span class="small">监听地址</span><span>${escapeHtml(member.host || "-")}:${escapeHtml(member.port ?? "-")}</span></div><div class="kv"><span class="small">最近上报</span><span>${escapeHtml(formatTime(member.advertisedAt))}</span></div></div>`;
-      }).join("") || `<div class="info-card muted">${escapeHtml(t('emptyPanelMembers'))}</div>`;
-      const nodes = (Array.isArray(status.nodes) ? status.nodes : []).filter(node => {
-        const keyword = state.filters.dashboardNodes;
-        return includesFilter(node.serverId, keyword) || includesFilter(node.cluster, keyword) || includesFilter(node.status, keyword);
-      });
-      document.getElementById("nodesBody").innerHTML = nodes.map(node => {
-        const cls = node.status === "online" ? "good" : "bad";
-        return `<tr><td><strong>${escapeHtml(node.serverId)}</strong><div class="small">${escapeHtml(node.cluster || "-")}</div></td><td class="${cls}">${escapeHtml(node.status || "-")}</td><td>${escapeHtml(formatTime(node.lastSeen || node.updatedAt))}</td><td>${escapeHtml(node.latencyMillis ?? "-")} ms</td></tr>`;
-      }).join("") || `<tr><td colspan="4" class="muted">${escapeHtml(t('emptyNodes'))}</td></tr>`;
-    }
-
-    function renderModules(modules) {
-      const history = Array.isArray(modules.history) ? modules.history : [];
-      document.getElementById("modulesBody").innerHTML = moduleKeys.map(key => {
-        const local = modules.local?.[key];
-        const shared = modules.shared?.[key];
-        const effective = modules.effective?.[key];
-        return `
-          <tr>
-            <td><strong>${escapeHtml(moduleName(key))}</strong><div class="small">${escapeHtml(key)}</div></td>
-            <td>
-              <div class="module-badges">
-                <span class="chip">${escapeHtml(t('localOnly'))}${escapeHtml(boolText(local))}</span>
-                <span class="chip">${escapeHtml(t('sharedOnly'))}${escapeHtml(boolText(shared))}</span>
-                <span class="chip ${effective ? "good" : "bad"}">${escapeHtml(t('effectiveState'))}${escapeHtml(boolText(effective))}</span>
-              </div>
-            </td>
-            <td>
-              <div class="module-control">
-                <button class="${moduleChoiceClass("true", shared === true)}" data-module-key="${escapeHtml(key)}" data-module-mode="true">${escapeHtml(t('forceEnable'))}</button>
-                <button class="${moduleChoiceClass("false", shared === false)}" data-module-key="${escapeHtml(key)}" data-module-mode="false">${escapeHtml(t('forceDisable'))}</button>
-                <button class="${moduleChoiceClass("clear", shared === null || shared === undefined)}" data-module-key="${escapeHtml(key)}" data-module-mode="clear">${escapeHtml(t('followLocal'))}</button>
-              </div>
-            </td>
-          </tr>`;
-      }).join("");
-      const historyBox = document.getElementById("modulesHistory");
-      if (historyBox) {
-        historyBox.innerHTML = history.length ? `<details><summary>查看最近模块变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th><th>操作</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td><td><div class="actions"><button type="button" class="secondary" data-history-view="modules" data-history-version="${escapeHtml(item.version ?? "")}">查看详情</button><button type="button" class="warn" data-history-rollback="modules" data-history-version="${escapeHtml(item.version ?? "")}">回滚</button></div></td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无模块变更历史。</div>`;
-      }
-    }
-
-    function renderRoutes(routes) {
-      const entries = (Array.isArray(routes.entries) ? routes.entries : []).filter(entry => {
-        const keyword = state.filters.routes;
-        return includesFilter(entry.serverId, keyword) || includesFilter(entry.localTarget, keyword) || includesFilter(entry.sharedTarget, keyword) || includesFilter(entry.effectiveTarget, keyword) || includesFilter(entry.source, keyword);
-      });
-      document.getElementById("routesBody").innerHTML = entries.map(entry => {
-        const serverId = String(entry.serverId || "");
-        const safeServerId = escapeHtml(serverId);
-        const safeLocalTarget = escapeHtml(entry.localTarget || "-");
-        const safeSharedTarget = escapeHtml(entry.sharedTarget || "-");
-        const safeEffectiveTarget = escapeHtml(entry.effectiveTarget || "-");
-        const safeSource = escapeHtml(entry.source || "-");
-        const actions = entry.sharedTarget
-          ? `<button class="danger" data-route-delete="${safeServerId}">删除共享覆盖</button>`
-          : "";
-        const editButton = `<button class="secondary" data-route-edit="${safeServerId}" data-route-target="${escapeHtml(entry.sharedTarget || entry.effectiveTarget || "")}">编辑</button>`;
-        return `<tr><td><strong>${safeServerId}</strong></td><td>${safeLocalTarget}</td><td>${safeSharedTarget}</td><td>${safeEffectiveTarget}</td><td>${safeSource}</td><td><div class="actions">${editButton}${actions}</div></td></tr>`;
-      }).join("") || `<tr><td colspan="6" class="muted">${escapeHtml(t('emptyRoutes'))}</td></tr>`;
-      document.getElementById("routesBulkInput").value = JSON.stringify({ routes: routes.shared || {} }, null, 2);
-      const history = Array.isArray(routes.history) ? routes.history : [];
-      const historyBox = document.getElementById("routesHistory");
-      if (historyBox) {
-        historyBox.innerHTML = history.length ? `<details><summary>查看最近路由变更 (${history.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>摘要</th><th>操作</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.summary || "-")}</td><td><div class="actions"><button type="button" class="secondary" data-history-view="routes" data-history-version="${escapeHtml(item.version ?? "")}">查看详情</button><button type="button" class="warn" data-history-rollback="routes" data-history-version="${escapeHtml(item.version ?? "")}">回滚</button></div></td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无路由变更历史。</div>`;
-      }
-    }
-
-    function renderDocuments(documents) {
-      document.getElementById("documentsList").innerHTML = (documents || []).filter(doc => {
-        const keyword = state.filters.documents;
-        return includesFilter(doc.namespace, keyword) || includesFilter(doc.dataKey, keyword) || includesFilter(doc.title, keyword) || includesFilter(doc.summary, keyword);
-      }).map((doc, index) => {
-        const history = Array.isArray(doc.history) ? doc.history : [];
-        const schema = doc.schemaDefinition || null;
-        return `
-        <div class="document-card">
-          <div class="panel-header" style="margin-bottom:6px;">
-            <div>
-              <strong>${escapeHtml(doc.title || `${doc.namespace}/${doc.dataKey}`)}</strong>
-              <div class="small">${escapeHtml(doc.namespace)}/${escapeHtml(doc.dataKey)}</div>
-            </div>
-            <button class="secondary" data-doc-toggle="${index}">展开内容</button>
-          </div>
-          <div class="document-purpose">${escapeHtml(doc.purpose || "暂无说明")}</div>
-          ${schema ? `<div class="banner">Schema：<strong>${escapeHtml(schema.name || "未命名规则")}</strong> · v${escapeHtml(schema.version ?? "-")}<br>${escapeHtml(schema.description || "此文档启用了服务端字段约束校验。")}</div>` : `<div class="banner">当前文档未注册显式 schema 规则，保存时只做格式校验，不做字段级约束。</div>`}
-          <div class="document-meta">
-            <div class="info-card"><div class="small">当前状态</div><strong>${doc.present ? "已存在" : "未写入"}</strong></div>
-            <div class="info-card"><div class="small">版本号</div><strong>${escapeHtml(doc.version ?? "-")}</strong></div>
-            <div class="info-card"><div class="small">Schema 版本</div><strong>${escapeHtml(doc.schemaVersion ?? "-")}</strong></div>
-            <div class="info-card"><div class="small">最近更新</div><strong>${escapeHtml(formatTime(doc.updatedAt))}</strong></div>
-          </div>
-          <div class="chips" style="margin-top:12px;">
-            <span class="chip">更新人：${escapeHtml(doc.updatedBy || "-")}</span>
-            <span class="chip">来源：${escapeHtml(doc.source || "-")}</span>
-            <span class="chip">内容格式：${escapeHtml(formatPayloadType(doc.payloadType))}</span>
-          </div>
-          <div class="small" style="margin-top:10px">${escapeHtml(doc.summary || "暂无摘要")}</div>
-          <div class="payload-toolbar">
-            <span class="payload-label">可直接编辑 JSON / YAML payload、schema/source/summary，并保存回配置中心。</span>
-            <button type="button" class="secondary" data-doc-fill="${index}">填入当前内容</button>
-          </div>
-          <div id="payload-${index}" class="payload-block">
-            <form class="stack" data-doc-form="${index}" data-doc-namespace="${escapeHtml(doc.namespace)}" data-doc-key="${escapeHtml(doc.dataKey)}">
-              <div class="field-grid">
-                ${fieldCard(`schemaVersion`, inputHtml("number", `schemaVersion-${index}`, doc.schemaVersion ?? 1, "1", 'min="1" step="1"'), "Schema 版本")}
-                ${fieldCard(`source`, inputHtml("text", `source-${index}`, doc.source || "web-panel", "web-panel"), "来源标识")}
-              </div>
-              ${fieldCard(`summary`, inputHtml("text", `summary-${index}`, doc.summary || "", "本次变更摘要"), "变更摘要")}
-              <div>
-                <label>payload (${escapeHtml(formatPayloadType(doc.payloadType))})</label>
-                <textarea name="payload-${index}" data-doc-payload="${index}" placeholder='{"enabled":true}
-
-enabled: true'>${escapeHtml(doc.payloadPretty || doc.payload || "")}</textarea>
-              </div>
-              ${schema ? `<div class="info-card"><strong>Schema 约束</strong><div class="small" style="margin-top:6px">必填字段：${escapeHtml((schema.requiredPaths || []).join(", ") || "无")}</div><div class="small" style="margin-top:4px">字段类型：${escapeHtml(Object.entries(schema.fieldTypes || {}).map(([k, v]) => `${k}: ${v}`).join("；") || "无")}</div></div>` : ""}
-              <div class="risk-banner">风险提示：保存配置文档会立即写入共享配置中心，并可能触发其他节点或其他插件的配置热更新逻辑。</div>
-              <div class="actions">
-                <button type="submit" class="warn">保存文档</button>
-              </div>
-            </form>
-              <details>
-              <summary>查看最近历史记录 (${history.length})</summary>
-              ${history.length ? `<table><thead><tr><th>版本</th><th>时间</th><th>更新人</th><th>来源</th><th>摘要</th><th>操作</th></tr></thead><tbody>${history.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt))}</td><td>${escapeHtml(item.updatedBy || "-")}</td><td>${escapeHtml(item.source || "-")}</td><td>${escapeHtml(item.summary || "-")}</td><td><div class="actions"><button type="button" class="secondary" data-history-view="document" data-doc-namespace="${escapeHtml(doc.namespace)}" data-doc-key="${escapeHtml(doc.dataKey)}" data-history-version="${escapeHtml(item.version ?? "")}">查看详情</button><button type="button" class="warn" data-history-rollback="document" data-doc-namespace="${escapeHtml(doc.namespace)}" data-doc-key="${escapeHtml(doc.dataKey)}" data-history-version="${escapeHtml(item.version ?? "")}">回滚</button></div></td></tr>`).join("")}</tbody></table>` : `<div class="empty-state">暂无历史记录。保存一次后，这里会显示最近 20 次变更。</div>`}
-            </details>
-          </div>
-        </div>`;
-      }).join("") || `<div class="empty-state">${escapeHtml(t('emptyDocuments'))}</div>`;
-    }
-
-    function renderRecentTransfers(entries) {
-      document.getElementById("recentTransfersBody").innerHTML = (entries || []).map(entry => `<tr><td>${escapeHtml(formatTime(entry.createdAt))}</td><td><strong>${escapeHtml(entry.playerName || "-")}</strong></td><td>${escapeHtml(entry.sourceServerId || "-")}</td><td>${escapeHtml(entry.targetServerId || "-")}</td><td>${escapeHtml(entry.eventType || "-")}</td><td>${escapeHtml(entry.status || "-")}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">${escapeHtml(t('emptyTransferHistory'))}</td></tr>`;
-    }
-
-    function renderLogs(logs) {
-      const servers = (Array.isArray(logs.servers) ? logs.servers : []).filter(server => includesFilter(server.serverId, state.filters.logsServer));
-      document.getElementById("logsSummary").innerHTML = [
-        `<span class="chip">本地节点：${escapeHtml(logs.localServerId || "-")}</span>`,
-        `<span class="chip">日志节点数：${servers.length}</span>`,
-        `<span class="chip">最近刷新：${escapeHtml(formatTime(logs.updatedAt))}</span>`
-      ].join("");
-      document.getElementById("logsList").innerHTML = servers.map(server => {
-        const entries = (Array.isArray(server.entries) ? server.entries : []).filter(entry => includesFilter(entry.level, state.filters.logsKeyword) || includesFilter(entry.message, state.filters.logsKeyword));
-        const blocks = entries.map(entry => `<tr><td>${escapeHtml(formatTime(entry.occurredAt))}</td><td>${escapeHtml(entry.level || "-")}</td><td>${escapeHtml(entry.message || "-")}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">暂无同步日志</td></tr>`;
-        return `<div class="info-card${server.local ? " highlight" : ""}"><div class="panel-header" style="margin-bottom:8px"><div><strong>${escapeHtml(server.serverId || "-")}</strong><div class="small">${server.local ? "当前节点" : "集群节点"}</div></div><div class="chips"><span class="chip">日志条数：${escapeHtml(server.entryCount ?? 0)}</span><span class="chip">最近同步：${escapeHtml(formatTime(server.updatedAt))}</span></div></div><table><thead><tr><th>时间</th><th>级别</th><th>内容</th></tr></thead><tbody>${blocks}</tbody></table></div>`;
-      }).join("") || `<div class="info-card muted">暂无已同步日志</div>`;
-    }
-
-    function applyStatusText(status) {
-      const labels = { pending: "等待应用", applying: "正在写入", applied: "已应用", failed: "应用失败" };
-      if (!status) return "未提交";
-      return labels[String(status).toLowerCase()] || String(status);
-    }
-    function applyStatusClass(status) {
-      const normalized = String(status || "").toLowerCase();
-      if (normalized === "applied") return "good";
-      if (normalized === "failed") return "bad";
-      return "";
-    }
-    function nodeStatusText(nodeStatus) {
-      const normalized = String(nodeStatus?.status || "").toLowerCase();
-      if (normalized === "online") return "在线";
-      if (normalized === "offline") return "离线";
-      return "未知";
-    }
-    function nodeStatusClass(nodeStatus) {
-      const normalized = String(nodeStatus?.status || "").toLowerCase();
-      if (normalized === "online") return "good";
-      if (normalized === "offline") return "bad";
-      return "";
-    }
-    function sameServerId(left, right) {
-      return String(left || "").toLowerCase() === String(right || "").toLowerCase();
-    }
-    function booleanSelectHtml(name, value) {
-      const normalized = value === true ? "true" : value === false ? "false" : "";
-      return `<select name="${escapeHtml(name)}">${booleanOptions.map(option => `<option value="${escapeHtml(option.value)}"${normalized === option.value ? " selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select>`;
-    }
-    function inputHtml(type, name, value, placeholder = "", extra = "") {
-      return `<input type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(value ?? "")}" placeholder="${escapeHtml(placeholder)}"${extra ? ` ${extra}` : ""}>`;
-    }
-    function fieldCard(label, control, helper = "") {
-      return `<div class="field-card"><label>${escapeHtml(label)}</label>${control}${helper ? `<div class="small">${escapeHtml(helper)}</div>` : ""}</div>`;
-    }
-    function renderNodeConfigs(nodeConfigs) {
-      const nodes = (Array.isArray(nodeConfigs.nodes) ? nodeConfigs.nodes : []).filter(node => {
-        const keyword = state.filters.nodeConfigs;
-        return includesFilter(node.serverId, keyword) || includesFilter(node.nodeStatus?.status, keyword) || includesFilter(node.latestApply?.resultMessage, keyword) || includesFilter(node.latestApply?.status, keyword);
-      });
-      const onlineCount = nodes.filter(node => String(node.nodeStatus?.status || "").toLowerCase() === "online").length;
-      const snapshotCount = nodes.filter(node => node.hasSnapshot).length;
-      document.getElementById("nodeConfigsSummary").innerHTML = [
-        `<span class="chip">本地节点：${escapeHtml(nodeConfigs.localServerId || "-")}</span>`,
-        `<span class="chip">节点数：${nodes.length}</span>`,
-        `<span class="chip">在线节点：${onlineCount}</span>`,
-        `<span class="chip">已上报配置快照：${snapshotCount}</span>`,
-        `<span class="chip">最近刷新：${escapeHtml(formatTime(nodeConfigs.updatedAt))}</span>`
-      ].join("");
-      document.getElementById("nodeConfigsBody").innerHTML = nodes.map(node => {
-        const selected = sameServerId(state.selectedNodeConfigServerId, node.serverId);
-        const latestApply = node.latestApply || null;
-        const snapshot = node.snapshot || null;
-        return `<tr><td><strong>${escapeHtml(node.serverId || "-")}</strong><div class="small">${node.local ? "当前节点" : escapeHtml(node.nodeStatus?.cluster || "集群节点")}</div></td><td><span class="chip ${nodeStatusClass(node.nodeStatus)}">${escapeHtml(nodeStatusText(node.nodeStatus))}</span><div class="small">最后心跳：${escapeHtml(formatTime(node.nodeStatus?.lastSeen || node.nodeStatus?.updatedAt))}</div></td><td><span class="chip ${node.hasSnapshot ? "good" : ""}">${node.hasSnapshot ? "已上报" : "未上报"}</span><div class="small">${escapeHtml(snapshot?.capturedAt ? `捕获于 ${formatTime(snapshot.capturedAt)}` : "等待目标节点同步")}</div></td><td><span class="chip ${applyStatusClass(latestApply?.status)}">${escapeHtml(applyStatusText(latestApply?.status))}</span><div class="small">${escapeHtml(latestApply?.resultMessage || "暂无申请记录")}</div></td><td><button class="${selected ? "" : "secondary"}" data-node-config-open="${escapeHtml(node.serverId || "")}">${selected ? "当前查看" : "查看详情"}</button></td></tr>`;
-      }).join("") || `<tr><td colspan="5" class="muted">暂无节点配置数据</td></tr>`;
-    }
-    function renderNodeConfigDetail(detail) {
-      const intro = document.getElementById("nodeConfigDetailIntro");
-      const meta = document.getElementById("nodeConfigDetailMeta");
-      const status = document.getElementById("nodeConfigDetailStatus");
-      const form = document.getElementById("nodeConfigDetailForm");
-      const raw = document.getElementById("nodeConfigDetailRaw");
-      if (!detail || !detail.serverId) {
-        state.nodeConfigDetail = null;
-        intro.innerHTML = "请选择一个节点查看详情并编辑白名单字段。";
-        meta.innerHTML = "";
-        status.innerHTML = "";
-        form.innerHTML = "";
-        raw.innerHTML = "";
-        return;
-      }
-      state.nodeConfigDetail = detail;
-      const snapshot = detail.snapshot || null;
-      const latestApply = detail.latestApply || null;
-      const applyHistory = Array.isArray(detail.applyHistory) ? detail.applyHistory : [];
-      const editableConfig = snapshot?.editableConfig || {};
-      const messaging = editableConfig.messaging || {};
-      const webPanel = editableConfig.webPanel || {};
-      const modules = editableConfig.modules || {};
-      intro.innerHTML = `当前正在查看 <strong>${escapeHtml(detail.serverId)}</strong> 的节点配置。${snapshot ? "修改后会提交到目标节点本地写回 config.yml。" : "该节点暂未上报配置快照，请等待其完成同步。"}`;
-      meta.innerHTML = [
-        `<span class="chip">节点：${escapeHtml(detail.serverId)}</span>`,
-        `<span class="chip ${nodeStatusClass(detail.nodeStatus)}">节点状态：${escapeHtml(nodeStatusText(detail.nodeStatus))}</span>`,
-        `<span class="chip">本地节点：${detail.local ? "是" : "否"}</span>`,
-        `<span class="chip ${snapshot ? "good" : ""}">配置快照：${snapshot ? "已上报" : "未上报"}</span>`,
-        `<span class="chip ${applyStatusClass(latestApply?.status)}">最近申请：${escapeHtml(applyStatusText(latestApply?.status))}</span>`
-      ].join("");
-      status.innerHTML = [
-        renderKeyValues([
-          ["节点状态", nodeStatusText(detail.nodeStatus)],
-          ["集群", detail.nodeStatus?.cluster || "-"],
-          ["最后心跳", formatTime(detail.nodeStatus?.lastSeen || detail.nodeStatus?.updatedAt)],
-          ["延迟", detail.nodeStatus?.latencyMillis !== undefined && detail.nodeStatus?.latencyMillis !== null ? `${detail.nodeStatus.latencyMillis} ms` : "-"]
-        ], detail.local),
-        renderKeyValues([
-          ["申请状态", applyStatusText(latestApply?.status)],
-          ["申请人", latestApply?.requestedBy || "-"],
-          ["申请时间", formatTime(latestApply?.requestedAt)],
-          ["结果", latestApply?.resultMessage || "暂无申请记录"]
-        ]),
-        renderKeyValues([
-          ["快照时间", formatTime(snapshot?.capturedAt)],
-          ["快照更新人", snapshot?.updatedBy || "-"],
-          ["快照摘要", snapshot?.summary || "-"],
-          ["Web Token", webPanel.tokenConfigured ? "已配置" : "未配置"]
-        ])
-      ].join("");
-      if (!snapshot) {
-        form.innerHTML = `<div class="info-card muted">暂无配置快照。请等待目标节点启动并完成一次同步后再试。</div>`;
-        raw.innerHTML = `<details><summary>查看当前节点原始数据</summary><pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre></details>`;
-        return;
-      }
-      form.innerHTML = `
-        <form id="nodeConfigApplyForm" data-server-id="${escapeHtml(detail.serverId)}" class="stack">
-          <div class="panel-header" style="margin-bottom:0">
-            <div>
-              <strong>编辑白名单字段</strong>
-              <div class="small">token 留空表示保持原值不变。提交后由目标节点本地写回并排队重载。</div>
-            </div>
-            <button type="submit">提交到目标节点</button>
-          </div>
-          <div class="field-grid">
-            ${fieldCard("messaging.enabled", booleanSelectHtml("messaging.enabled", messaging.enabled), `当前：${boolText(messaging.enabled)}`)}
-            ${fieldCard("messaging.redisUri", inputHtml("text", "messaging.redisUri", messaging.redisUri, "redis://127.0.0.1:6379/0"), "Redis 连接串")}
-            ${fieldCard("messaging.channel", inputHtml("text", "messaging.channel", messaging.channel, "crossserver"), "跨服消息频道")}
-            ${fieldCard("webPanel.enabled", booleanSelectHtml("webPanel.enabled", webPanel.enabled), `当前：${boolText(webPanel.enabled)}`)}
-            ${fieldCard("webPanel.host", inputHtml("text", "webPanel.host", webPanel.host, "127.0.0.1"), "Web 面板监听地址")}
-            ${fieldCard("webPanel.port", inputHtml("number", "webPanel.port", webPanel.port, "8765", 'min="1" max="65535" step="1"'), "Web 面板端口")}
-            ${fieldCard("webPanel.masterServerId", inputHtml("text", "webPanel.masterServerId", webPanel.masterServerId, "lobby"), "主控节点 serverId")}
-            ${fieldCard("webPanel.token", inputHtml("password", "webPanel.token", "", "留空表示不修改", 'autocomplete="new-password"'), webPanel.tokenConfigured ? "当前已配置 token，留空表示保持不变" : "当前未配置 token")}
-          </div>
-          <div class="field-grid">
-            ${moduleKeys.map(key => fieldCard(`modules.${key}`, booleanSelectHtml(`modules.${key}`, modules[key]), `${moduleName(key)}模块`)).join("")}
-          </div>
-        </form>`;
-      raw.innerHTML = `${applyHistory.length ? `<details><summary>查看最近申请历史 (${applyHistory.length})</summary><table><thead><tr><th>版本</th><th>时间</th><th>申请人</th><th>状态</th><th>结果</th></tr></thead><tbody>${applyHistory.map(item => `<tr><td>${escapeHtml(item.version ?? "-")}</td><td>${escapeHtml(formatTime(item.updatedAt || item.requestedAt))}</td><td>${escapeHtml(item.updatedBy || item.requestedBy || "-")}</td><td>${escapeHtml(applyStatusText(item.status))}</td><td>${escapeHtml(item.summary || item.resultMessage || "-")}</td></tr>`).join("")}</tbody></table></details>` : `<div class="empty-state">暂无节点配置申请历史。</div>`}<details><summary>查看当前节点原始数据</summary><pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre></details>`;
-    }
-    function formValue(form, name) {
-      return String(form.elements.namedItem(name)?.value ?? "").trim();
-    }
-    function requiredFormValue(form, name) {
-      const value = formValue(form, name);
-      if (!value) {
-        throw new Error(`${name} 不能为空`);
-      }
-      return value;
-    }
-    function formBooleanValue(form, name) {
-      return requiredFormValue(form, name) === "true";
-    }
-    function formPortValue(form, name) {
-      const raw = requiredFormValue(form, name);
-      const value = Number(raw);
-      if (!Number.isInteger(value) || value < 1 || value > 65535) {
-        throw new Error(`${name} 必须在 1-65535 之间`);
-      }
-      return value;
-    }
-    function collectNodeConfigChanges(form) {
-      const changes = {
-        messaging: {
-          enabled: formBooleanValue(form, "messaging.enabled"),
-          redisUri: requiredFormValue(form, "messaging.redisUri"),
-          channel: requiredFormValue(form, "messaging.channel")
-        },
-        webPanel: {
-          enabled: formBooleanValue(form, "webPanel.enabled"),
-          host: requiredFormValue(form, "webPanel.host"),
-          port: formPortValue(form, "webPanel.port"),
-          masterServerId: requiredFormValue(form, "webPanel.masterServerId")
-        },
-        modules: {}
-      };
-      const token = formValue(form, "webPanel.token");
-      if (token) {
-        changes.webPanel.token = token;
-      }
-      moduleKeys.forEach(key => {
-        changes.modules[key] = formBooleanValue(form, `modules.${key}`);
-      });
-      return changes;
-    }
-    async function reloadNodeConfigs(preserveSelection = true) {
-      const data = await api("/api/node-configs");
-      if (state.overview) state.overview.nodeConfigs = data;
-      renderNodeConfigs(data);
-      const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-      const preferredServerId = preserveSelection ? state.selectedNodeConfigServerId : null;
-      const selectedNode = nodes.find(node => sameServerId(node.serverId, preferredServerId))
-        || nodes.find(node => sameServerId(node.serverId, data.localServerId))
-        || nodes[0]
-        || null;
-      state.selectedNodeConfigServerId = selectedNode?.serverId || null;
-      renderNodeConfigDetail(selectedNode);
-      return data;
-    }
-    async function openNodeConfig(serverId) {
-      if (!serverId) return;
-      state.selectedNodeConfigServerId = serverId;
-      if (state.overview?.nodeConfigs) {
-        renderNodeConfigs(state.overview.nodeConfigs);
-      }
-      const detail = await api(`/api/node-configs/detail?serverId=${encodeURIComponent(serverId)}`);
-      renderNodeConfigDetail(detail);
-    }
-
-    async function loadOverview() {
-      clearMessage(authMessage);
-      const overview = await api("/api/overview");
-      state.overview = overview;
-      renderStatus(overview.status || {});
-      renderModules(overview.modules || {});
-      renderRoutes(overview.routes || {});
-      renderDocuments(overview.documents || []);
-      renderLogs(overview.logs || {});
-      renderRecentTransfers(overview.recentTransfers || []);
-      const nodeConfigs = overview.nodeConfigs || {};
-      renderNodeConfigs(nodeConfigs);
-      const nodes = Array.isArray(nodeConfigs.nodes) ? nodeConfigs.nodes : [];
-      const selectedNode = nodes.find(node => sameServerId(node.serverId, state.selectedNodeConfigServerId))
-        || nodes.find(node => sameServerId(node.serverId, nodeConfigs.localServerId))
-        || nodes[0]
-        || null;
-      state.selectedNodeConfigServerId = selectedNode?.serverId || null;
-      renderNodeConfigDetail(selectedNode);
-      return overview;
-    }
-    function reportGlobalError(error) {
-      const box = document.getElementById("globalMessage");
-      if (!box) return;
-      const status = error && error.status ? ` (HTTP ${error.status})` : "";
-      setMessage(box, "error", t('requestFailed').replace('%s', status).replace('%s', error.message || 'unknown error'));
-    }
-    async function reloadModules() {
-      const data = await api("/api/modules");
-      if (state.overview) state.overview.modules = data;
-      renderModules(data);
-    }
-    async function reloadRoutes() {
-      const data = await api("/api/routes");
-      if (state.overview) state.overview.routes = data;
-      renderRoutes(data);
-    }
-    async function reloadLogs() {
-      const data = await api("/api/logs");
-      if (state.overview) state.overview.logs = data;
-      renderLogs(data);
-    }
-    async function reloadDocuments() {
-      const data = await api("/api/config-documents");
-      if (state.overview) state.overview.documents = data;
-      renderDocuments(data);
-      return data;
-    }
-
-    window.setModuleState = async function(key, mode) {
-      const box = document.getElementById("modulesMessage");
-      try {
-        const value = mode === "clear" ? null : mode === "true";
-        const data = await api("/api/modules", { method: "PUT", body: JSON.stringify({ [key]: value }) });
-        if (state.overview) state.overview.modules = data;
-        renderModules(data);
-        const label = mode === "clear" ? "跟随本地" : mode === "true" ? "强制开启" : "强制关闭";
-        setMessage(box, "success", `已更新共享模块覆盖：${key} -> ${label}`);
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    };
-    window.prefillRoute = function(serverId, target) {
-      document.getElementById("routeServerIdInput").value = serverId;
-      document.getElementById("routeProxyTargetInput").value = target;
-    };
-    window.deleteRoute = async function(serverId) {
-      const box = document.getElementById("routesMessage");
-      if (!(await askConfirm("删除共享路由", `确认删除共享路由覆盖 ${serverId}？该操作会影响跨服路由解析。`, "确认删除"))) return;
-      try {
-        const data = await api(`/api/routes?serverId=${encodeURIComponent(serverId)}`, { method: "DELETE" });
-        await reloadRoutes();
-        setMessage(box, "success", data.removed ? `已删除共享路由覆盖：${serverId}` : `共享路由中不存在：${serverId}`);
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    };
-    window.togglePayload = function(index) {
-      const box = document.getElementById(`payload-${index}`);
-      if (!box) return;
-      box.classList.toggle("show");
-    };
-
-    document.getElementById("modulesBody").addEventListener("click", event => {
-      const button = event.target.closest("button[data-module-key][data-module-mode]");
-      if (!button) return;
-      setModuleState(button.dataset.moduleKey || "", button.dataset.moduleMode || "clear");
-    });
-    document.getElementById("routesBody").addEventListener("click", event => {
-      const editButton = event.target.closest("button[data-route-edit]");
-      if (editButton) {
-        prefillRoute(editButton.dataset.routeEdit || "", editButton.dataset.routeTarget || "");
-        return;
-      }
-      const deleteButton = event.target.closest("button[data-route-delete]");
-      if (deleteButton) {
-        deleteRoute(deleteButton.dataset.routeDelete || "");
-      }
-    });
-    document.getElementById("documentsList").addEventListener("click", event => {
-      const button = event.target.closest("button[data-doc-toggle]");
-      if (button) {
-        togglePayload(button.dataset.docToggle);
-        button.textContent = document.getElementById(`payload-${button.dataset.docToggle}`)?.classList.contains("show") ? "收起内容" : "展开内容";
-        return;
-      }
-      const fillButton = event.target.closest("button[data-doc-fill]");
-      if (fillButton) {
-        const index = fillButton.dataset.docFill;
-        const doc = Array.isArray(state.overview?.documents) ? state.overview.documents[Number(index)] : null;
-        const textarea = document.querySelector(`textarea[data-doc-payload="${index}"]`);
-        if (!doc || !textarea) return;
-        textarea.value = doc.payloadPretty || doc.payload || "";
-        return;
-      }
-      const viewButton = event.target.closest("button[data-history-view]");
-      if (viewButton) {
-        const type = viewButton.dataset.historyView;
-        const version = Number(viewButton.dataset.historyVersion || "0");
-        const namespace = viewButton.dataset.docNamespace || "";
-        const dataKey = viewButton.dataset.docKey || "";
-        let item = null;
-        if (type === "document") {
-          const doc = (state.overview?.documents || []).find(entry => entry.namespace === namespace && entry.dataKey === dataKey);
-          item = (doc?.history || []).find(entry => Number(entry.version) === version) || null;
-        } else if (type === "modules") {
-          item = (state.overview?.modules?.history || []).find(entry => Number(entry.version) === version) || null;
-        } else if (type === "routes") {
-          item = (state.overview?.routes?.history || []).find(entry => Number(entry.version) === version) || null;
-        }
-        if (!item) return;
-        askConfirm(`历史详情 · ${type} · v${version}`, diffText(item.payload || "-", item.payload || "-"), "关闭").then(() => {});
-        return;
-      }
-      const rollbackButton = event.target.closest("button[data-history-rollback]");
-      if (!rollbackButton) return;
-      const type = rollbackButton.dataset.historyRollback;
-      const version = Number(rollbackButton.dataset.historyVersion || "0");
-      const namespace = rollbackButton.dataset.docNamespace || "";
-      const dataKey = rollbackButton.dataset.docKey || "";
-      (async () => {
-        const box = document.getElementById("documentsMessage");
-        const ok = await askConfirm("确认回滚", `确认回滚 ${type} 到历史版本 ${version} 吗？该操作会生成一个新的当前版本。`, "确认回滚");
-        if (!ok) return;
-        try {
-          if (type === "document") {
-            await api("/api/config-documents", { method: "POST", body: JSON.stringify({ namespace, dataKey, version }) });
-            await reloadDocuments();
-          } else if (type === "modules") {
-            await api("/api/modules", { method: "POST", body: JSON.stringify({ version }) });
-            await reloadModules();
-          } else if (type === "routes") {
-            await api("/api/routes", { method: "POST", body: JSON.stringify({ version }) });
-            await reloadRoutes();
-          }
-          setMessage(box, "success", `已回滚 ${type} 到历史版本 ${version}`);
-        } catch (error) {
-          setMessage(box, "error", error.message);
-          reportGlobalError(error);
-        }
-      })();
-    });
-    document.getElementById("documentsList").addEventListener("submit", async event => {
-      const form = event.target.closest("form[data-doc-form]");
-      if (!form) return;
-      event.preventDefault();
-      const box = document.getElementById("documentsMessage");
-      try {
-        const index = form.dataset.docForm;
-        const payloadField = form.querySelector(`textarea[data-doc-payload="${index}"]`);
-        const schemaField = form.elements.namedItem(`schemaVersion-${index}`);
-        const sourceField = form.elements.namedItem(`source-${index}`);
-        const summaryField = form.elements.namedItem(`summary-${index}`);
-        const namespace = form.dataset.docNamespace || "";
-        const dataKey = form.dataset.docKey || "";
-        const payload = String(payloadField?.value || "").trim();
-        const schemaVersion = Number(String(schemaField?.value || "1").trim());
-        const source = String(sourceField?.value || "").trim();
-        const summary = String(summaryField?.value || "").trim();
-        if (!namespace || !dataKey) throw new Error("缺少配置文档标识");
-        if (!payload) throw new Error("payload 不能为空");
-        if (!Number.isInteger(schemaVersion) || schemaVersion < 1) throw new Error("schemaVersion 必须是大于等于 1 的整数");
-        if (!(await askConfirm("保存配置文档", `确认保存配置文档 ${namespace}/${dataKey} 吗？这可能会立即影响其他节点或其他插件的运行配置。`, "确认保存"))) return;
-        await api("/api/config-documents", {
-          method: "PUT",
-          body: JSON.stringify({ namespace, dataKey, payload, schemaVersion, source, summary })
-        });
-        await reloadDocuments();
-        setMessage(box, "success", `已保存配置文档：${namespace}/${dataKey}`);
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("nodeConfigsBody").addEventListener("click", async event => {
-      const button = event.target.closest("button[data-node-config-open]");
-      if (!button) return;
-      const box = document.getElementById("nodeConfigsMessage");
-      try {
-        clearMessage(box);
-        await openNodeConfig(button.dataset.nodeConfigOpen || "");
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("nodeConfigDetailForm").addEventListener("submit", async event => {
-      const form = event.target.closest("form#nodeConfigApplyForm");
-      if (!form) return;
-      event.preventDefault();
-      const box = document.getElementById("nodeConfigsMessage");
-      try {
-        const serverId = form.dataset.serverId || state.selectedNodeConfigServerId || "";
-        if (!serverId) throw new Error("缺少目标节点 serverId");
-        const changes = collectNodeConfigChanges(form);
-        if (!(await askConfirm("提交节点配置申请", `确认向节点 ${serverId} 提交配置写回申请吗？目标节点会写回本地 config.yml 并排队重载。`, "确认提交"))) return;
-        const result = await api("/api/node-configs/apply", { method: "POST", body: JSON.stringify({ serverId, changes }) });
-        setMessage(box, "success", `已提交节点配置申请：${serverId} · ${applyStatusText(result.status)} · 请求 ID ${result.requestId || "-"}`);
-        await reloadNodeConfigs(true);
-        await openNodeConfig(serverId);
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-
-    switchTab(window.location.hash.replace("#", "") || "dashboard", false);
-
-    async function searchPlayerTransfer() {
-      const name = document.getElementById("playerSearchInput").value.trim();
-      const target = document.getElementById("playerTransferResult");
-      if (!name) {
-        target.innerHTML = `<div class="message show error">请输入玩家名</div>`;
-        return;
-      }
-      try {
-        const data = await api(`/api/transfers/player?player=${encodeURIComponent(name)}`);
-        if (data.enabled === false) {
-          target.innerHTML = `<div class="message show error">转服诊断模块当前未启用</div>`;
-          return;
-        }
-        if (!data.found) {
-          target.innerHTML = `<div class="message show error">未找到玩家：${escapeHtml(name)}</div>`;
-          return;
-        }
-        const inspection = data.inspection || {};
-        const handoff = inspection.handoff || null;
-        const session = inspection.sessionTransferState || null;
-        const history = Array.isArray(inspection.recentHistory) ? inspection.recentHistory : [];
-        const actions = Array.isArray(inspection.suggestedActions) ? inspection.suggestedActions : [];
-        const recovery = inspection.recoveryStatus || "-";
-        const recoveryClass = String(recovery).includes("FAILED") || String(recovery).includes("EXPIRED") ? "bad" : (String(recovery).includes("COMPLETED") || String(recovery).includes("RECOVERED") ? "good" : "");
-        target.innerHTML = `
-          <div class="panel" style="padding:16px;margin-top:12px;">
-            <div class="panel-header">
-              <div>
-                <h2 style="margin:0;font-size:18px;">玩家转服诊断</h2>
-                <div class="small">${escapeHtml(inspection.playerName || name)} · ${escapeHtml(inspection.playerId || "-")}</div>
-              </div>
-              <div class="chips"><span class="chip ${recoveryClass}">恢复状态：${escapeHtml(recovery)}</span><span class="chip">本地预备传送：${escapeHtml(inspection.localPreparedTransfer)}</span></div>
-            </div>
-            <div class="diagnostic-grid">
-              ${renderKeyValues([
-                ["玩家", inspection.playerName || name],
-                ["玩家 UUID", inspection.playerId || "-"],
-                ["恢复状态", recovery],
-                ["本地预备传送", inspection.localPreparedTransfer]
-              ], true)}
-              ${renderKeyValues([
-                ["Handoff 状态", handoff?.status || "-"],
-                ["来源服", handoff?.sourceServerId || "-"],
-                ["目标服", handoff?.targetServerId || "-"],
-                ["过期时间", formatTime(handoff?.expiresAt)]
-              ])}
-              ${renderKeyValues([
-                ["会话令牌", session?.transferToken || "-"],
-                ["会话来源服", session?.sourceServerId || "-"],
-                ["会话目标服", session?.targetServerId || "-"],
-                ["会话已预备", session?.hasPreparedTransfer]
-              ])}
-            </div>
-            <div class="diagnostic-grid">
-              <div class="info-card">
-                <strong>建议动作</strong>
-                ${actions.length ? `<ul class="list">${actions.map(action => `<li>${escapeHtml(action)}</li>`).join("")}</ul>` : `<div class="small" style="margin-top:8px">暂无建议动作</div>`}
-              </div>
-              <div class="info-card">
-                <strong>Handoff 细节</strong>
-                <div class="stack" style="margin-top:8px">
-                  <div class="kv"><span class="small">请求 ID</span><span>${escapeHtml(handoff?.requestId || "-")}</span></div>
-                  <div class="kv"><span class="small">世界</span><span>${escapeHtml(handoff?.targetWorld || "-")}</span></div>
-                  <div class="kv"><span class="small">坐标</span><span>${escapeHtml(handoff ? `${handoff.x}, ${handoff.y}, ${handoff.z}` : "-")}</span></div>
-                  <div class="kv"><span class="small">失败原因</span><span>${escapeHtml(handoff?.failureReason || "-")}</span></div>
-                </div>
-              </div>
-            </div>
-            <table>
-              <thead><tr><th>时间</th><th>事件</th><th>状态</th><th>来源</th><th>目标</th><th>详情</th></tr></thead>
-              <tbody>
-                ${history.length ? history.map(entry => `<tr><td>${escapeHtml(formatTime(entry.createdAt))}</td><td>${escapeHtml(entry.eventType || "-")}</td><td>${escapeHtml(entry.status || "-")}</td><td>${escapeHtml(entry.sourceServerId || "-")}</td><td>${escapeHtml(entry.targetServerId || "-")}</td><td>${escapeHtml(entry.detail || "-")}</td></tr>`).join("") : `<tr><td colspan="6" class="muted">暂无最近 transfer 历史</td></tr>`}
-              </tbody>
-            </table>
-          </div>`;
-      } catch (error) {
-        target.innerHTML = `<div class="message show error">${escapeHtml(error.message)}</div>`;
-        reportGlobalError(error);
-      }
-    }
-
-    document.getElementById("saveAuthBtn").addEventListener("click", async () => {
-      localStorage.setItem("crossserver.web.token", tokenInput.value.trim());
-      localStorage.setItem("crossserver.web.actor", (actorInput.value || "web-panel").trim() || "web-panel");
-      try {
-        await loadOverview();
-        setMessage(authMessage, "success", t('authSavedOk'));
-      } catch (error) {
-        setMessage(authMessage, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("refreshBtn").addEventListener("click", async () => {
-      try {
-        await loadOverview();
-        setMessage(authMessage, "success", t('overviewReloaded'));
-      } catch (error) {
-        setMessage(authMessage, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("reloadBtn").addEventListener("click", async () => {
-      if (!(await askConfirm("重载当前节点", "确认重载当前节点上的 CrossServer 吗？面板会短暂断开，并自动尝试重连。", "确认重载"))) {
-        return;
-      }
-      try {
-        const result = await api("/api/reload", { method: "POST", body: JSON.stringify({ confirm: "reload" }) });
-        if (!result.accepted) {
-          setMessage(authMessage, "error", "当前已有重载进行中，请稍后再试。");
-          return;
-        }
-        setMessage(authMessage, "success", "已接受重载请求，面板会暂时断开，正在等待重新上线...");
-        waitForPanelRecovery();
-      } catch (error) {
-        if (error.status === 409) {
-          setMessage(authMessage, "error", "当前已有重载进行中，请稍后再试。");
-          reportGlobalError(error);
-          return;
-        }
-        setMessage(authMessage, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("reloadModulesBtn").addEventListener("click", async () => {
-      const box = document.getElementById("modulesMessage");
-      try {
-        await reloadModules();
-        setMessage(box, "success", t('modulesReloaded'));
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("reloadRoutesBtn").addEventListener("click", async () => {
-      const box = document.getElementById("routesMessage");
-      try {
-        await reloadRoutes();
-        setMessage(box, "success", t('routesReloaded'));
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("reloadLogsBtn").addEventListener("click", async () => {
-      try {
-        await reloadLogs();
-        setMessage(authMessage, "success", t('logsReloaded'));
-      } catch (error) {
-        setMessage(authMessage, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("reloadNodeConfigsBtn").addEventListener("click", async () => {
-      const box = document.getElementById("nodeConfigsMessage");
-      try {
-        await reloadNodeConfigs(true);
-        setMessage(box, "success", t('nodeConfigsReloaded'));
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("dashboardNodesSearch")?.addEventListener("input", event => {
-      state.filters.dashboardNodes = event.target.value || "";
-      renderStatus(state.overview?.status || {});
-    });
-    document.getElementById("routesSearchInput")?.addEventListener("input", event => {
-      state.filters.routes = event.target.value || "";
-      renderRoutes(state.overview?.routes || {});
-    });
-    document.getElementById("documentsSearchInput")?.addEventListener("input", event => {
-      state.filters.documents = event.target.value || "";
-      renderDocuments(state.overview?.documents || []);
-    });
-    document.getElementById("logsServerSearch")?.addEventListener("input", event => {
-      state.filters.logsServer = event.target.value || "";
-      renderLogs(state.overview?.logs || {});
-    });
-    document.getElementById("logsKeywordSearch")?.addEventListener("input", event => {
-      state.filters.logsKeyword = event.target.value || "";
-      renderLogs(state.overview?.logs || {});
-    });
-    document.getElementById("nodeConfigsSearchInput")?.addEventListener("input", event => {
-      state.filters.nodeConfigs = event.target.value || "";
-      renderNodeConfigs(state.overview?.nodeConfigs || {});
-    });
-    document.getElementById("saveRouteBtn").addEventListener("click", async () => {
-      const box = document.getElementById("routesMessage");
-      try {
-        const serverId = document.getElementById("routeServerIdInput").value.trim();
-        const proxyTarget = document.getElementById("routeProxyTargetInput").value.trim();
-        if (!serverId || !proxyTarget) throw new Error("服务器 ID 和代理目标不能为空");
-        await api("/api/routes", { method: "POST", body: JSON.stringify({ serverId, proxyTarget }) });
-        await reloadRoutes();
-        setMessage(box, "success", `已保存共享路由：${serverId} → ${proxyTarget}`);
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("replaceRoutesBtn").addEventListener("click", async () => {
-      const box = document.getElementById("routesMessage");
-      try {
-        const raw = document.getElementById("routesBulkInput").value.trim();
-        if (!raw) throw new Error("请输入 JSON 请求体");
-        await api("/api/routes", { method: "PUT", body: raw });
-        await reloadRoutes();
-        setMessage(box, "success", "已整体覆盖共享路由表。");
-      } catch (error) {
-        setMessage(box, "error", error.message);
-        reportGlobalError(error);
-      }
-    });
-    document.getElementById("loadRoutesJsonBtn").addEventListener("click", () => {
-      const shared = state.overview?.routes?.shared || {};
-      document.getElementById("routesBulkInput").value = JSON.stringify({ routes: shared }, null, 2);
-    });
-    document.getElementById("playerSearchBtn").addEventListener("click", searchPlayerTransfer);
-
-    state.locale = localStorage.getItem("crossserver.locale") || "zh-CN";
-    if (localeSelect) {
-      localeSelect.value = state.locale;
-    }
-    applyLocale();
-    tokenInput.value = savedToken();
-    actorInput.value = savedActor();
-    if (tokenInput.value) {
-      loadOverview()
-        .then(() => setMessage(authMessage, "success", "已使用本地保存的凭证加载面板。"))
-        .catch(error => {
-          setMessage(authMessage, "error", error.message);
-          reportGlobalError(error);
-        });
-    } else {
-      setMessage(authMessage, "error", "请输入 Web 面板 token 后再加载数据。");
-    }
-  </script>
+  <script src="panel.js"></script>
 </body>
 </html>
