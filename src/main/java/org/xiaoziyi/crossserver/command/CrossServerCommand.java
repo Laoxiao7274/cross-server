@@ -595,7 +595,7 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 					sender.sendMessage("§c未找到玩家: " + playerName);
 					return true;
 				}
-				transferAdminMenuService.openMenu(player, inspection.get().playerId());
+				transferAdminMenuService.openMenu(player, inspection.get());
 			} catch (Exception exception) {
 				sender.sendMessage("§c打开 transfer 菜单失败: " + exception.getMessage());
 			}

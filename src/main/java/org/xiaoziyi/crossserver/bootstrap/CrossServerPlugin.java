@@ -446,6 +446,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			Bukkit.getServicesManager().unregister(CrossServerApi.class, api);
 		}
 		unregisterTransferGatewayChannels();
+		awaitPendingAsyncTasks();
 		closeQuietly(messagingProvider);
 		closeQuietly(storageProvider);
 		messagingProvider = null;
@@ -479,6 +480,25 @@ public final class CrossServerPlugin extends JavaPlugin {
 		sharedModuleConfigService = null;
 		webPanelClusterService = null;
 		shuttingDown.set(false);
+	}
+
+	private void awaitPendingAsyncTasks() {
+		try {
+			long deadline = System.currentTimeMillis() + 10000;
+			while (System.currentTimeMillis() < deadline) {
+				boolean hasAsyncTasks = false;
+				for (BukkitTask task : Bukkit.getScheduler().getPendingTasks()) {
+					if (task.getOwner().equals(this) && !task.isSync()) {
+						hasAsyncTasks = true;
+						break;
+					}
+				}
+				if (!hasAsyncTasks) break;
+				Thread.sleep(50);
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	private void registerCommand() {

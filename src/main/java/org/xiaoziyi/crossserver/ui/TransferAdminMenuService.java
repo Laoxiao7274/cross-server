@@ -35,17 +35,24 @@ public final class TransferAdminMenuService {
 		this.transferAdminService = transferAdminService;
 	}
 
-	public void openMenu(Player viewer, UUID targetPlayerId) {
-		openDetailMenu(viewer, targetPlayerId, 1);
+	public void openMenu(Player viewer, TransferAdminService.TransferInspection inspection) {
+		openDetailMenu(viewer, inspection, 1);
 	}
 
-	public void openDetailMenu(Player viewer, UUID targetPlayerId, int parentPage) {
+	public void openDetailMenu(Player viewer, TransferAdminService.TransferInspection inspection, int parentPage) {
+		plugin.getServer().getScheduler().runTask(plugin, () -> {
+			viewer.openInventory(createDetailInventory(inspection, parentPage));
+			viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6F, 1.1F);
+		});
+	}
+
+	public void openDetailMenuAsync(Player viewer, UUID targetPlayerId, int parentPage) {
 		plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
 			try {
 				TransferAdminService.TransferInspection inspection = transferAdminService.inspectPlayer(targetPlayerId);
+				TransferAdminService.TransferInspection captured = inspection;
 				plugin.getServer().getScheduler().runTask(plugin, () -> {
-					viewer.openInventory(createDetailInventory(inspection, parentPage));
-					viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6F, 1.1F);
+					openDetailMenu(viewer, captured, parentPage);
 				});
 			} catch (Exception exception) {
 				plugin.getServer().getScheduler().runTask(plugin, () -> viewer.sendMessage("§c打开 transfer 菜单失败: " + exception.getMessage()));
@@ -154,7 +161,7 @@ public final class TransferAdminMenuService {
 		}
 		UUID target = holder.targetAt(slot);
 		if (target != null) {
-			openDetailMenu(player, target, holder.page());
+			openDetailMenuAsync(player, target, holder.page());
 		}
 	}
 
@@ -164,7 +171,7 @@ public final class TransferAdminMenuService {
 			return;
 		}
 		if (slot == 49) {
-			openDetailMenu(player, holder.targetPlayerId(), holder.parentPage());
+			openDetailMenuAsync(player, holder.targetPlayerId(), holder.parentPage());
 			return;
 		}
 		if (slot == 53) {
@@ -178,7 +185,7 @@ public final class TransferAdminMenuService {
 
 	private void handleDetailClick(Player player, TransferAdminMenuHolder holder, int slot) {
 		if (slot == 11) {
-			openDetailMenu(player, holder.targetPlayerId(), holder.parentPage());
+			openDetailMenuAsync(player, holder.targetPlayerId(), holder.parentPage());
 			return;
 		}
 		if (slot == 15) {
@@ -193,7 +200,7 @@ public final class TransferAdminMenuService {
 					plugin.getServer().getScheduler().runTask(plugin, () -> {
 						player.sendMessage(result.message());
 						player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7F, 1.2F);
-						plugin.getServer().getScheduler().runTaskLater(plugin, () -> openDetailMenu(player, holder.targetPlayerId(), holder.parentPage()), 1L);
+						openDetailMenuAsync(player, holder.targetPlayerId(), holder.parentPage());
 					});
 				} catch (Exception exception) {
 					plugin.getServer().getScheduler().runTask(plugin, () -> player.sendMessage("§c清理 transfer 状态失败: " + exception.getMessage()));
