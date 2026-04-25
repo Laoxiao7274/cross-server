@@ -51,13 +51,20 @@ public class EconomyCommand implements CommandExecutor, TabCompleter {
 		}
 
 		if ("history".equals(subCommand)) {
-			if (args.length < 2) {
+			OfflinePlayer target;
+			String targetPlayerArg;
+			if (args.length >= 2) {
+				targetPlayerArg = args[1];
+			} else if (sender instanceof org.bukkit.entity.Player) {
+				targetPlayerArg = sender.getName();
+			} else {
+				sender.sendMessage("§c控制台必须指定玩家名称。");
 				sender.sendMessage("§c用法: /economy history <player> [limit]");
 				return true;
 			}
-			OfflinePlayer target = resolvePlayer(args[1]);
+			target = resolvePlayer(targetPlayerArg);
 			if (target == null) {
-				sender.sendMessage("§c玩家 " + args[1] + " 不存在或未被服务器缓存。");
+				sender.sendMessage("§c玩家 " + targetPlayerArg + " 不存在或未被服务器缓存。");
 				return true;
 			}
 			int limit = 10;
@@ -92,6 +99,28 @@ public class EconomyCommand implements CommandExecutor, TabCompleter {
 			return true;
 		}
 
+		if ("balance".equals(subCommand)) {
+			String balanceTarget;
+			if (args.length >= 2) {
+				balanceTarget = args[1];
+			} else if (sender instanceof org.bukkit.entity.Player) {
+				balanceTarget = sender.getName();
+			} else {
+				sender.sendMessage("§c控制台必须指定玩家名称。");
+				return true;
+			}
+			OfflinePlayer balancePlayer = resolvePlayer(balanceTarget);
+			if (balancePlayer == null) {
+				sender.sendMessage("§c玩家 " + balanceTarget + " 不存在或未被服务器缓存。");
+				return true;
+			}
+			UUID balanceUUID = balancePlayer.getUniqueId();
+			api.getEconomyService().getBalance(balanceUUID).thenAccept(balance -> runSync(() ->
+					sender.sendMessage("§a玩家 " + resolvePlayerName(balancePlayer) + " 的余额是: " + formatAmount(balance))
+			));
+			return true;
+		}
+
 		if (args.length < 2) {
 			sender.sendMessage("§c用法: /economy " + subCommand + " <player> [amount]");
 			return true;
@@ -107,11 +136,6 @@ public class EconomyCommand implements CommandExecutor, TabCompleter {
 		String source = "command:" + sender.getName();
 
 		switch (subCommand) {
-			case "balance":
-				api.getEconomyService().getBalance(targetUUID).thenAccept(balance -> runSync(() ->
-						sender.sendMessage("§a玩家 " + targetName + " 的余额是: " + formatAmount(balance))
-				));
-				break;
 			case "set":
 			case "deposit":
 			case "withdraw":

@@ -475,11 +475,15 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		String action = args[1];
 		String playerName = null;
 		if ("info".equalsIgnoreCase(action) || "clear".equalsIgnoreCase(action) || "menu".equalsIgnoreCase(action) || "history".equalsIgnoreCase(action) || "reconcile".equalsIgnoreCase(action)) {
-			if (args.length < 3) {
+			if (args.length >= 3) {
+				playerName = args[2];
+			} else if (sender instanceof org.bukkit.entity.Player) {
+				playerName = sender.getName();
+			} else {
+				sender.sendMessage("§c控制台必须指定玩家名称。");
 				sendTransferHelp(sender, label);
 				return true;
 			}
-			playerName = args[2];
 		} else if ("recent".equalsIgnoreCase(action)) {
 			playerName = null;
 		} else if (args.length == 2) {
@@ -618,25 +622,25 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 		}
 		if (canUseTransferCommands(sender)) {
 			if (sender.hasPermission(TRANSFER_VIEW_PERMISSION)) {
-				adminLines.add("§e/" + label + " transfer <player> §8- §7按玩家名快速查看 transfer 诊断");
-				adminLines.add("§e/" + label + " transfer info <player> §8- §7查看 transfer 诊断详情");
-				adminLines.add("§e/" + label + " transfer history <player> §8- §7查看最近 transfer 历史");
+				adminLines.add("§e/" + label + " transfer [player] §8- §7查看 transfer 诊断（留空为自己）");
+				adminLines.add("§e/" + label + " transfer info [player] §8- §7查看 transfer 诊断详情（留空为自己）");
+				adminLines.add("§e/" + label + " transfer history [player] §8- §7查看最近 transfer 历史（留空为自己）");
 			}
 			if (sender.hasPermission(TRANSFER_MENU_PERMISSION)) {
-				adminLines.add("§e/" + label + " transfer menu <player> §8- §7打开指定玩家的 transfer 菜单");
+				adminLines.add("§e/" + label + " transfer menu [player] §8- §7打开 transfer 菜单（留空为自己）");
 				adminLines.add("§e/" + label + " transfer recent [page] §8- §7打开 recent transfer 管理菜单");
 			}
 			if (sender.hasPermission(TRANSFER_RECONCILE_PERMISSION)) {
-				adminLines.add("§e/" + label + " transfer reconcile <player> §8- §7触发一次保守 reconcile 修补");
+				adminLines.add("§e/" + label + " transfer reconcile [player] §8- §7触发 reconcile 修补（留空为自己）");
 			}
 			if (sender.hasPermission(TRANSFER_CLEAR_PERMISSION)) {
-				adminLines.add("§e/" + label + " transfer clear <player> §8- §7清理 handoff 与 prepared transfer 状态");
+				adminLines.add("§e/" + label + " transfer clear [player] §8- §7清理 transfer 状态（留空为自己）");
 			}
 		}
 		if (sender.hasPermission(AUTH_ADMIN_PERMISSION)) {
-			adminLines.add("§e/" + label + " auth inspect <player> §8- §7查看 auth 运行时与快照状态");
-			adminLines.add("§e/" + label + " auth invalidate <player> §8- §7使玩家跨服 ticket 失效");
-			adminLines.add("§e/" + label + " auth forcereauth <player> §8- §7强制玩家重新认证");
+			adminLines.add("§e/" + label + " auth inspect [player] §8- §7查看 auth 状态（留空为自己）");
+			adminLines.add("§e/" + label + " auth invalidate [player] §8- §7使跨服 ticket 失效（留空为自己）");
+			adminLines.add("§e/" + label + " auth forcereauth [player] §8- §7强制重新认证（留空为自己）");
 		}
 		if (sender.hasPermission(ROUTE_VIEW_PERMISSION)) {
 			adminLines.add("§e/" + label + " route list §8- §7查看共享路由与本地合并结果");
@@ -870,12 +874,17 @@ public final class CrossServerCommand implements CommandExecutor, TabCompleter {
 			sender.sendMessage("§cAuth 模块当前已关闭。");
 			return true;
 		}
-		if (args.length < 3) {
-			sender.sendMessage("§e用法: /" + label + " auth <inspect|invalidate|forcereauth> <player>");
+		String action = args[1];
+		String playerName;
+		if (args.length >= 3) {
+			playerName = args[2];
+		} else if (sender instanceof org.bukkit.entity.Player) {
+			playerName = sender.getName();
+		} else {
+			sender.sendMessage("§c控制台必须指定玩家名称。");
+			sender.sendMessage("§e用法: /" + label + " auth <inspect|invalidate|forcereauth> [player]");
 			return true;
 		}
-		String action = args[1];
-		String playerName = args[2];
 		try {
 			Optional<UUID> playerId = storageProvider.findPlayerIdByName(playerName);
 			if (playerId.isEmpty()) {
