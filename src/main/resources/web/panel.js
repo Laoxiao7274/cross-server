@@ -266,7 +266,8 @@ const state = {
 const tokenInput = document.getElementById("tokenInput");
 const actorInput = document.getElementById("actorInput");
 const localeSelect = document.getElementById("localeSelect");
-const authMessage = document.getElementById("authMessage");
+const authMessage = document.getElementById("loginMessage");
+const globalMsg = document.getElementById("globalMessage");
 const navButtons = Array.from(document.querySelectorAll(".nav-item[data-tab]"));
 const confirmModal = document.getElementById("confirmModal");
 const confirmModalTitle = document.getElementById("confirmModalTitle");
@@ -384,14 +385,14 @@ window.addEventListener("hashchange", () => {
 
 function applyLocale() {
   document.querySelector(".brand .brand-text").textContent = t("brandTitle");
-  document.querySelector(".brand small").textContent = t("brandSubtitle");
+  // brand subtitle removed
   navButtons.forEach((btn, i) => {
     const keys = ["navDashboard","navModules","navRoutes","navDocuments","navLogs","navNodeConfigs","navTransfers"];
     btn.querySelector("span").textContent = t(keys[i]);
   });
   document.getElementById("saveAuthBtn").textContent = t("saveAuth");
   document.getElementById("refreshBtn").textContent = t("refresh");
-  document.getElementById("reloadBtn").textContent = t("reloadNode");
+  // reloadBtn removed
   document.getElementById("reloadModulesBtn").textContent = t("reloadData");
   document.getElementById("reloadRoutesBtn").textContent = t("reloadData");
   document.getElementById("reloadLogsBtn").textContent = t("reloadData");
@@ -411,7 +412,7 @@ function applyLocale() {
   document.getElementById("routeProxyTargetInput").placeholder = t("placeholderProxyTarget");
   document.getElementById("routesBulkInput").placeholder = t("placeholderRoutesJson");
 
-  const headings = document.querySelectorAll(".tab-page .panel-header h2");
+  const headings = document.querySelectorAll(".tab-page .section-header h2");
   const descs = [
     "dashboardDesc","modulesDesc","routesDesc","documentsDesc",
     "logsDesc","nodeConfigsDesc","nodeConfigDetailDesc","transfersDesc"
@@ -421,7 +422,7 @@ function applyLocale() {
     "logsTitle","nodeConfigsTitle","nodeConfigDetailTitle","transfersTitle"
   ];
   headings.forEach((h, i) => { if (h) { h.textContent = t(titles[i]); } });
-  document.querySelectorAll(".tab-page .panel-header .subtitle").forEach((s, i) => {
+  document.querySelectorAll(".tab-page .section-header p").forEach((s, i) => {
     if (s) s.textContent = t(descs[i]);
   });
 
@@ -509,13 +510,13 @@ async function waitForPanelRecovery() {
   while (Date.now() - startedAt < 60000) {
     try {
       await loadOverview();
-      setMessage(authMessage, "success", state.locale === "zh-CN" ? "CrossServer 已重新上线，面板数据已恢复。" : "CrossServer back online.");
+      setMessage(globalMsg, "success", state.locale === "zh-CN" ? "CrossServer 已重新上线，面板数据已恢复。" : "CrossServer back online.");
       return;
     } catch (_) {
       await new Promise(r => setTimeout(r, 2500));
     }
   }
-  setMessage(authMessage, "error", state.locale === "zh-CN" ? "等待重载恢复超时" : "Reload recovery timed out");
+  setMessage(globalMsg, "error", state.locale === "zh-CN" ? "等待重载恢复超时" : "Reload recovery timed out");
 }
 
 // ─── Render helpers ──────────────────────────────────────────────────────────
@@ -577,6 +578,8 @@ function sameServerId(a, b) {
 // ─── Render: Dashboard ───────────────────────────────────────────────────────
 
 function renderHero(status) {
+  const headerServerEl = document.getElementById("headerServerId");
+  if (headerServerEl) headerServerEl.textContent = status.serverId || "-";
   const stats = [
     ["当前节点", status.serverId || "-"],
     ["集群", status.cluster || "-"],
@@ -591,17 +594,18 @@ function renderHero(status) {
 }
 
 function renderStatus(status) {
-  renderHero(status);
-
-  const summary = [
-    ["命名空间数量", status.namespaceCount],
-    ["远端会话感知", status.remoteSessionCount],
-    ["传送网关类型", status.teleportGatewayType],
-    ["Handoff 有效秒数", status.handoffSeconds]
-  ];
-  document.getElementById("statusSummary").innerHTML = summary.map(([label, value]) =>
-    `<div class="stat-card"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${escapeHtml(value ?? "-")}</div></div>`
-  ).join("");
+  const hero = document.getElementById("heroStats");
+  if (hero) {
+    const extra = [
+      ["命名空间", status.namespaceCount],
+      ["远端会话", status.remoteSessionCount],
+      ["传送网关", status.teleportGatewayType],
+      ["Handoff 秒数", status.handoffSeconds]
+    ];
+    hero.innerHTML += extra.map(([label, value]) =>
+      `<div class="stat-card"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${escapeHtml(value ?? "-")}</div></div>`
+    ).join("");
+  }
 
   const cluster = status.webPanelCluster || {};
   const localServerId = cluster.localServerId || status.serverId || "-";
@@ -1262,6 +1266,9 @@ document.getElementById("saveAuthBtn").addEventListener("click", async () => {
   try {
     await loadOverview();
     setMessage(authMessage, "success", t("authSavedOk"));
+    document.getElementById("loginOverlay").classList.add("hidden");
+    document.getElementById("appHeader").style.display = "flex";
+    document.getElementById("appBody").style.display = "flex";
   } catch (error) {
     setMessage(authMessage, "error", error.message);
     reportGlobalError(error);
@@ -1271,14 +1278,14 @@ document.getElementById("saveAuthBtn").addEventListener("click", async () => {
 document.getElementById("refreshBtn").addEventListener("click", async () => {
   try {
     await loadOverview();
-    setMessage(authMessage, "success", t("overviewReloaded"));
+    setMessage(globalMsg, "success", t("overviewReloaded"));
   } catch (error) {
-    setMessage(authMessage, "error", error.message);
+    setMessage(globalMsg, "error", error.message);
     reportGlobalError(error);
   }
 });
 
-document.getElementById("reloadBtn").addEventListener("click", async () => {
+document.getElementById("reloadBtn")?.addEventListener("click", async () => {
   if (!(await askConfirm(
     state.locale === "zh-CN" ? "重载节点" : "Reload node",
     state.locale === "zh-CN" ? "确认重载当前节点?" : "Confirm reload?",
@@ -1287,18 +1294,18 @@ document.getElementById("reloadBtn").addEventListener("click", async () => {
   try {
     const result = await api("/api/reload", { method: "POST", body: JSON.stringify({ confirm: "reload" }) });
     if (!result.accepted) {
-      setMessage(authMessage, "error", state.locale === "zh-CN" ? "重载进行中" : "Reload in progress");
+      setMessage(globalMsg, "error", state.locale === "zh-CN" ? "重载进行中" : "Reload in progress");
       return;
     }
-    setMessage(authMessage, "success", state.locale === "zh-CN" ? "已接受重载请求..." : "Reload accepted...");
+    setMessage(globalMsg, "success", state.locale === "zh-CN" ? "已接受重载请求..." : "Reload accepted...");
     waitForPanelRecovery();
   } catch (error) {
     if (error.status === 409) {
-      setMessage(authMessage, "error", state.locale === "zh-CN" ? "重载进行中" : "Reload in progress");
+      setMessage(globalMsg, "error", state.locale === "zh-CN" ? "重载进行中" : "Reload in progress");
       reportGlobalError(error);
       return;
     }
-    setMessage(authMessage, "error", error.message);
+    setMessage(globalMsg, "error", error.message);
     reportGlobalError(error);
   }
 });
@@ -1316,8 +1323,8 @@ document.getElementById("reloadRoutesBtn").addEventListener("click", async () =>
 });
 
 document.getElementById("reloadLogsBtn").addEventListener("click", async () => {
-  try { await reloadLogs(); setMessage(authMessage, "success", t("logsReloaded")); }
-  catch (error) { setMessage(authMessage, "error", error.message); reportGlobalError(error); }
+  try { await reloadLogs(); setMessage(globalMsg, "success", t("logsReloaded")); }
+  catch (error) { setMessage(globalMsg, "error", error.message); reportGlobalError(error); }
 });
 
 document.getElementById("reloadNodeConfigsBtn").addEventListener("click", async () => {
@@ -1484,13 +1491,18 @@ applyLocale();
 tokenInput.value = savedToken();
 actorInput.value = savedActor();
 
-if (tokenInput.value) {
-  loadOverview()
-    .then(() => setMessage(authMessage, "success", t("authLoadedFromSaved")))
+if (if (tokenInput.value) {
+    loadOverview()
+      .then(() => {
+        setMessage(authMessage, "success", t("authLoadedFromSaved"));
+        document.getElementById("loginOverlay").classList.add("hidden");
+        document.getElementById("appHeader").style.display = "flex";
+        document.getElementById("appBody").style.display = "flex";
+      })
     .catch(error => {
       setMessage(authMessage, "error", error.message);
       reportGlobalError(error);
-    });
+    }););
 } else {
   setMessage(authMessage, "error", t("authNeedToken"));
 }

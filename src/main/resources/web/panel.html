@@ -7,88 +7,100 @@
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-icon">CS</div>
+        <div>CrossServer <small>运维面板</small></div>
+      </div>
+      <div id="loginMessage" class="message"></div>
+      <div class="login-field">
+        <label>Token</label>
+        <input id="tokenInput" type="password" placeholder="输入访问令牌">
+      </div>
+      <div class="login-field">
+        <label>操作者 (Actor)</label>
+        <input id="actorInput" type="text" placeholder="web-panel">
+      </div>
+      <button id="saveAuthBtn" class="btn-primary login-btn">登录面板</button>
+    </div>
+  </div>
+
   <!-- Header -->
-  <header class="app-header">
+  <header class="app-header" id="appHeader" style="display:none">
     <div class="brand">
       <button id="menuToggle" class="menu-toggle" aria-label="Menu">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <span class="brand-dot"></span>
+      <span class="brand-icon-sm">CS</span>
       <span class="brand-text">CrossServer</span>
-      <small>运维面板</small>
     </div>
     <div class="header-actions">
-      <input id="tokenInput" type="password" placeholder="Token">
-      <input id="actorInput" type="text" placeholder="Actor" style="min-width:100px">
+      <span id="headerServerId" class="header-chip"></span>
       <select id="localeSelect">
         <option value="zh-CN">中文</option>
         <option value="en-US">English</option>
       </select>
-      <button id="saveAuthBtn" class="btn-primary">保存凭证</button>
-      <button id="refreshBtn" class="btn-secondary">刷新概览</button>
-      <button id="reloadBtn" class="btn-danger">重载节点</button>
+      <button id="refreshBtn" class="btn-secondary btn-sm">刷新</button>
     </div>
   </header>
 
-  <div class="app-body">
+  <div class="app-body" id="appBody" style="display:none">
     <!-- Sidebar -->
     <aside class="sidebar">
       <nav class="nav">
         <button class="nav-item active" data-tab="dashboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
           <span>仪表盘</span>
         </button>
         <button class="nav-item" data-tab="modules">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           <span>模块</span>
         </button>
         <button class="nav-item" data-tab="routes">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span>路由</span>
         </button>
         <button class="nav-item" data-tab="documents">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           <span>配置文档</span>
         </button>
         <button class="nav-item" data-tab="logs">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          <span>日志中心</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>日志</span>
         </button>
         <button class="nav-item" data-tab="node-configs">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
           <span>节点配置</span>
         </button>
         <button class="nav-item" data-tab="transfers">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           <span>转服诊断</span>
         </button>
       </nav>
-      <div class="sidebar-footer">
-        API 保持不变。操作日志会输出到服务端控制台，便于快速排障。
-      </div>
+      <div class="sidebar-footer" id="sidebarFooter">API · 操作日志会输出到服务端控制台</div>
     </aside>
 
     <!-- Main content -->
     <main class="main">
-      <div id="authMessage" class="message"></div>
       <div id="globalMessage" class="message"></div>
 
       <!-- Dashboard -->
       <section id="tab-dashboard" class="tab-page active">
         <div class="panel">
-          <div class="panel-header">
+          <div class="section-header">
             <div>
               <h2>仪表盘</h2>
-              <div class="subtitle">集群状态、节点心跳、会话统计与面板成员</div>
+              <p>集群状态与节点概览</p>
             </div>
           </div>
-          <div id="heroStats" class="grid-6 mb-md"></div>
-          <div id="statusSummary" class="grid-2 mb-md"></div>
-          <div id="clusterSummary" class="chips-row mb-sm"></div>
+          <div id="heroStats" class="stat-grid"></div>
+          <div id="clusterSummary" class="cluster-bar mb-md"></div>
+          <div id="clusterMembers" class="member-grid mb-md"></div>
           <div class="toolbar">
             <input id="dashboardNodesSearch" type="text" placeholder="搜索节点 ID / 集群 / 状态">
           </div>
-          <div id="clusterMembers" class="grid-auto mb-sm"></div>
           <table>
             <thead><tr><th>节点</th><th>状态</th><th>最后心跳</th><th>耗时</th></tr></thead>
             <tbody id="nodesBody"></tbody>
@@ -98,13 +110,13 @@
 
       <!-- Modules -->
       <section id="tab-modules" class="tab-page">
-        <div class="panel full">
-          <div class="panel-header">
+        <div class="panel">
+          <div class="section-header">
             <div>
               <h2>共享模块</h2>
-              <div class="subtitle">查看本地 / 共享 / 生效三层状态，管理共享覆盖</div>
+              <p>查看本地 / 共享 / 生效三层状态，管理共享覆盖</p>
             </div>
-            <button id="reloadModulesBtn" class="btn-secondary">重新读取</button>
+            <button id="reloadModulesBtn" class="btn-secondary btn-sm">刷新</button>
           </div>
           <table>
             <thead><tr><th>模块</th><th>状态概览</th><th>共享覆盖</th></tr></thead>
@@ -117,34 +129,37 @@
 
       <!-- Routes -->
       <section id="tab-routes" class="tab-page">
-        <div class="panel full">
-          <div class="panel-header">
+        <div class="panel">
+          <div class="section-header">
             <div>
               <h2>共享路由</h2>
-              <div class="subtitle">管理跨服路由映射表</div>
+              <p>管理跨服路由映射表</p>
             </div>
-            <button id="reloadRoutesBtn" class="btn-secondary">重新读取</button>
+            <button id="reloadRoutesBtn" class="btn-secondary btn-sm">刷新</button>
           </div>
-          <details>
-            <summary>路由编辑与整体覆盖</summary>
+          <details class="route-editor">
+            <summary>路由编辑</summary>
             <div class="details-body">
-              <div class="grid-2">
-                <div>
-                  <div class="subtitle mb-sm">新增或更新单条共享路由</div>
-                  <div class="input-group">
-                    <input id="routeServerIdInput" type="text" placeholder="服务器 ID">
-                    <input id="routeProxyTargetInput" type="text" placeholder="代理目标">
-                    <button id="saveRouteBtn" class="btn-primary">保存路由</button>
-                  </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>服务器 ID</label>
+                  <input id="routeServerIdInput" type="text" placeholder="服务器 ID">
                 </div>
-                <div>
-                  <div class="subtitle mb-sm">整体覆盖共享路由表（JSON）</div>
+                <div class="form-group">
+                  <label>代理目标</label>
+                  <input id="routeProxyTargetInput" type="text" placeholder="代理目标">
+                </div>
+                <button id="saveRouteBtn" class="btn-primary">保存路由</button>
+              </div>
+              <div class="form-row mt-sm">
+                <div class="form-group" style="flex:1">
+                  <label>整体覆盖共享路由表（JSON）</label>
                   <textarea id="routesBulkInput" placeholder='{"routes":{"spawn":"lobby"}}'></textarea>
-                  <div class="input-group mt-sm">
-                    <button id="loadRoutesJsonBtn" class="btn-secondary">填入当前共享路由</button>
-                    <button id="replaceRoutesBtn" class="btn-warning">整体覆盖</button>
-                  </div>
                 </div>
+              </div>
+              <div class="form-row">
+                <button id="loadRoutesJsonBtn" class="btn-secondary">填入当前路由</button>
+                <button id="replaceRoutesBtn" class="btn-warning">整体覆盖</button>
               </div>
             </div>
           </details>
@@ -162,11 +177,11 @@
 
       <!-- Documents -->
       <section id="tab-documents" class="tab-page">
-        <div class="panel full">
-          <div class="panel-header">
+        <div class="panel">
+          <div class="section-header">
             <div>
               <h2>配置文档</h2>
-              <div class="subtitle">查看并编辑 JSON / YAML 配置文档</div>
+              <p>查看并编辑 JSON / YAML 配置文档</p>
             </div>
           </div>
           <div class="toolbar">
@@ -179,35 +194,35 @@
 
       <!-- Logs -->
       <section id="tab-logs" class="tab-page">
-        <div class="panel full">
-          <div class="panel-header">
+        <div class="panel">
+          <div class="section-header">
             <div>
               <h2>日志中心</h2>
-              <div class="subtitle">按节点查看最近同步的插件日志</div>
+              <p>按节点查看最近同步的插件日志</p>
             </div>
-            <button id="reloadLogsBtn" class="btn-secondary">重新读取</button>
+            <button id="reloadLogsBtn" class="btn-secondary btn-sm">刷新</button>
           </div>
-          <div id="logsSummary" class="chips-row mb-sm"></div>
+          <div id="logsSummary" class="cluster-bar mb-sm"></div>
           <div class="toolbar">
             <input id="logsServerSearch" type="text" placeholder="筛选节点 serverId">
             <input id="logsKeywordSearch" type="text" placeholder="筛选日志关键字 / 级别">
           </div>
-          <div id="logsList" class="stack mt-sm"></div>
+          <div id="logsList" class="mt-sm"></div>
         </div>
       </section>
 
       <!-- Node Configs -->
       <section id="tab-node-configs" class="tab-page">
-        <div class="grid-2">
+        <div class="two-col">
           <div class="panel">
-            <div class="panel-header">
+            <div class="section-header">
               <div>
                 <h2>节点配置列表</h2>
-                <div class="subtitle">查看节点配置快照与应用结果</div>
+                <p>查看节点配置快照与应用结果</p>
               </div>
-              <button id="reloadNodeConfigsBtn" class="btn-secondary">重新读取</button>
+              <button id="reloadNodeConfigsBtn" class="btn-secondary btn-sm">刷新</button>
             </div>
-            <div id="nodeConfigsSummary" class="chips-row mb-sm"></div>
+            <div id="nodeConfigsSummary" class="cluster-bar mb-sm"></div>
             <div class="toolbar">
               <input id="nodeConfigsSearchInput" type="text" placeholder="搜索节点 ID / 状态 / 应用结果">
             </div>
@@ -217,15 +232,15 @@
             </table>
           </div>
           <div class="panel">
-            <div class="panel-header">
+            <div class="section-header">
               <div>
                 <h2>节点详情</h2>
-                <div class="subtitle">编辑白名单字段并提交到目标节点</div>
+                <p>编辑白名单字段并提交到目标节点</p>
               </div>
             </div>
             <div id="nodeConfigDetailIntro" class="banner mb-sm"></div>
-            <div id="nodeConfigDetailMeta" class="chips-row mb-sm"></div>
-            <div id="nodeConfigDetailStatus" class="stack mb-sm"></div>
+            <div id="nodeConfigDetailMeta" class="cluster-bar mb-sm"></div>
+            <div id="nodeConfigDetailStatus" class="stat-grid mb-sm"></div>
             <div id="nodeConfigDetailForm"></div>
             <div id="nodeConfigDetailRaw" class="mt-sm"></div>
             <div id="nodeConfigsMessage" class="message"></div>
@@ -235,11 +250,11 @@
 
       <!-- Transfers -->
       <section id="tab-transfers" class="tab-page">
-        <div class="panel full">
-          <div class="panel-header">
+        <div class="panel">
+          <div class="section-header">
             <div>
               <h2>转服诊断</h2>
-              <div class="subtitle">查看近期转服记录并按玩家名诊断</div>
+              <p>查看近期转服记录并按玩家名诊断</p>
             </div>
           </div>
           <div class="toolbar">
@@ -247,10 +262,15 @@
             <button id="playerSearchBtn" class="btn-primary">查询玩家</button>
           </div>
           <div id="playerTransferResult"></div>
-          <table class="mt-md">
-            <thead><tr><th>时间</th><th>玩家</th><th>来源</th><th>目标</th><th>事件</th><th>状态</th></tr></thead>
-            <tbody id="recentTransfersBody"></tbody>
-          </table>
+          <div class="mt-md">
+            <div class="section-header">
+              <div><h3 style="font-size:15px;font-weight:600;color:var(--text-primary)">近期转服记录</h3></div>
+            </div>
+            <table>
+              <thead><tr><th>时间</th><th>玩家</th><th>来源</th><th>目标</th><th>事件</th><th>状态</th></tr></thead>
+              <tbody id="recentTransfersBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
@@ -259,12 +279,7 @@
   <!-- Modal -->
   <div id="confirmModal" class="modal-root" aria-hidden="true">
     <div class="modal-card">
-      <div class="panel-header" style="margin-bottom:0">
-        <div>
-          <h3 id="confirmModalTitle">操作确认</h3>
-          <div class="subtitle">请确认本次运维操作的影响范围。</div>
-        </div>
-      </div>
+      <h3 id="confirmModalTitle">操作确认</h3>
       <div id="confirmModalBody" class="modal-body"></div>
       <div class="modal-actions">
         <button type="button" id="confirmCancelBtn" class="btn-secondary">取消</button>
