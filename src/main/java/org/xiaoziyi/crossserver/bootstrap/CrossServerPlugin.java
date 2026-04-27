@@ -543,7 +543,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 			}
 		}
 		if (configuration.modules().auth() && authService != null) {
-			AuthCommand authExecutor = new AuthCommand(authService, texts);
+			AuthCommand authExecutor = new AuthCommand(authService, texts, storageProvider);
 			registerSimpleCommand("login", authExecutor);
 			registerSimpleCommand("l", authExecutor);
 			registerSimpleCommand("register", authExecutor);
@@ -702,7 +702,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 				webPanelLogService,
 				nodeConfigSyncService
 		);
-		this.webPanelServer = new WebPanelServer(getLogger(), configuration.webPanel(), dataService);
+		this.webPanelServer = new WebPanelServer(getLogger(), configuration.webPanel(), dataService, webPanelLogService);
 		this.webPanelServer.start();
 		if (webPanelLogService != null) {
 			webPanelLogService.captureStartupMessage("内置 Web 配置面板已启动: http://" + configuration.webPanel().host() + ":" + configuration.webPanel().port());

@@ -64,6 +64,9 @@ commands:
   changepassword:
     description: change your cross-server login password
     usage: /changepassword <old> <new>
+  resetpassword:
+    description: reset a player's cross-server login password
+    usage: /resetpassword <player> <newpassword>
 permissions:
   crossserver.command:
     default: op
@@ -121,6 +124,8 @@ permissions:
     default: true
   crossserver.auth.changepassword:
     default: true
+  crossserver.auth.resetpassword:
+    default: op
   crossserver.tpa.use:
     default: true
   crossserver.tpa.here:

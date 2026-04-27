@@ -98,6 +98,7 @@ Warp 数据全服共享，不再出现“这个服有、那个服没有”的割
 - `/login`
 - `/register`
 - `/changepassword`
+- `/resetpassword`
 
 带跨服 Ticket 机制，短时间内切服可以免重复登录，适合需要统一认证体验的服组。
 

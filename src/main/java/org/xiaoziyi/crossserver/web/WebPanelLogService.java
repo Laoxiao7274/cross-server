@@ -70,6 +70,11 @@ public final class WebPanelLogService implements AutoCloseable {
 		append(new WebPanelLogEntry(Instant.now(), "INFO", message.trim()));
 	}
 
+	public void captureAccessLog(String method, String uri, String remote) {
+		String message = method + " " + uri + " from " + (remote == null || remote.isBlank() ? "unknown" : remote);
+		append(new WebPanelLogEntry(Instant.now(), "INFO", message));
+	}
+
 	public void publishSnapshot() throws Exception {
 		List<WebPanelLogEntry> snapshotEntries = latestEntries(MAX_SYNC_SIZE);
 		WebPanelLogSnapshot snapshot = new WebPanelLogSnapshot(

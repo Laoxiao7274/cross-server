@@ -118,6 +118,23 @@
 - `crossserver.auth.register`
 - `crossserver.auth.changepassword`
 
+管理员额外权限：
+
+- `crossserver.auth.resetpassword` — 强制重置玩家密码
+
+### 5. 重置玩家密码
+
+如果玩家忘记了密码，可以用：
+
+```text
+/resetpassword <玩家名> <新密码>
+```
+
+控制台也可以执行。重置后：
+
+- 旧密码立即失效
+- 如果玩家在线，会被踢出并提示使用新密码重新登录
+
 ## 四、Web 面板怎么用
 
 如果你开启了 Web 面板，很多管理事情都可以改到网页里做。

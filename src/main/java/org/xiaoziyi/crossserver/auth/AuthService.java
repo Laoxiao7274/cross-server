@@ -9,9 +9,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.xiaoziyi.crossserver.api.CrossServerApi;
 import org.xiaoziyi.crossserver.model.PlayerSnapshot;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -21,6 +23,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 public final class AuthService {
 	public static final String PROFILE_NAMESPACE = "auth.profile";
@@ -28,6 +32,11 @@ public final class AuthService {
 	private static final Duration LOGIN_TIMEOUT = Duration.ofSeconds(45);
 	private static final Duration TICKET_TTL = Duration.ofMinutes(5);
 	private static final int MAX_FAILURES = 5;
+	private static final int PBKDF2_ITERATIONS = 120_000;
+	private static final int PBKDF2_KEY_LENGTH = 256;
+	private static final int RATE_LIMIT_MAX_FAILURES = 10;
+	private static final Duration RATE_LIMIT_WINDOW = Duration.ofMinutes(5);
+	private static final Duration RATE_LIMIT_BAN_DURATION = Duration.ofMinutes(15);
 
 	private final JavaPlugin plugin;
 	private final Logger logger;
@@ -35,6 +44,7 @@ public final class AuthService {
 	private final String serverId;
 	private final SecureRandom secureRandom;
 	private final Map<UUID, AuthRuntimeSession> runtimeSessions;
+	private final Map<InetAddress, RateLimitEntry> rateLimitMap;
 
 	public AuthService(JavaPlugin plugin, Logger logger, CrossServerApi api, String serverId) {
 		this.plugin = plugin;
@@ -43,6 +53,7 @@ public final class AuthService {
 		this.serverId = serverId;
 		this.secureRandom = new SecureRandom();
 		this.runtimeSessions = new ConcurrentHashMap<>();
+		this.rateLimitMap = new ConcurrentHashMap<>();
 	}
 
 	public void initializePlayer(Player player) {
@@ -130,9 +141,19 @@ public final class AuthService {
 		if (session.profile == null) {
 			return "§c请先注册账号。";
 		}
-		String expected = hash(password, session.profile.salt());
-		if (!expected.equals(session.profile.passwordHash())) {
+
+		InetAddress address = player.getAddress() != null ? player.getAddress().getAddress() : null;
+		if (address != null && isRateLimited(address)) {
+			player.kick(Component.text("登录尝试过于频繁，请等待 15 分钟后再试"));
+			return "§c登录尝试过于频繁，请稍后重试。";
+		}
+
+		boolean passwordMatch = verifyPassword(password, session.profile.salt(), session.profile.passwordHash());
+		if (!passwordMatch) {
 			session.failures++;
+			if (address != null) {
+				recordRateLimitFailure(address);
+			}
 			showFailureReminder(player, session);
 			playSound(player, Sound.ENTITY_VILLAGER_NO, 0.6F, 1.0F);
 			if (session.failures >= MAX_FAILURES) {
@@ -162,7 +183,7 @@ public final class AuthService {
 		if (!isAuthenticated(player.getUniqueId())) {
 			return "§c请先登录后再修改密码。";
 		}
-		if (!hash(oldPassword, session.profile.salt()).equals(session.profile.passwordHash())) {
+		if (!verifyPassword(oldPassword, session.profile.salt(), session.profile.passwordHash())) {
 			return "§c旧密码错误。";
 		}
 		if (newPassword.length() < 6) {
@@ -176,6 +197,38 @@ public final class AuthService {
 		player.sendActionBar(Component.text("密码修改成功，请妥善保管你的新密码。"));
 		playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7F, 1.15F);
 		return "§a密码修改成功。";
+	}
+
+	public String resetPassword(UUID playerId, String newPassword) throws Exception {
+		Optional<PlayerSnapshot> profileSnapshot = api.loadPlayerData(playerId, PROFILE_NAMESPACE);
+		if (profileSnapshot.isEmpty()) {
+			return "§c该玩家尚未注册账号，无法重置密码。";
+		}
+		AuthProfile profile = AuthCodec.decodeProfile(profileSnapshot.get().payload());
+		if (newPassword == null || newPassword.length() < 6) {
+			return "§c新密码至少需要 6 位。";
+		}
+		String salt = randomToken();
+		AuthProfile updated = new AuthProfile(
+				hash(newPassword, salt), salt,
+				profile.registeredAt(), Instant.now(),
+				serverId, profile.loginTicketVersion() + 1
+		);
+		saveProfileSync(playerId, updated);
+		saveTicketSync(playerId, new AuthTicket(randomToken(), Instant.now(), Instant.now().minusSeconds(1), serverId, updated.loginTicketVersion()));
+		AuthRuntimeSession session = runtimeSessions.remove(playerId);
+		if (session != null) {
+			Player player = Bukkit.getPlayer(playerId);
+			if (player != null && player.isOnline()) {
+				if (session.bossBar != null) {
+					player.hideBossBar(session.bossBar);
+				}
+				plugin.getServer().getScheduler().runTask(plugin, () ->
+						player.kick(Component.text("你的密码已被管理员重置，请使用新密码重新登录。"))
+				);
+			}
+		}
+		return "§a已成功重置该玩家的密码，旧密码已失效。";
 	}
 
 	public AuthAdminInspection inspectAuth(UUID playerId) throws Exception {
@@ -212,17 +265,6 @@ public final class AuthService {
 			}
 		}
 		return result;
-	}
-
-	public void handleChatInput(Player player, String message) {
-		AuthRuntimeSession session = runtimeSessions.get(player.getUniqueId());
-		if (session == null || session.state == AuthSessionState.AUTHENTICATED) {
-			return;
-		}
-		String response = session.state == AuthSessionState.UNREGISTERED
-				? "§e请使用 /register <密码> <确认密码> 完成注册。"
-				: login(player, message.trim());
-		player.sendMessage(response);
 	}
 
 	public void tickPlayer(Player player) {
@@ -304,7 +346,7 @@ public final class AuthService {
 			return;
 		}
 		if (state == AuthSessionState.PENDING_LOGIN) {
-			player.sendTitle("§e身份验证", "§f请输入密码完成登录", 10, 50, 10);
+			player.sendTitle("§e身份验证", "§f请在聊天栏输入密码完成登录", 10, 50, 10);
 		}
 	}
 
@@ -325,7 +367,7 @@ public final class AuthService {
 			return "请使用 /register <密码> <确认密码> 完成注册 · 剩余 " + remainingSeconds + " 秒";
 		}
 		long remainingAttempts = Math.max(0, MAX_FAILURES - session.failures);
-		return "可直接在聊天栏输入密码，或使用 /login <密码> · 剩余 " + remainingSeconds + " 秒 · 尝试 " + remainingAttempts + "/" + MAX_FAILURES;
+		return "请使用 /login <密码> 完成登录 · 剩余 " + remainingSeconds + " 秒 · 尝试 " + remainingAttempts + "/" + MAX_FAILURES;
 	}
 
 	private void playSound(Player player, Sound sound, float volume, float pitch) {
@@ -370,11 +412,52 @@ public final class AuthService {
 
 	private String hash(String input, String salt) {
 		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			byte[] result = digest.digest((salt + ":" + input).getBytes(StandardCharsets.UTF_8));
-			return HexFormat.of().formatHex(result);
-		} catch (Exception exception) {
-			throw new IllegalStateException("无法计算密码哈希", exception);
+			PBEKeySpec spec = new PBEKeySpec(input.toCharArray(), salt.getBytes(StandardCharsets.UTF_8),
+					PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH);
+			SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+			byte[] hash = factory.generateSecret(spec).getEncoded();
+			return HexFormat.of().formatHex(hash);
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			throw new IllegalStateException("无法计算密码哈希", e);
+		}
+	}
+
+	private boolean verifyPassword(String input, String salt, String expectedHash) {
+		if (expectedHash == null) {
+			return false;
+		}
+		return hash(input, salt).equals(expectedHash);
+	}
+
+	private boolean isRateLimited(InetAddress address) {
+		RateLimitEntry entry = rateLimitMap.get(address);
+		if (entry == null) {
+			return false;
+		}
+		Instant now = Instant.now();
+		if (now.isAfter(entry.banUntil)) {
+			rateLimitMap.remove(address);
+			return false;
+		}
+		return true;
+	}
+
+	private void recordRateLimitFailure(InetAddress address) {
+		Instant now = Instant.now();
+		RateLimitEntry entry = rateLimitMap.compute(address, (key, existing) -> {
+			if (existing == null || now.isAfter(existing.windowStart.plus(RATE_LIMIT_WINDOW))) {
+				return new RateLimitEntry(now, 1, Instant.MIN);
+			}
+			int newFailures = existing.failures + 1;
+			Instant banUntil = existing.banUntil;
+			if (newFailures >= RATE_LIMIT_MAX_FAILURES && now.isBefore(existing.banUntil)) {
+				banUntil = now.plus(RATE_LIMIT_BAN_DURATION);
+			}
+			return new RateLimitEntry(existing.windowStart, newFailures, banUntil);
+		});
+
+		if (entry != null && entry.failures >= RATE_LIMIT_MAX_FAILURES && now.isBefore(entry.banUntil)) {
+			logger.warning("IP " + address.getHostAddress() + " 因登录失败次数过多已被临时封禁 15 分钟");
 		}
 	}
 
@@ -389,5 +472,8 @@ public final class AuthService {
 		private int failures;
 		private long lastActionBarSecond = Long.MIN_VALUE;
 		private BossBar bossBar;
+	}
+
+	private record RateLimitEntry(Instant windowStart, int failures, Instant banUntil) {
 	}
 }

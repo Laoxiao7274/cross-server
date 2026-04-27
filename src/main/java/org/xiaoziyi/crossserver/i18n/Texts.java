@@ -114,6 +114,8 @@ public final class Texts {
 		en.put("auth.usage.register", "§eUsage: /register <password> <confirm>");
 		zh.put("auth.usage.change", "§e用法: /changepassword <old> <new>");
 		en.put("auth.usage.change", "§eUsage: /changepassword <old> <new>");
+		zh.put("auth.usage.reset", "§e用法: /resetpassword <player> <newpassword>");
+		en.put("auth.usage.reset", "§eUsage: /resetpassword <player> <newpassword>");
 		zh.put("tpa.requester_offline", "§c请求发起者当前不在线，无法跨服传送。");
 		en.put("tpa.requester_offline", "§cThe request sender is offline and cross-server teleport cannot continue.");
 		zh.put("tpa.usage.tpa", "§e用法: /tpa <player>");

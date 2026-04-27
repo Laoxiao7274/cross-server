@@ -23,14 +23,16 @@ public final class WebPanelServer implements AutoCloseable {
 	private final Logger logger;
 	private final PluginConfiguration.WebPanelSettings settings;
 	private final WebPanelDataService dataService;
+	private final WebPanelLogService logService;
 	private final ObjectMapper objectMapper;
 	private HttpServer server;
 	private ExecutorService executorService;
 
-	public WebPanelServer(Logger logger, PluginConfiguration.WebPanelSettings settings, WebPanelDataService dataService) {
+	public WebPanelServer(Logger logger, PluginConfiguration.WebPanelSettings settings, WebPanelDataService dataService, WebPanelLogService logService) {
 		this.logger = logger;
 		this.settings = settings;
 		this.dataService = dataService;
+		this.logService = logService;
 		this.objectMapper = ConfigCenterObjectMapper.create();
 	}
 
@@ -39,7 +41,11 @@ public final class WebPanelServer implements AutoCloseable {
 	}
 
 	private void logRequest(HttpExchange exchange) {
-		logger.info("Web 面板请求: " + requestSummary(exchange));
+		if (logService == null) {
+			return;
+		}
+		String remote = exchange.getRemoteAddress() == null ? "unknown" : String.valueOf(exchange.getRemoteAddress());
+		logService.captureAccessLog(exchange.getRequestMethod(), exchange.getRequestURI().toString(), remote);
 	}
 
 	private String requestSummary(HttpExchange exchange) {
