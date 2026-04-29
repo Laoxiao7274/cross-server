@@ -57,6 +57,16 @@ public final class PlayerInventorySyncService {
 		});
 	}
 
+	public void savePlayerDataSync(Player player) {
+		try {
+			UUID playerId = player.getUniqueId();
+			api.savePlayerData(playerId, INVENTORY_NAMESPACE, captureInventoryPayload(player));
+			api.savePlayerData(playerId, ENDER_CHEST_NAMESPACE, captureEnderChestPayload(player));
+		} catch (Exception exception) {
+			logger.warning("保存玩家背包数据失败: " + player.getUniqueId() + " -> " + exception.getMessage());
+		}
+	}
+
 	public String captureInventoryPayload(Player player) {
 		return InventorySnapshotCodec.encode(player.getInventory().getContents());
 	}

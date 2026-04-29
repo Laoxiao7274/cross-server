@@ -65,6 +65,18 @@ public final class HomesSyncService {
 		saveSnapshotAsync(player.getUniqueId(), snapshot);
 	}
 
+	public void savePlayerHomesSync(Player player) {
+		HomesSnapshot snapshot = cache.get(player.getUniqueId());
+		if (snapshot == null) {
+			return;
+		}
+		try {
+			api.savePlayerData(player.getUniqueId(), NAMESPACE, HomesCodec.encode(snapshot));
+		} catch (Exception exception) {
+			logger.warning("保存家园数据失败: " + player.getUniqueId() + " -> " + exception.getMessage());
+		}
+	}
+
 	public void unloadPlayerHomes(UUID playerId) {
 		cache.remove(playerId);
 	}

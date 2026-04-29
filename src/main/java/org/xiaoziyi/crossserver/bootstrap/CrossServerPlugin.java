@@ -410,18 +410,18 @@ public final class CrossServerPlugin extends JavaPlugin {
 			teleportService.protectOnShutdown();
 		}
 		if (inventorySyncService != null) {
-			Bukkit.getOnlinePlayers().forEach(inventorySyncService::savePlayerData);
+			Bukkit.getOnlinePlayers().forEach(inventorySyncService::savePlayerDataSync);
 		}
 		if (playerStateSyncService != null) {
-			Bukkit.getOnlinePlayers().forEach(playerStateSyncService::savePlayerState);
+			Bukkit.getOnlinePlayers().forEach(playerStateSyncService::savePlayerStateSync);
 		}
 		if (playerPermissionSyncService != null) {
-			Bukkit.getOnlinePlayers().forEach(playerPermissionSyncService::savePermissions);
+			Bukkit.getOnlinePlayers().forEach(playerPermissionSyncService::savePermissionsSync);
 			Bukkit.getOnlinePlayers().forEach(playerPermissionSyncService::clearPermissions);
 		}
 		if (homesSyncService != null) {
 			Bukkit.getOnlinePlayers().forEach(player -> {
-				homesSyncService.savePlayerHomes(player);
+				homesSyncService.savePlayerHomesSync(player);
 				homesSyncService.unloadPlayerHomes(player.getUniqueId());
 			});
 		}

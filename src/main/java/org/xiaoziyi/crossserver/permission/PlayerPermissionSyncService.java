@@ -54,6 +54,14 @@ public final class PlayerPermissionSyncService {
 		});
 	}
 
+	public void savePermissionsSync(Player player) {
+		try {
+			api.savePlayerData(player.getUniqueId(), NAMESPACE, capturePayload(player));
+		} catch (Exception exception) {
+			logger.warning("保存玩家权限失败: " + player.getUniqueId() + " -> " + exception.getMessage());
+		}
+	}
+
 	public String capturePayload(Player player) {
 		Collection<String> captured = adapter.capturePermissions(player);
 		Set<String> permissions = new LinkedHashSet<>();

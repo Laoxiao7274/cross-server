@@ -52,6 +52,14 @@ public final class PlayerStateSyncService {
 		});
 	}
 
+	public void savePlayerStateSync(Player player) {
+		try {
+			api.savePlayerData(player.getUniqueId(), NAMESPACE, captureStatePayload(player));
+		} catch (Exception exception) {
+			logger.warning("保存玩家状态失败: " + player.getUniqueId() + " -> " + exception.getMessage());
+		}
+	}
+
 	public String captureStatePayload(Player player) {
 		AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
 		double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0D;

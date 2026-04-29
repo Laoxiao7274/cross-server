@@ -28,7 +28,7 @@ public final class WebPanelClusterService {
 			java.util.Map.of(),
 			java.util.Map.of(),
 			java.util.Map.of(),
-			java.util.List.of("leaderServerId", "members"),
+			java.util.List.of("leaderServerId"),
 			java.util.Map.of(),
 			true,
 			null,
