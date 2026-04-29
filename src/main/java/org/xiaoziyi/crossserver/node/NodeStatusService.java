@@ -7,6 +7,7 @@ import org.xiaoziyi.crossserver.storage.StorageProvider;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 public final class NodeStatusService {
@@ -14,20 +15,26 @@ public final class NodeStatusService {
 	private final StorageProvider storageProvider;
 	private final PluginConfiguration.ServerSettings serverSettings;
 	private final PluginConfiguration.NodeSettings nodeSettings;
+	private final AtomicBoolean shuttingDown;
 
 	public NodeStatusService(
 			Logger logger,
 			StorageProvider storageProvider,
 			PluginConfiguration.ServerSettings serverSettings,
-			PluginConfiguration.NodeSettings nodeSettings
+			PluginConfiguration.NodeSettings nodeSettings,
+			AtomicBoolean shuttingDown
 	) {
 		this.logger = logger;
 		this.storageProvider = storageProvider;
 		this.serverSettings = serverSettings;
 		this.nodeSettings = nodeSettings;
+		this.shuttingDown = shuttingDown;
 	}
 
 	public void heartbeat() {
+		if (shuttingDown.get()) {
+			return;
+		}
 		Instant now = Instant.now();
 		try {
 			storageProvider.upsertNodeStatus(serverSettings.id(), serverSettings.cluster(), now, now);
@@ -39,6 +46,14 @@ public final class NodeStatusService {
 	public void clearLocalNodeStatus() {
 		try {
 			storageProvider.deleteNodeStatus(serverSettings.id(), serverSettings.cluster());
+			Instant threshold = Instant.now().minusSeconds(nodeSettings.offlineSeconds());
+			boolean stillPresent = storageProvider.listNodeStatuses(serverSettings.cluster()).stream()
+					.anyMatch(record -> serverSettings.id().equalsIgnoreCase(record.serverId())
+							&& record.lastSeen() != null && record.lastSeen().isAfter(threshold));
+			if (stillPresent) {
+				logger.warning("节点状态清理后仍检测到残留记录，尝试二次清理: " + serverSettings.id());
+				storageProvider.deleteNodeStatus(serverSettings.id(), serverSettings.cluster());
+			}
 		} catch (Exception exception) {
 			logger.warning("清理节点状态失败: " + serverSettings.id() + " -> " + exception.getMessage());
 		}

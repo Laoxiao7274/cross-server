@@ -241,7 +241,7 @@ public final class CrossServerPlugin extends JavaPlugin {
 		if (!reloading.get()) {
 			new NodeIdentityGuardService(storageProvider, configuration.server(), configuration.node()).assertStartupAllowed();
 		}
-		this.nodeStatusService = new NodeStatusService(getLogger(), storageProvider, configuration.server(), configuration.node());
+		this.nodeStatusService = new NodeStatusService(getLogger(), storageProvider, configuration.server(), configuration.node(), shuttingDown);
 		this.inventorySyncService = new PlayerInventorySyncService(this, getLogger(), api);
 		this.playerStateSyncService = new PlayerStateSyncService(this, getLogger(), api);
 		if (configuration.modules().permissions()) {
@@ -435,9 +435,6 @@ public final class CrossServerPlugin extends JavaPlugin {
 		if (sessionService != null) {
 			Bukkit.getOnlinePlayers().forEach(player -> sessionService.closePlayerSession(player.getUniqueId()));
 		}
-		if (nodeStatusService != null) {
-			nodeStatusService.clearLocalNodeStatus();
-		}
 		if (vaultEconomyProvider != null) {
 			Bukkit.getServicesManager().unregister(vaultEconomyProvider);
 			vaultEconomyProvider = null;
@@ -447,6 +444,9 @@ public final class CrossServerPlugin extends JavaPlugin {
 		}
 		unregisterTransferGatewayChannels();
 		awaitPendingAsyncTasks();
+		if (nodeStatusService != null) {
+			nodeStatusService.clearLocalNodeStatus();
+		}
 		closeQuietly(messagingProvider);
 		closeQuietly(storageProvider);
 		messagingProvider = null;
